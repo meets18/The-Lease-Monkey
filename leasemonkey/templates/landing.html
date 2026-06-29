@@ -1,0 +1,347 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<!-- HOME (Hero) Section -->
+<div id="home"
+    class="hero-container container d-flex flex-column align-items-center justify-content-center text-center position-relative">
+
+    <!-- Subtle Animated Background Glow -->
+    <div class="hero-bg-glow"></div>
+
+    <!-- Title -->
+    <h1 class="hero-title font-ranade mb-3">
+        The Lease <span class="highlight-text">Monkey</span>
+    </h1>
+
+    <!-- Catchy abstract line -->
+    <p class="hero-subtitle text-muted-glow mx-auto mb-4">
+        Tackling time-consuming, manual plot allocation by bringing complete transparency, automated verification, and
+        interactive maps to land leasing.
+    </p>
+
+    <!-- Get Started CTA Button -->
+    <div class="mb-5">
+        <a href="#features" class="btn btn-get-started d-inline-flex align-items-center gap-2">
+            Get Started <i class="bi bi-arrow-right-short fs-5"></i>
+        </a>
+    </div>
+
+    <!-- Interactive stats grid (mock visual details from the screenshot) -->
+    <div class="row stats-grid justify-content-center w-100 mb-5">
+        <div class="col-4 col-md-3 stat-item">
+            <h3 class="stat-number font-ranade">100%</h3>
+            <p class="stat-label">Transparent Allocation</p>
+        </div>
+        <div class="col-4 col-md-3 stat-item">
+            <h3 class="stat-number font-ranade">Real-Time</h3>
+            <p class="stat-label">Verification Stages</p>
+        </div>
+        <div class="col-4 col-md-3 stat-item">
+            <h3 class="stat-number font-ranade">Interactive</h3>
+            <p class="stat-label">Plot Navigation</p>
+        </div>
+    </div>
+</div>
+
+<!-- FEATURES Section -->
+<div id="features" class="container py-5 mt-5">
+    <!-- Centered Section Title -->
+    <div class="text-center mb-5">
+        <h2 class="display-5 text-white fw-bold font-ranade mb-2 text-uppercase">Core Features</h2>
+        <div class="orange-cyan-bar mx-auto"></div>
+    </div>
+
+    <div class="row g-5">
+        <!-- Left Side: Tabs Column -->
+        <div class="col-lg-4">
+            <div class="feature-tabs d-flex flex-column gap-3">
+                <div class="tab-item active" data-tab="tab-interactive-ui">
+                    <span class="tab-icon">🗺️</span>
+                    <span class="tab-text">Interactive UI</span>
+                </div>
+                <div class="tab-item" data-tab="tab-transparency">
+                    <span class="tab-icon">🤝</span>
+                    <span class="tab-text">Transparency</span>
+                </div>
+                <div class="tab-item" data-tab="tab-ai-assistant">
+                    <span class="tab-icon">🤖</span>
+                    <span class="tab-text">AI Assistant</span>
+                </div>
+                <div class="tab-item" data-tab="tab-secure-flow">
+                    <span class="tab-icon">🔒</span>
+                    <span class="tab-text">Secure Flow</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Content Panels -->
+        <div class="col-lg-8">
+            <div class="feature-content p-4 p-md-5 rounded-4 border border-secondary-glow bg-dark-glow shadow-lg">
+                <!-- Panel 1: Interactive UI -->
+                <div class="content-panel active" id="tab-interactive-ui">
+                    <h3 class="font-ranade text-white fw-bold mb-3">Interactive UI</h3>
+                    <p class="text-muted-glow mb-4 fs-15">
+                        Navigate available lease options visually through a color-coded interactive plot viewer and toggle satellite map overlays. Eliminate manual checkups and coordinate details instantly.
+                    </p>
+                    <ul class="feature-bullet-list">
+                        <li>Color-coded real-time availability states</li>
+                        <li>Predefined grid templates mapping database values</li>
+                        <li>High resolution satellite coordinate overlays</li>
+                        <li>Smooth zooms and detail popup cards</li>
+                    </ul>
+                </div>
+
+                <!-- Panel 2: Transparency in Land Dealing -->
+                <div class="content-panel" id="tab-transparency">
+                    <h3 class="font-ranade text-white fw-bold mb-3">Transparency in Land Dealing</h3>
+                    <p class="text-muted-glow mb-4 fs-15">
+                        Eliminate manual checkups and middle-men through a transparent request workflow logging every transaction history step.
+                    </p>
+                    <ul class="feature-bullet-list">
+                        <li>Open transaction history audit logging</li>
+                        <li>Structured buyer-to-owner requests pipeline</li>
+                        <li>Direct meeting calendar coordinate invitations</li>
+                        <li>Automated allotment records generation</li>
+                    </ul>
+                </div>
+
+                <!-- Panel 3: AI Assistant -->
+                <div class="content-panel" id="tab-ai-assistant">
+                    <h3 class="font-ranade text-white fw-bold mb-3">AI Assistant</h3>
+                    <p class="text-muted-glow mb-4 fs-15">
+                        Receive smart recommendations and pre-screen lease documentation automatically using contextual model integrations.
+                    </p>
+                    <ul class="feature-bullet-list">
+                        <li>Real-time LLM suggestions based on plot databases</li>
+                        <li>Tesseract OCR document parsing checklists</li>
+                        <li>Flag missing signatures and alignment faults</li>
+                        <li>Instant natural language conversation sessions</li>
+                    </ul>
+                </div>
+
+                <!-- Panel 4: Secure Flow -->
+                <div class="content-panel" id="tab-secure-flow">
+                    <h3 class="font-ranade text-white fw-bold mb-3">Secure Flow</h3>
+                    <p class="text-muted-glow mb-4 fs-15">
+                        Uphold administrative guidelines and separate roles cleanly. Land documents are verified before publication.
+                    </p>
+                    <ul class="feature-bullet-list">
+                        <li>Two-stage deed and identity checks</li>
+                        <li>Unpublished drafts stage isolations</li>
+                        <li>Protected administrative role boundaries</li>
+                        <li>Strict local module import rules</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ABOUT Section -->
+<div id="about" class="container py-5 mt-5">
+    <!-- Section Title -->
+    <div class="text-center mb-5">
+        <h2 class="display-5 text-white font-ranade fw-bold mb-2">ABOUT LEASE MONKEY</h2>
+        <div class="orange-cyan-bar mx-auto mb-4"></div>
+    </div>
+
+    <!-- Block 1 -->
+    <div class="row align-items-center justify-content-between g-5 mb-5 py-3">
+        <div class="col-lg-6">
+            <h3 class="font-ranade text-white fw-bold mb-3">Pioneering the <span class="highlight-text-cyan">Digital
+                    Frontier</span></h3>
+            <p class="text-muted-glow fs-15 mb-4">
+                At Lease Monkey, we aren't just building land software — we're crafting the future of real estate
+                interactions. Our mission is to bridge the gap between landowners and potential buyers through automated
+                innovation, creating transparent solutions that empower individuals and eliminate the historical
+                struggle of manual plot mapping.
+            </p>
+            <p class="text-muted-glow fs-15">
+                Founded by visionaries who saw beyond the limitations of current systems, Lease Monkey represents a
+                quantum leap in digital land organization. We combine cutting-edge OCR and AI mapping technology with
+                user-friendly web portals to deliver transaction services that are both secure and reliable.
+            </p>
+        </div>
+        <div class="col-lg-5 text-center">
+            <!-- About Image Placeholder -->
+            <div class="about-image-wrapper border-orange-glow mx-auto">
+                <img src="{% static 'images/placeholder.png' %}" alt="Pioneering Interface Mockup" class="about-image-placeholder">
+            </div>
+        </div>
+    </div>
+
+    <!-- Block 2 -->
+    <div class="row align-items-center justify-content-between g-5 flex-lg-row-reverse py-3">
+        <div class="col-lg-6">
+            <h3 class="font-ranade text-white fw-bold mb-3">Innovation at <span class="highlight-text-orange">Every
+                    Level</span></h3>
+            <p class="text-muted-glow fs-15 mb-4">
+                Our commitment to excellence drives us to push boundaries and challenge conventional approaches. With a
+                focus on structural security, data integrity, and automated convenience, we've designed workflows that
+                not only solve today's requirements but anticipate tomorrow's challenges.
+            </p>
+            <p class="text-muted-glow fs-15">
+                From local AI chat sessions to async task processing pipelines, our integrated architecture ensures that
+                each stage of plot selection, meeting scheduling, and allocation is audit-logged and protected.
+                Experience the power of true digital real estate transformation.
+            </p>
+        </div>
+        <div class="col-lg-5 text-center">
+            <!-- About Image Placeholder -->
+            <div class="about-image-wrapper border-cyan-glow mx-auto">
+                <img src="{% static 'images/placeholder.png' %}" alt="Innovation Spec Mockup" class="about-image-placeholder">
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer links -->
+    <footer class="mt-5 pt-5 text-center border-top border-secondary-glow">
+        <p class="text-muted-glow fs-12 mb-0">
+            &copy; 2026 Lease Monkey. All rights reserved. Building tomorrow, today. Design inspired by template.
+        </p>
+    </footer>
+</div>
+
+<!-- Scripts for interactive controls -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Floating particles generator (translating SASS loop to JavaScript)
+        function createCircularParticles() {
+            const particlesContainer = document.getElementById('particles');
+            if (!particlesContainer) return;
+            
+            const particleNum = 120; // Optimized count for clean execution
+            const particleBaseSize = 8;
+            
+            // Create dynamic style block for SASS-equivalent randomized values
+            const styleSheet = document.createElement("style");
+            document.head.appendChild(styleSheet);
+            let styles = '';
+
+            for (let i = 1; i <= particleNum; i++) {
+                // Create particle DOM nodes
+                const container = document.createElement('div');
+                container.className = 'circle-container';
+                const circle = document.createElement('div');
+                circle.className = 'circle';
+                container.appendChild(circle);
+                particlesContainer.appendChild(container);
+
+                // Calculate random variables matching the SASS logic
+                const circleSize = Math.floor(Math.random() * particleBaseSize) + 2; // 2px to 10px
+                const startPositionY = Math.floor(Math.random() * 10) + 100;
+                const moveDuration = Math.floor(Math.random() * 9000) + 28000; // 28s to 37s
+                const moveDelay = Math.floor(Math.random() * 37000); // 0 to 37s delay
+                const scaleDelay = Math.floor(Math.random() * 4000);
+
+                const frameName = `move-frames-${i}`;
+                const startX = Math.floor(Math.random() * 100);
+                const endX = Math.floor(Math.random() * 100);
+                const endY = -startPositionY - Math.floor(Math.random() * 30);
+
+                styles += `
+                    .circle-container:nth-child(${i}) {
+                        width: ${circleSize}px;
+                        height: ${circleSize}px;
+                        animation-name: ${frameName};
+                        animation-duration: ${moveDuration}ms;
+                        animation-delay: -${moveDelay}ms; /* Negative delay pre-populates particles on screen */
+                    }
+                    .circle-container:nth-child(${i}) .circle {
+                        animation-delay: ${scaleDelay}ms;
+                    }
+                    @keyframes ${frameName} {
+                        from {
+                            transform: translate3d(${startX}vw, ${startPositionY}vh, 0);
+                        }
+                        to {
+                            transform: translate3d(${endX}vw, ${endY}vh, 0);
+                        }
+                    }
+                `;
+            }
+            styleSheet.innerHTML = styles;
+        }
+        
+        // Initialize particles
+        createCircularParticles();
+
+        // Feature tabs toggle functionality
+        const tabs = document.querySelectorAll('.tab-item');
+        const panels = document.querySelectorAll('.content-panel');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.getAttribute('data-tab');
+
+                // Remove active classes
+                tabs.forEach(t => t.classList.remove('active'));
+                panels.forEach(p => p.classList.remove('active'));
+
+                // Add active class to selected tab and target panel
+                tab.classList.add('active');
+                const targetPanel = document.getElementById(tabId);
+                if (targetPanel) {
+                    targetPanel.classList.add('active');
+                }
+            });
+        });
+
+        // Dynamic ScrollSpy highlighting on navbar links
+        const sections = [
+            document.getElementById('home'),
+            document.getElementById('features'),
+            document.getElementById('about')
+        ];
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        function updateActiveNav() {
+            const scrollPosition = window.pageYOffset + 140; // Matches scroll offset of sticky navbar
+
+            sections.forEach(section => {
+                if (!section) return;
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.offsetHeight;
+
+                if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+                    navLinks.forEach(link => {
+                        link.classList.remove('nav-active-box');
+                        link.classList.add('nav-item-link');
+                        link.classList.add('text-white-50');
+                    });
+                    
+                    const hashValue = section.id === 'home' ? '#' : `#${section.id}`;
+                    const activeLink = document.querySelector(`.nav-link[href="${hashValue}"]`);
+                    if (activeLink) {
+                        activeLink.classList.add('nav-active-box');
+                        activeLink.classList.remove('nav-item-link');
+                        activeLink.classList.remove('text-white-50');
+                    }
+                }
+            });
+        }
+
+        // Listen for scroll events to update navbar highlight
+        window.addEventListener('scroll', updateActiveNav);
+        updateActiveNav(); // Call on initial load
+
+        // Smooth Scroll Offset Anchor Overrides for Sticky Navbar Offset
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                let hrefVal = this.getAttribute('href');
+                let targetId = hrefVal === '#' ? 'home' : hrefVal.substring(1);
+                const targetElement = document.getElementById(targetId);
+                
+                if (targetElement) {
+                    const offsetPosition = targetElement.offsetTop - 100; // Offset by 100px so headings are visible
+                    window.scrollTo({
+                        top: offsetPosition,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

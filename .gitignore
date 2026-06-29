@@ -1,0 +1,15 @@
+venv/
+myenv/
+__pycache__/
+*.pyc
+db.sqlite3
+.env
+media/
+.idea/
+.vscode/
+*.log
+.DS_Store
+DAY1.txt
+PROBLEMS_AND_RISKS.txt
+SOLUTIONS.md
+SOW - THE LEASE MONKEY.md
