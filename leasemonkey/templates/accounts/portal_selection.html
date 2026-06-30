@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Portal Selection — The Lease Monkey{% endblock %}
+
+{% block content %}
+<div class="container d-flex flex-column align-items-center justify-content-center min-vh-100 py-5" style="position: relative; z-index: 10;">
+    <!-- Section Title -->
+    <div class="text-center mb-5 mt-4">
+        <h2 class="display-6 text-white font-ranade fw-bold mb-2 text-uppercase tracking-wide">Select Access Portal</h2>
+        <div class="orange-cyan-bar mx-auto"></div>
+    </div>
+
+    <!-- Selection Grid -->
+    <div class="row g-4 justify-content-center w-100 max-w-900">
+        <!-- Card 1: Buyer -->
+        <div class="col-md-4">
+            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="fs-1 text-primary-glow mb-3"><i class="bi bi-wallet2"></i></div>
+                    <h3 class="font-ranade text-white fw-bold mb-2 fs-20">Buyer Portal</h3>
+                    <p class="text-muted-glow fs-14 mb-4">
+                        Browse available plots, make reservation requests, schedule meeting inspects, and view allotment certificates.
+                    </p>
+                </div>
+                <div class="mt-auto">
+                    <a href="{% url 'buyer_login' %}" class="btn btn-get-started w-100 text-uppercase fw-bold fs-12 py-2.5">
+                        Access Portal <i class="bi bi-chevron-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Land Owner (LOCKED) -->
+        <div class="col-md-4">
+            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between opacity-60">
+                <!-- Locked Banner overlay visual -->
+                <div class="position-absolute top-0 end-0 bg-danger text-white px-3 py-1 fs-11 fw-bold rounded-bottom-left-4 text-uppercase tracking-wider">
+                    <i class="bi bi-lock-fill"></i> Locked
+                </div>
+                <div>
+                    <div class="fs-1 text-muted mb-3"><i class="bi bi-houses"></i></div>
+                    <h3 class="font-ranade text-white-50 fw-bold mb-2 fs-20">Land Owner</h3>
+                    <p class="text-muted fs-14 mb-4">
+                        Register properties, draw customized map outlines, verify lease claims, and coordinate buyer schedules.
+                    </p>
+                </div>
+                <div class="mt-auto">
+                    <button class="btn btn-secondary w-100 text-uppercase fw-bold fs-12 py-2.5 disabled" style="cursor: not-allowed; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1);">
+                        Locked <i class="bi bi-lock-fill ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Super Admin -->
+        <div class="col-md-4">
+            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="fs-1 text-primary-glow mb-3"><i class="bi bi-shield-lock"></i></div>
+                    <h3 class="font-ranade text-white fw-bold mb-2 fs-20">Super Admin</h3>
+                    <p class="text-muted-glow fs-14 mb-4">
+                        Review submissions, trigger OCR document checks, publish properties, and manage user active/suspended states.
+                    </p>
+                </div>
+                <div class="mt-auto">
+                    <a href="/admin/" class="btn btn-get-started w-100 text-uppercase fw-bold fs-12 py-2.5">
+                        Django Panel <i class="bi bi-chevron-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.max-w-900 {
+    max-width: 900px;
+}
+.opacity-60 {
+    opacity: 0.65;
+}
+.fs-11 {
+    font-size: 0.7rem;
+}
+.rounded-bottom-left-4 {
+    border-bottom-left-radius: 8px;
+}
+</style>
+{% endblock %}

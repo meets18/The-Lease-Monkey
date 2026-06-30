@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Buyer Dashboard — The Lease Monkey{% endblock %}
+
+{% block content %}
+<div class="container-fluid min-vh-100 p-0 d-flex" style="position: relative; z-index: 10; padding-top: 75px !important;">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar-wrapper d-none d-lg-flex flex-column p-4 border-end border-secondary-glow bg-dark-glow">
+        <!-- Profile summary card -->
+        <div class="user-profile-badge p-3 rounded-3 mb-4 text-center border border-secondary-glow">
+            <div class="profile-avatar mb-2 mx-auto"><i class="bi bi-person-fill fs-3 text-primary-glow"></i></div>
+            <h5 class="text-white font-ranade fw-bold mb-1 fs-15">{{ user.email }}</h5>
+            <span class="badge bg-success-glow fs-11 text-uppercase">Active Buyer</span>
+        </div>
+
+        <nav class="sidebar-nav flex-grow-1">
+            <ul class="nav flex-column gap-2.5">
+                <li class="nav-item">
+                    <a href="{% url 'buyer_dashboard' %}" class="sidebar-link active">
+                        <i class="bi bi-columns-gap"></i> Dashboard Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="sidebar-link disabled">
+                        <i class="bi bi-heart"></i> Saved Plots <span class="badge bg-secondary ms-auto fs-9">Locked</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="sidebar-link disabled">
+                        <i class="bi bi-chat-left-text"></i> My Inquiries <span class="badge bg-secondary ms-auto fs-9">Locked</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="sidebar-link disabled">
+                        <i class="bi bi-sliders"></i> Account Settings <span class="badge bg-secondary ms-auto fs-9">Locked</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="mt-auto pt-3 border-top border-secondary-glow">
+            <a href="{% url 'logout' %}" class="btn-logout-sidebar w-100 text-uppercase fw-bold text-center py-2 fs-12">
+                Log Out <i class="bi bi-box-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow-1 p-4 p-md-5">
+        <!-- Greetings header -->
+        <div class="dashboard-welcome-card p-4 p-md-5 rounded-4 border border-secondary-glow bg-dark-glow mb-4">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <h2 class="display-6 text-white font-ranade fw-bold mb-2">Welcome, <span class="highlight-text-cyan">Buyer</span>!</h2>
+                    <p class="text-muted-glow fs-16 mb-4">
+                        You have successfully logged into the Buyer Portal dashboard shell. The database connection to PostgreSQL is fully active.
+                    </p>
+                    <div class="d-flex flex-wrap gap-3">
+                        <a href="/" class="btn btn-get-started px-4 py-2 text-uppercase fs-12 fw-bold">
+                            Go back to Landing <i class="bi bi-house-door-fill ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="col-lg-4 d-none d-lg-block text-center">
+                    <i class="bi bi-wallet2 text-primary-glow" style="font-size: 8rem; opacity: 0.85;"></i>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<style>
+.sidebar-wrapper {
+    width: 280px;
+    min-height: calc(100vh - 75px);
+    backdrop-filter: blur(10px);
+}
+.user-profile-badge {
+    background: rgba(11, 15, 25, 0.4);
+}
+.profile-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(0, 178, 255, 0.08);
+    border: 1px solid rgba(0, 178, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.bg-success-glow {
+    background-color: rgba(0, 255, 196, 0.1) !important;
+    color: #00ffc4 !important;
+    border: 1px solid rgba(0, 255, 196, 0.2);
+}
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #9ca3af;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 600;
+    transition: all 0.25s ease;
+}
+.sidebar-link:hover:not(.disabled) {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.03);
+}
+.sidebar-link.active {
+    color: #ffffff;
+    background: rgba(0, 178, 255, 0.08);
+    border: 1px solid rgba(0, 178, 255, 0.15);
+    box-shadow: 0 0 15px rgba(0, 178, 255, 0.1);
+}
+.sidebar-link.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.btn-logout-sidebar {
+    display: block;
+    background: rgba(255, 74, 74, 0.06);
+    border: 1px solid rgba(255, 74, 74, 0.15);
+    border-radius: 6px;
+    color: #ff4a4a;
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+.btn-logout-sidebar:hover {
+    background: #ff4a4a;
+    color: #ffffff;
+    box-shadow: 0 0 15px rgba(255, 74, 74, 0.4);
+}
+.status-indicator-green {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #00ffc4;
+    box-shadow: 0 0 8px #00ffc4;
+}
+.status-indicator-blue {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #00B2FF;
+    box-shadow: 0 0 8px #00B2FF;
+}
+.status-indicator-orange {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #FF5E00;
+    box-shadow: 0 0 8px #FF5E00;
+}
+.dashboard-welcome-card {
+    backdrop-filter: blur(15px);
+}
+.fs-9 {
+    font-size: 0.55rem;
+}
+</style>
+{% endblock %}

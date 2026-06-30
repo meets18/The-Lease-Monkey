@@ -9,7 +9,7 @@
     <div class="hero-bg-glow"></div>
 
     <!-- Title -->
-    <h1 class="hero-title font-ranade mb-3">
+    <h1 class="hero-title font-ranade mb-3 glitch-text" data-text="THE LEASE MONKEY">
         The Lease <span class="highlight-text">Monkey</span>
     </h1>
 
@@ -25,9 +25,11 @@
             Get Started <i class="bi bi-arrow-right-short fs-5"></i>
         </a>
     </div>
+</div>
 
-    <!-- Interactive stats grid (mock visual details from the screenshot) -->
-    <div class="row stats-grid justify-content-center w-100 mb-5">
+<!-- Stats Bar (Below Hero Section) -->
+<div class="container py-4 mt-3">
+    <div class="row stats-grid justify-content-center w-100 mx-auto">
         <div class="col-4 col-md-3 stat-item">
             <h3 class="stat-number font-ranade">100%</h3>
             <p class="stat-label">Transparent Allocation</p>
@@ -56,19 +58,19 @@
         <div class="col-lg-4">
             <div class="feature-tabs d-flex flex-column gap-3">
                 <div class="tab-item active" data-tab="tab-interactive-ui">
-                    <span class="tab-icon">🗺️</span>
+                    <i class="bi bi-map tab-icon"></i>
                     <span class="tab-text">Interactive UI</span>
                 </div>
                 <div class="tab-item" data-tab="tab-transparency">
-                    <span class="tab-icon">🤝</span>
+                    <i class="bi bi-lightning-charge-fill tab-icon"></i>
                     <span class="tab-text">Transparency</span>
                 </div>
                 <div class="tab-item" data-tab="tab-ai-assistant">
-                    <span class="tab-icon">🤖</span>
+                    <i class="bi bi-robot tab-icon"></i>
                     <span class="tab-text">AI Assistant</span>
                 </div>
                 <div class="tab-item" data-tab="tab-secure-flow">
-                    <span class="tab-icon">🔒</span>
+                    <i class="bi bi-shield-lock tab-icon"></i>
                     <span class="tab-text">Secure Flow</span>
                 </div>
             </div>
@@ -137,6 +139,46 @@
     </div>
 </div>
 
+<!-- VISION Section -->
+<div id="vision" class="container py-5 mt-5">
+    <div class="text-center mb-5">
+        <h2 class="display-5 text-white font-ranade fw-bold mb-2 text-uppercase">Our Vision</h2>
+        <div class="orange-cyan-bar mx-auto"></div>
+    </div>
+    <div class="row g-4">
+        <!-- Card 1 -->
+        <div class="col-md-4">
+            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100">
+                <div class="fs-1 text-primary-glow mb-3"><i class="bi bi-lightning-charge-fill"></i></div>
+                <h3 class="font-ranade text-white fw-bold mb-2 fs-20">Centralized Digital Hub</h3>
+                <p class="text-muted-glow fs-15 mb-0">
+                    Traditional land leasing relies on slow, manual coordination, spreadsheets, and physical visits. We built a single, audit-logged workflow to digitize coordinates and request pipelines.
+                </p>
+            </div>
+        </div>
+        <!-- Card 2 -->
+        <div class="col-md-4">
+            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100">
+                <div class="fs-1 text-primary-glow mb-3"><i class="bi bi-map"></i></div>
+                <h3 class="font-ranade text-white fw-bold mb-2 fs-20">Visual Plot Transparency</h3>
+                <p class="text-muted-glow fs-15 mb-0">
+                    Empowering buyers with color-coded interactive plot maps. View availability, dimensions, and prices instantly, overlaid directly on satellite Google Maps imagery.
+                </p>
+            </div>
+        </div>
+        <!-- Card 3 -->
+        <div class="col-md-4">
+            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100">
+                <div class="fs-1 text-primary-glow mb-3"><i class="bi bi-robot"></i></div>
+                <h3 class="font-ranade text-white fw-bold mb-2 fs-20">Smart Automations</h3>
+                <p class="text-muted-glow fs-15 mb-0">
+                    Accelerating verification via local OCR document scanner checkers, auto-scheduling meetings with Google Calendar, and providing real-time AI plot assistant chats.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ABOUT Section -->
 <div id="about" class="container py-5 mt-5">
     <!-- Section Title -->
@@ -162,10 +204,9 @@
                 user-friendly web portals to deliver transaction services that are both secure and reliable.
             </p>
         </div>
-        <div class="col-lg-5 text-center">
-            <!-- About Image Placeholder -->
-            <div class="about-image-wrapper border-orange-glow mx-auto">
-                <img src="{% static 'images/placeholder.png' %}" alt="Pioneering Interface Mockup" class="about-image-placeholder">
+        <div class="col-lg-5 d-flex justify-content-center align-items-center">
+            <div class="about-image-wrapper border-cyan-glow">
+                <img src="{% static 'images/placeholder.png' %}" class="img-fluid about-image-placeholder" alt="Pioneering Graphic">
             </div>
         </div>
     </div>
@@ -186,21 +227,111 @@
                 Experience the power of true digital real estate transformation.
             </p>
         </div>
-        <div class="col-lg-5 text-center">
-            <!-- About Image Placeholder -->
-            <div class="about-image-wrapper border-cyan-glow mx-auto">
-                <img src="{% static 'images/placeholder.png' %}" alt="Innovation Spec Mockup" class="about-image-placeholder">
+        <div class="col-lg-5 d-flex justify-content-center align-items-center">
+            <div class="about-image-wrapper border-orange-glow">
+                <img src="{% static 'images/placeholder.png' %}" class="img-fluid about-image-placeholder" alt="Innovation Graphic">
             </div>
         </div>
     </div>
 
-    <!-- Footer links -->
-    <footer class="mt-5 pt-5 text-center border-top border-secondary-glow">
-        <p class="text-muted-glow fs-12 mb-0">
-            &copy; 2026 Lease Monkey. All rights reserved. Building tomorrow, today. Design inspired by template.
-        </p>
-    </footer>
+    </div>
 </div>
+
+<!-- CONTACT Section -->
+<div id="contact" class="container py-5 mt-5">
+    <div class="text-center mb-5">
+        <h2 class="display-5 text-white font-ranade fw-bold mb-2 text-uppercase">Get In Touch</h2>
+        <div class="orange-cyan-bar mx-auto"></div>
+    </div>
+    <div class="row g-5">
+        <!-- Form Column -->
+        <div class="col-lg-6">
+            <div class="feature-content p-4 p-md-5 rounded-4 shadow-lg">
+                <h3 class="font-ranade text-white fw-bold mb-4">Send a Message</h3>
+                <form id="contactForm">
+                    <div class="mb-3">
+                        <label for="name" class="form-label text-white-50 fs-13 fw-bold tracking-wide">NAME</label>
+                        <input type="text" class="form-control contact-input" id="name" required placeholder="Your Name">
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label text-white-50 fs-13 fw-bold tracking-wide">EMAIL</label>
+                        <input type="email" class="form-control contact-input" id="email" required placeholder="your.email@domain.com">
+                    </div>
+                    <div class="mb-3">
+                        <label for="subject" class="form-label text-white-50 fs-13 fw-bold tracking-wide">SUBJECT</label>
+                        <input type="text" class="form-control contact-input" id="subject" required placeholder="How can we help?">
+                    </div>
+                    <div class="mb-3">
+                        <label for="message" class="form-label text-white-50 fs-13 fw-bold tracking-wide">MESSAGE</label>
+                        <textarea class="form-control contact-input" id="message" rows="4" required placeholder="Write your message details..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-login-nav w-100 py-3 mt-3">Send Message</button>
+                </form>
+            </div>
+        </div>
+        <!-- Info Column -->
+        <div class="col-lg-6 d-flex flex-column justify-content-between">
+            <div class="contact-info p-4">
+                <h3 class="font-ranade text-white fw-bold mb-4">Connect With Us</h3>
+                
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="contact-icon-box">
+                        <i class="bi bi-envelope-fill"></i>
+                    </div>
+                    <div>
+                        <h5 class="text-white-50 fs-13 fw-bold mb-1 tracking-wide">EMAIL</h5>
+                        <p class="text-white mb-0">contact@leasemonkey.com</p>
+                    </div>
+                </div>
+                
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="contact-icon-box">
+                        <i class="bi bi-telephone-fill"></i>
+                    </div>
+                    <div>
+                        <h5 class="text-white-50 fs-13 fw-bold mb-1 tracking-wide">PHONE</h5>
+                        <p class="text-white mb-0">+1 (555) 123-4567</p>
+                    </div>
+                </div>
+                
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="contact-icon-box">
+                        <i class="bi bi-geo-alt-fill"></i>
+                    </div>
+                    <div>
+                        <h5 class="text-white-50 fs-13 fw-bold mb-1 tracking-wide">LOCATION</h5>
+                        <p class="text-white mb-0">Sector 10, Innovation Hub</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Map Container -->
+            <div class="map-container rounded-4 mt-3">
+                <div class="map-placeholder">
+                    <p class="text-white fw-bold font-ranade mb-1">Interactive Map Preview</p>
+                    <p class="text-white-50 fs-12 mb-0">Sector 10, Innovation Hub</p>
+                </div>
+                <div class="map-overlay"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="mt-5 pt-5 pb-4 text-center border-top border-secondary-glow bg-dark-glow">
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-12 d-flex justify-content-center gap-4">
+                <a href="#privacy" class="text-white-50 text-decoration-none fs-13 hover-white">Privacy Policy</a>
+                <a href="#terms" class="text-white-50 text-decoration-none fs-13 hover-white">Terms of Service</a>
+                <a href="#careers" class="text-white-50 text-decoration-none fs-13 hover-white">Careers</a>
+            </div>
+        </div>
+        <p class="text-muted-glow fs-12 mb-0">
+            &copy; 2026 Lease Monkey. All rights reserved. Building tomorrow, today. | Design inspired by TemplateMo
+        </p>
+    </div>
+</footer>
 
 <!-- Scripts for interactive controls -->
 <script>
@@ -291,7 +422,9 @@
         const sections = [
             document.getElementById('home'),
             document.getElementById('features'),
-            document.getElementById('about')
+            document.getElementById('vision'),
+            document.getElementById('about'),
+            document.getElementById('contact')
         ];
         const navLinks = document.querySelectorAll('.nav-link');
 
@@ -334,7 +467,7 @@
                 const targetElement = document.getElementById(targetId);
                 
                 if (targetElement) {
-                    const offsetPosition = targetElement.offsetTop - 100; // Offset by 100px so headings are visible
+                    const offsetPosition = targetId === 'home' ? 0 : targetElement.offsetTop - 100;
                     window.scrollTo({
                         top: offsetPosition,
                         behavior: 'smooth'
@@ -342,6 +475,16 @@
                 }
             });
         });
+
+        // Contact form submit listener
+        const contactForm = document.getElementById('contactForm');
+        if (contactForm) {
+            contactForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                alert('Thank you for contacting us! We will get back to you shortly.');
+                this.reset();
+            });
+        }
     });
 </script>
 {% endblock %}
