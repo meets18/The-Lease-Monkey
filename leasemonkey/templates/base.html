@@ -47,7 +47,7 @@
             <ul class="nav-links" id="navLinks">
                 {% if user.is_authenticated and user.role == 'BUYER' %}
                     <li><a href="/" class="nav-link nav-item-link text-white-50">HOME</a></li>
-                    <li><a href="/#features" class="nav-link nav-item-link text-white-50">VIEW LANDS</a></li>
+                    <li><a href="/lands/" class="nav-link nav-item-link text-white-50">VIEW LANDS</a></li>
                     <li><a href="{% url 'buyer_dashboard' %}" class="nav-link nav-item-link text-white-50">DASHBOARD</a></li>
                 {% else %}
                     <li><a href="/" class="nav-link nav-item-link text-white-50">HOME</a></li>

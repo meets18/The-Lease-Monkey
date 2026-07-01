@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Lands Directory — The Lease Monkey{% endblock %}
+
+{% block content %}
+<div class="container d-flex flex-column align-items-center justify-content-center min-vh-100 py-5" style="position: relative; z-index: 10;">
+    <!-- Section Title -->
+    <div class="text-center mb-5 mt-5">
+        <h2 class="display-6 text-white font-ranade fw-bold mb-2 text-uppercase tracking-wide">Available Lands</h2>
+        <div class="orange-cyan-bar mx-auto"></div>
+        <p class="text-muted-glow mt-3 fs-15">Explore properties and land holdings available for layout allotment</p>
+    </div>
+
+    <!-- Lands Grid -->
+    <div class="row g-4 justify-content-start w-100 max-w-1000">
+        {% for land in lands %}
+        <div class="col-md-6">
+            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between position-relative">
+                <!-- Status Banner overlay visual -->
+                <div class="position-absolute top-0 end-0 bg-danger text-white px-3 py-1 fs-11 fw-bold rounded-bottom-left-4 text-uppercase tracking-wider">
+                    <i class="bi bi-lock-fill"></i> Map Closed
+                </div>
+                
+                <div>
+                    <div class="fs-1 text-primary-glow mb-3"><i class="bi bi-map-fill"></i></div>
+                    <h3 class="font-ranade text-white fw-bold mb-3 fs-20">{{ land.name }}</h3>
+                    <div class="orange-cyan-bar mx-auto mb-3" style="width: 50px; height: 2px;"></div>
+                    
+                    <ul class="list-unstyled text-start text-muted-glow fs-14 mb-4 gap-2 d-flex flex-column">
+                        <li class="d-flex justify-content-between border-bottom border-secondary-glow pb-1.5">
+                            <span class="text-white-50"><i class="bi bi-person-badge me-1"></i> Owner:</span>
+                            <strong class="text-white">{{ land.owner.username }}</strong>
+                        </li>
+                        <li class="d-flex justify-content-between border-bottom border-secondary-glow pb-1.5">
+                            <span class="text-white-50"><i class="bi bi-fullscreen me-1"></i> Area:</span>
+                            <strong class="text-white">{{ land.area }} Acres</strong>
+                        </li>
+                        <li class="d-flex justify-content-between pb-1">
+                            <span class="text-white-50"><i class="bi bi-tags me-1"></i> Avg Plot Price:</span>
+                            <strong class="highlight-text-orange">INR {{ land.average_plot_price|floatformat:0 }}</strong>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="mt-auto">
+                    <button class="btn btn-secondary w-100 text-uppercase fw-bold fs-12 py-2.5 disabled" style="cursor: not-allowed; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3) !important;">
+                        Closed <i class="bi bi-lock-fill ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-5">
+            <div class="p-5 rounded-4 border border-secondary-glow bg-dark-glow max-w-500 mx-auto">
+                <i class="bi bi-info-circle text-primary-glow fs-2 mb-3 d-inline-block"></i>
+                <h4 class="text-white font-ranade fw-bold">No Lands Registered</h4>
+                <p class="text-muted-glow fs-14">Check back later or register property holdings via the owner portal.</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+.max-w-1000 {
+    max-width: 1000px;
+}
+.max-w-500 {
+    max-width: 500px;
+}
+.rounded-bottom-left-4 {
+    border-bottom-left-radius: 8px;
+}
+.pb-1.5 {
+    padding-bottom: 6px;
+}
+</style>
+{% endblock %}

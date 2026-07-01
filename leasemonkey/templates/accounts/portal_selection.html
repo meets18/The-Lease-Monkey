@@ -31,24 +31,20 @@
             </div>
         </div>
 
-        <!-- Card 2: Land Owner (LOCKED) -->
+        <!-- Card 2: Land Owner -->
         <div class="col-md-4">
-            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between opacity-60">
-                <!-- Locked Banner overlay visual -->
-                <div class="position-absolute top-0 end-0 bg-danger text-white px-3 py-1 fs-11 fw-bold rounded-bottom-left-4 text-uppercase tracking-wider">
-                    <i class="bi bi-lock-fill"></i> Locked
-                </div>
+            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between">
                 <div>
-                    <div class="fs-1 text-muted mb-3"><i class="bi bi-houses"></i></div>
-                    <h3 class="font-ranade text-white-50 fw-bold mb-2 fs-20">Land Owner</h3>
-                    <p class="text-muted fs-14 mb-4">
+                    <div class="fs-1 text-primary-glow mb-3"><i class="bi bi-houses"></i></div>
+                    <h3 class="font-ranade text-white fw-bold mb-2 fs-20">Land Owner</h3>
+                    <p class="text-muted-glow fs-14 mb-4">
                         Register properties, draw customized map outlines, verify lease claims, and coordinate buyer schedules.
                     </p>
                 </div>
                 <div class="mt-auto">
-                    <button class="btn btn-secondary w-100 text-uppercase fw-bold fs-12 py-2.5 disabled" style="cursor: not-allowed; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1);">
-                        Locked <i class="bi bi-lock-fill ms-1"></i>
-                    </button>
+                    <a href="{% url 'landowner_login' %}" class="btn btn-get-started w-100 text-uppercase fw-bold fs-12 py-2.5">
+                        Access Portal <i class="bi bi-chevron-right ms-1"></i>
+                    </a>
                 </div>
             </div>
         </div>

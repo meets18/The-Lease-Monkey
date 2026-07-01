@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Land Owner Dashboard</title>
+</head>
+<body style="background-color: #0b0f19; color: #ffffff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+    <h1>landowner dashboard</h1>
+    <p style="color: #9ca3af; font-size: 14px;">Logged in as: <strong>{{ user.username }}</strong></p>
+    <a href="{% url 'logout' %}" style="color: #ff4a4a; text-decoration: none; border: 1px solid rgba(255, 74, 74, 0.3); padding: 8px 16px; border-radius: 4px; font-weight: bold; margin-top: 15px; transition: all 0.3s ease;">
+        Log Out
+    </a>
+</body>
+</html>

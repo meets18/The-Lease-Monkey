@@ -21,7 +21,7 @@
 
     <!-- Get Started CTA Button -->
     <div class="mb-5">
-        <a href="#features" class="btn btn-get-started d-inline-flex align-items-center gap-2">
+        <a href="{% url 'lands:directory' %}" class="btn btn-get-started d-inline-flex align-items-center gap-2">
             Get Started <i class="bi bi-arrow-right-short fs-5"></i>
         </a>
     </div>
@@ -443,7 +443,7 @@
                         link.classList.add('text-white-50');
                     });
                     
-                    const hashValue = section.id === 'home' ? '#' : `#${section.id}`;
+                    const hashValue = section.id === 'home' ? '/' : `/#${section.id}`;
                     const activeLink = document.querySelector(`.nav-link[href="${hashValue}"]`);
                     if (activeLink) {
                         activeLink.classList.add('nav-active-box');

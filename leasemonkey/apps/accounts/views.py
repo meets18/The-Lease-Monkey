@@ -60,3 +60,44 @@ def logout_view(request):
     """Logs out the user and redirects to the landing selection portal."""
     logout(request)
     return redirect('portal_selection')
+
+def landowner_login(request):
+    """Handles authentication checks for the Land Owner Portal."""
+    if request.user.is_authenticated:
+        if request.user.role == User.LAND_OWNER:
+            return redirect('landowner_dashboard')
+        logout(request)
+
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
+
+        if not username or not password:
+            messages.error(request, 'Please provide both username/email/phone and password.')
+            return render(request, 'accounts/landowner_login.html')
+
+        user = authenticate(request, username=username, password=password)
+
+        if user is not None:
+            if user.role == User.LAND_OWNER:
+                if user.status == User.ACTIVE:
+                    login(request, user)
+                    return redirect('landowner_dashboard')
+                elif user.status == User.PENDING:
+                    messages.error(request, 'Your landowner profile status is pending administrative approval.')
+                else:
+                    messages.error(request, 'Your landowner profile has been suspended.')
+            else:
+                messages.error(request, 'Invalid credentials for the Land Owner portal.')
+        else:
+            messages.error(request, 'Invalid login credentials.')
+
+    return render(request, 'accounts/landowner_login.html')
+
+@login_required(login_url='portal_selection')
+def landowner_dashboard(request):
+    """Displays the Land Owner Portal Dashboard if role matches."""
+    if request.user.role != User.LAND_OWNER:
+        if not request.user.is_superuser:
+            raise PermissionDenied("You do not have access to this portal.")
+    return render(request, 'accounts/landowner_dashboard.html')

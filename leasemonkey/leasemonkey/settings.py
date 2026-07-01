@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     
     # Local Apps
     'apps.accounts.apps.AccountsConfig',
+    'apps.lands.apps.LandsConfig',
     'apps.core.apps.CoreConfig',
 ]
 
