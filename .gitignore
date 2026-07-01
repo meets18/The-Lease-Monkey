@@ -1,14 +1,56 @@
-venv/
+# ==========================================
+# Virtual Environments & Credentials
+# ==========================================
 myenv/
+venv/
+env/
+ENV/
+.env
+.venv
+*.env
+*.venv
+
+# ==========================================
+# Python Cache & Bytecode
+# ==========================================
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.py.class
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# ==========================================
+# Django Specific Files
+# ==========================================
 db.sqlite3
-.env
+*.sqlite3
 media/
+staticfiles/
+static_collected/
+local_settings.py
+celerybeat-schedule
+celerybeat.pid
+
+# ==========================================
+# IDE & OS System Files
+# ==========================================
 .idea/
 .vscode/
-*.log
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 .DS_Store
+Thumbs.db
+*.log
+
+# ==========================================
+# Project Handover & Handouts Logs
+# ==========================================
 DAY1.txt
 PROBLEMS_AND_RISKS.txt
 SOLUTIONS.md

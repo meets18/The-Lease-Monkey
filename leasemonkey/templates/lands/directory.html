@@ -5,6 +5,11 @@
 
 {% block content %}
 <div class="container d-flex flex-column align-items-center justify-content-center min-vh-100 py-5" style="position: relative; z-index: 10;">
+    <!-- Back to Homepage Link -->
+    <a href="/" class="btn-map-back shadow-lg" style="position: absolute; top: 92px; left: 20px; text-decoration: none;">
+        <i class="bi bi-arrow-left"></i> Back to Home
+    </a>
+
     <!-- Section Title -->
     <div class="text-center mb-5 mt-5">
         <h2 class="display-6 text-white font-ranade fw-bold mb-2 text-uppercase tracking-wide">Available Lands</h2>
@@ -18,8 +23,8 @@
         <div class="col-md-6">
             <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between position-relative">
                 <!-- Status Banner overlay visual -->
-                <div class="position-absolute top-0 end-0 bg-danger text-white px-3 py-1 fs-11 fw-bold rounded-bottom-left-4 text-uppercase tracking-wider">
-                    <i class="bi bi-lock-fill"></i> Map Closed
+                <div class="position-absolute top-0 end-0 bg-success text-white px-3 py-1 fs-11 fw-bold rounded-bottom-left-4 text-uppercase tracking-wider">
+                    <i class="bi bi-check-circle-fill"></i> Active
                 </div>
                 
                 <div>
@@ -44,9 +49,9 @@
                 </div>
                 
                 <div class="mt-auto">
-                    <button class="btn btn-secondary w-100 text-uppercase fw-bold fs-12 py-2.5 disabled" style="cursor: not-allowed; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3) !important;">
-                        Closed <i class="bi bi-lock-fill ms-1"></i>
-                    </button>
+                    <a href="{% url 'lands:plot_viewer' %}" class="btn btn-get-started w-100 text-uppercase fw-bold fs-12 py-2.5">
+                        Explore Plots <i class="bi bi-chevron-right ms-1"></i>
+                    </a>
                 </div>
             </div>
         </div>
@@ -74,6 +79,26 @@
 }
 .pb-1.5 {
     padding-bottom: 6px;
+}
+.btn-map-back {
+    padding: 8px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(10, 18, 30, 0.85);
+    color: #ffffff;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.btn-map-back:hover {
+    border-color: rgba(255, 255, 255, 0.35);
+    background: #000000;
+    color: #ffffff !important;
 }
 </style>
 {% endblock %}
