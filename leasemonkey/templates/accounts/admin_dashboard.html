@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Admin Dashboard — The Lease Monkey{% endblock %}
+
+{% block content %}
+<div class="container-fluid min-vh-100 p-0 d-flex" style="position: relative; z-index: 10; padding-top: 75px !important;">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar-wrapper d-none d-lg-flex flex-column p-4 border-end border-secondary-glow bg-dark-glow">
+        <!-- Profile summary badge -->
+        <div class="user-profile-badge p-3 rounded-3 mb-4 text-center border border-secondary-glow">
+            <div class="profile-avatar mb-2 mx-auto">
+                <i class="bi bi-shield-lock-fill fs-3 text-cyan-glow"></i>
+            </div>
+            <h5 class="text-white font-ranade fw-bold mb-1 fs-15">{{ user.username }}</h5>
+            <span class="badge bg-admin-glow fs-11 text-uppercase">System Admin</span>
+        </div>
+
+        <nav class="sidebar-nav flex-grow-1">
+            <ul class="nav flex-column gap-2.5">
+                <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkLands" onclick="switchTab('lands');" class="sidebar-link active">
+                        <i class="bi bi-map-fill"></i> Lands Management
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkOwners" onclick="switchTab('owners');" class="sidebar-link">
+                        <i class="bi bi-people-fill"></i> Land Owners
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="mt-auto pt-3 border-top border-secondary-glow">
+            <a href="{% url 'logout' %}" class="btn-logout-sidebar w-100 text-uppercase fw-bold text-center py-2 fs-12">
+                Log Out <i class="bi bi-box-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow-1 p-4 p-md-5">
+        <!-- Success/Error Alerts -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show border border-secondary-glow bg-dark-glow text-white shadow-lg mb-4" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- LANDS SECTION -->
+        <section id="sectionLands">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="h3 font-ranade text-white fw-bold mb-1">Lands Registry</h2>
+                    <p class="text-muted-glow fs-14 mb-0">Overview of all active properties and layouts being implemented.</p>
+                </div>
+            </div>
+
+            <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
+                <table class="table table-dark table-hover align-middle mb-0 font-opensans">
+                    <thead>
+                        <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
+                            <th scope="col" class="py-3 px-3">Land Name</th>
+                            <th scope="col" class="py-3">Owner Name</th>
+                            <th scope="col" class="py-3">Location</th>
+                            <th scope="col" class="py-3">Total Area</th>
+                            <th scope="col" class="py-3">Avg Plot Price</th>
+                            <th scope="col" class="py-3 text-end px-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="fs-14">
+                        {% if lands %}
+                            {% for land in lands %}
+                                <tr class="border-bottom border-dark-glow">
+                                    <td class="py-3 px-3 fw-bold text-white font-ranade fs-15">{{ land.name }}</td>
+                                    <td class="py-3">{{ land.owner.username }}</td>
+                                    <td class="py-3 text-muted-glow"><i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i>{{ land.location }}</td>
+                                    <td class="py-3">{{ land.area }} Acres</td>
+                                    <td class="py-3 text-cyan-glow fw-bold">INR {{ land.average_plot_price }}</td>
+                                    <td class="py-3 text-end px-3">
+                                        <a href="{% url 'lands:plot_viewer' slug=land.slug %}" class="btn btn-sm btn-action px-3 py-1.5 fs-12 text-uppercase fw-bold text-decoration-none">
+                                            Explore Map <i class="bi bi-eye ms-1"></i>
+                                        </a>
+                                        <a href="{% url 'lands:plot_creator' slug=land.slug %}" class="btn btn-sm btn-action px-3 py-1.5 fs-12 text-uppercase fw-bold text-decoration-none ms-1">
+                                            Manage Plots <i class="bi bi-grid-3x3-gap ms-1"></i>
+                                        </a>
+                                        <a href="{% url 'lands:delete_land' slug=land.slug %}" onclick="return confirm('Are you sure you want to delete this land and all its plots? This action is permanent.');" class="btn btn-sm btn-outline-danger px-3 py-1.5 fs-12 text-uppercase fw-bold text-decoration-none ms-1">
+                                            Delete <i class="bi bi-trash ms-1"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="py-5 text-center text-muted-glow">
+                                    <i class="bi bi-folder-x fs-2 d-block mb-2"></i>
+                                    No lands registered yet. Click the + button to add the first one.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- LAND OWNERS SECTION (Hidden by default) -->
+        <section id="sectionOwners" style="display: none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Land Owners</h2>
+                <p class="text-muted-glow fs-14 mb-0">Manage registered landowners and inspect their property assets.</p>
+            </div>
+
+            <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
+                <table class="table table-dark table-hover align-middle mb-0 font-opensans">
+                    <thead>
+                        <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
+                            <th scope="col" class="py-3 px-3">Username</th>
+                            <th scope="col" class="py-3">Email Address</th>
+                            <th scope="col" class="py-3">Phone Number</th>
+                            <th scope="col" class="py-3">Status</th>
+                            <th scope="col" class="py-3 text-end px-3">Land Assets</th>
+                        </tr>
+                    </thead>
+                    <tbody class="fs-14">
+                        {% if landowners %}
+                            {% for owner in landowners %}
+                                <tr class="border-bottom border-dark-glow">
+                                    <td class="py-3 px-3 fw-bold text-white font-ranade fs-15">{{ owner.username }}</td>
+                                    <td class="py-3 text-muted-glow">{{ owner.email }}</td>
+                                    <td class="py-3">{% if owner.phone_number %}{{ owner.phone_number }}{% else %}-{% endif %}</td>
+                                    <td class="py-3">
+                                        <span class="badge {% if owner.status == 'ACTIVE' %}bg-success-glow{% else %}bg-warning-glow{% endif %} text-uppercase fs-10">
+                                            {{ owner.status }}
+                                        </span>
+                                    </td>
+                                    <td class="py-3 text-end px-3 fw-bold text-cyan-glow">
+                                        {{ owner.lands.count }} Land(s)
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="py-5 text-center text-muted-glow">
+                                    <i class="bi bi-people fs-2 d-block mb-2"></i>
+                                    No landowners registered in the system yet.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- Floating Google Drive Style Action Button (+) -->
+<button class="btn btn-floating-plus shadow-lg" data-bs-toggle="modal" data-bs-target="#addLandModal" title="Register New Land">
+    <i class="bi bi-plus-lg fs-4"></i>
+</button>
+
+<!-- Register New Land Modal -->
+<div class="modal fade" id="addLandModal" tabindex="-1" aria-labelledby="addLandModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel border border-secondary-glow shadow-2xl p-2 text-white">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title font-ranade fw-bold text-white fs-18" id="addLandModalLabel">
+                    <i class="bi bi-signpost-fill text-cyan-glow me-2"></i>Register New Land Property
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'lands:land_creator' %}" method="GET">
+                <div class="modal-body py-4">
+                    <div class="mb-3">
+                        <label for="id_name" class="form-label fs-13 text-secondary-glow">Land Name</label>
+                        <input type="text" class="form-control bg-dark border-secondary text-white" id="id_name" name="name" required placeholder="e.g. Sitapura Industrial Estate">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_owner" class="form-label fs-13 text-secondary-glow">Land Owner</label>
+                        <select class="form-select bg-dark border-secondary text-white" id="id_owner" name="owner" required>
+                            <option value="" disabled selected>-- Select Existing Owner --</option>
+                            {% for owner in landowners %}
+                                <option value="{{ owner.username }}">{{ owner.username }} ({{ owner.email }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_location" class="form-label fs-13 text-secondary-glow">Location / Address (to Locate on Map)</label>
+                        <input type="text" class="form-control bg-dark border-secondary text-white" id="id_location" name="location" required placeholder="e.g. Sitapura Industrial Area, Jaipur">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_avg_price" class="form-label fs-13 text-secondary-glow">Avg Plot Price (INR)</label>
+                        <input type="number" class="form-control bg-dark border-secondary text-white" id="id_avg_price" name="price" required placeholder="e.g. 3500000">
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary border-0 bg-transparent text-white-50 px-4 py-2" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-get-started px-4 py-2 text-uppercase fs-12 fw-bold shadow-md">Next: Plot Boundary <i class="bi bi-arrow-right ms-1"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts for Dashboard Tab Switching -->
+<script>
+    function switchTab(tabName) {
+        const sectionLands = document.getElementById('sectionLands');
+        const sectionOwners = document.getElementById('sectionOwners');
+        const linkLands = document.getElementById('tabLinkLands');
+        const linkOwners = document.getElementById('tabLinkOwners');
+
+        if (tabName === 'lands') {
+            sectionLands.style.display = 'block';
+            sectionOwners.style.display = 'none';
+            linkLands.classList.add('active');
+            linkOwners.classList.remove('active');
+        } else if (tabName === 'owners') {
+            sectionLands.style.display = 'none';
+            sectionOwners.style.display = 'block';
+            linkLands.classList.remove('active');
+            linkOwners.classList.add('active');
+        }
+    }
+</script>
+
+<style>
+.sidebar-wrapper {
+    width: 280px;
+    min-height: calc(100vh - 75px);
+    backdrop-filter: blur(10px);
+}
+.user-profile-badge {
+    background: rgba(11, 15, 25, 0.4);
+}
+.profile-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(0, 255, 196, 0.08);
+    border: 1px solid rgba(0, 255, 196, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.bg-admin-glow {
+    background-color: rgba(0, 255, 196, 0.1) !important;
+    color: #00ffd2 !important;
+    border: 1px solid rgba(0, 255, 196, 0.2);
+}
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #9ca3af;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 600;
+    transition: all 0.25s ease;
+}
+.sidebar-link:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.03);
+}
+.sidebar-link.active {
+    color: #ffffff;
+    background: rgba(0, 255, 196, 0.08);
+    border: 1px solid rgba(0, 255, 196, 0.15);
+    box-shadow: 0 0 15px rgba(0, 255, 196, 0.1);
+}
+.btn-logout-sidebar {
+    display: block;
+    background: rgba(255, 74, 74, 0.06);
+    border: 1px solid rgba(255, 74, 74, 0.15);
+    border-radius: 6px;
+    color: #ff4a4a;
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+.btn-logout-sidebar:hover {
+    background: #ff4a4a;
+    color: #ffffff;
+    box-shadow: 0 0 15px rgba(255, 74, 74, 0.4);
+}
+.btn-action {
+    background: linear-gradient(135deg, rgba(0, 178, 255, 0.15), rgba(0, 255, 196, 0.15));
+    border: 1px solid rgba(0, 255, 196, 0.3);
+    color: #00ffd2;
+    transition: all 0.3s ease;
+}
+.btn-action:hover {
+    background: linear-gradient(135deg, #00b2ff, #00ffc4);
+    color: #0b0f19 !important;
+    box-shadow: 0 0 15px rgba(0, 255, 196, 0.4);
+}
+
+/* Floating Action Button Style (Google Drive style) */
+.btn-floating-plus {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00b2ff, #00ffc4);
+    border: none;
+    color: #0b0f19;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    box-shadow: 0 4px 20px rgba(0, 255, 196, 0.4);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.btn-floating-plus:hover {
+    transform: scale(1.1) rotate(90deg);
+    box-shadow: 0 8px 30px rgba(0, 255, 196, 0.6);
+}
+
+/* Custom Modal Dark Theme Override */
+.glass-panel {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(15px);
+    border-radius: 12px;
+}
+.modal-content input, .modal-content select {
+    background-color: rgba(11, 15, 25, 0.8) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+}
+.modal-content input:focus, .modal-content select:focus {
+    border-color: rgba(0, 255, 196, 0.4) !important;
+    box-shadow: 0 0 8px rgba(0, 255, 196, 0.2) !important;
+}
+.bg-success-glow {
+    background-color: rgba(0, 255, 196, 0.1) !important;
+    color: #00ffd2 !important;
+    border: 1px solid rgba(0, 255, 196, 0.2);
+}
+.bg-warning-glow {
+    background-color: rgba(245, 158, 11, 0.1) !important;
+    color: #f59e0b !important;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+</style>
+{% endblock %}

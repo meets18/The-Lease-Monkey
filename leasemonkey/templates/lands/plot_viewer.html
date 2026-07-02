@@ -14,6 +14,17 @@
 <div id="map-container" style="width: 100%; height: calc(100vh - 72px); position: absolute; top: 72px; left: 0; z-index: 1; background-color: #0b0e14;">
     <!-- Leaflet Map Canvas (Solid dark background, no tiles loaded on default) -->
     <div id="map" style="width: 100%; height: 100%; background: #0b0e14; z-index: 1;"></div>
+    
+    <!-- Floating Compass HUD -->
+    <div id="compassWidget" class="compass-hud" title="Plot Orientation Indicator">
+        <div class="compass-dial">
+            <span class="direction-letter n">N</span>
+            <span class="direction-letter e">E</span>
+            <span class="direction-letter s">S</span>
+            <span class="direction-letter w">W</span>
+            <div class="compass-needle" id="compassNeedle"></div>
+        </div>
+    </div>
 </div>
 
 <!-- Back to Catalog Directory Link -->
@@ -38,10 +49,7 @@
             <span>Total Area:</span>
             <strong id="detailArea">1,500 sqft</strong>
         </div>
-        <div class="detail-item-row">
-            <span>Facing Direction:</span>
-            <strong id="detailFacing">North</strong>
-        </div>
+
         <div class="detail-item-row">
             <span>Lease Price:</span>
             <strong id="detailPrice" class="highlight-text-orange">INR 4,500,000</strong>
@@ -49,10 +57,19 @@
     </div>
 
     <!-- Interactive CTAs -->
-    <div class="d-flex gap-2">
+    <div class="d-flex flex-column gap-2">
+        {% if user.is_authenticated and user.role == 'ADMIN' or user.is_superuser %}
+        <a id="btnEditPlot" href="{% url 'lands:plot_creator' slug=land.slug %}" class="btn btn-get-started w-100 text-uppercase fw-bold fs-11 py-2 text-center text-decoration-none d-block">
+            Edit / Add Plots <i class="bi bi-pencil-square ms-1"></i>
+        </a>
+        <button id="btnDeletePlot" class="btn btn-outline-danger w-100 text-uppercase fw-bold fs-11 py-2 text-center" onclick="handleDeletePlotClick();">
+            Delete Plot <i class="bi bi-trash ms-1"></i>
+        </button>
+        {% else %}
         <button id="btnHoldPlot" class="btn btn-get-started flex-grow-1 text-uppercase fw-bold fs-11 py-2" onclick="handleRequestClick();">
             Raise a Request <i class="bi bi-send ms-1"></i>
         </button>
+        {% endif %}
     </div>
 </div>
 
@@ -110,6 +127,8 @@
 <script>
     const isAuthenticated = {% if user.is_authenticated %}true{% else %}false{% endif %};
     const loginUrl = "/accounts/login/?next=" + encodeURIComponent(window.location.pathname);
+
+
     
     function handleRequestClick() {
         if (isAuthenticated) {
@@ -120,10 +139,80 @@
             }
         }
     }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function handleDeletePlotClick() {
+        const plotNum = document.getElementById('detailNum').innerText;
+        if (!plotNum) return;
+        if (!confirm(`Are you sure you want to delete Plot ${plotNum} from this land? This action is permanent.`)) return;
+
+        fetch(`/lands/plots-creator/{{ land.slug }}/delete/${encodeURIComponent(plotNum)}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(res => {
+            if (res.success) {
+                if (selectedMapPolygon) {
+                    map.removeLayer(selectedMapPolygon);
+                    if (selectedMapPolygon.labelMarker) {
+                        map.removeLayer(selectedMapPolygon.labelMarker);
+                    }
+                    const idx = mapPolygons.indexOf(selectedMapPolygon);
+                    if (idx > -1) {
+                        mapPolygons.splice(idx, 1);
+                    }
+                }
+                closeDetailsPanel();
+                alert(`Plot ${plotNum} deleted successfully.`);
+            } else {
+                alert("Error deleting plot: " + res.error);
+            }
+        })
+        .catch(err => {
+            console.error("Delete Error: ", err);
+            alert("Error sending delete request.");
+        });
+    }
+    const landConfig = {
+        name: "{{ land.name|escapejs }}",
+        slug: "{{ land.slug|escapejs }}",
+        center: [{{ land.center_lat|default:26.788506 }}, {{ land.center_lng|default:75.836371 }}],
+        zoom: {{ land.zoom_level|default:17 }},
+        boundary: {{ land.boundary_coordinates|safe|default:"[]" }},
+        plots: [
+            {% for plot in land.plots.all %}
+            {
+                number: "{{ plot.plot_number|escapejs }}",
+                area: "{{ plot.area|escapejs }}",
+                price: "INR {{ plot.price|floatformat:0 }}",
+                facing: "{{ plot.facing|escapejs }}",
+                status: "{{ plot.status|escapejs }}",
+                coordinates: {{ plot.coordinates|safe }}
+            },
+            {% endfor %}
+        ]
+    };
 </script>
 
 <!-- Map script controller hooks -->
-<script src="{% static 'js/map_viewer.js' %}"></script>
+<script src="{% static 'js/map_viewer.js' %}?v={{ land.updated_at|date:'U' }}"></script>
 
 <style>
 /* Fullscreen Lock */
@@ -167,6 +256,66 @@ body {
 .leaflet-control-zoom a:hover {
     background: rgba(0, 255, 196, 0.2) !important;
     color: var(--primary-cyan) !important;
+}
+.compass-hud {
+    position: absolute;
+    top: 50%;
+    right: 20px;
+    transform: translateY(-50%);
+    z-index: 10;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(0, 255, 196, 0.3);
+    backdrop-filter: blur(10px);
+    background: rgba(11, 14, 20, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 15px rgba(0, 255, 196, 0.1);
+    transition: all 0.3s ease;
+}
+.compass-dial {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+}
+.direction-letter {
+    position: absolute;
+    font-size: 9px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.7);
+    font-family: 'Ranade', sans-serif;
+    transform: translate(-50%, -50%);
+}
+.direction-letter.n { top: 8%; left: 50%; color: #ff3e3e; }
+.direction-letter.e { top: 50%; left: 92%; }
+.direction-letter.s { top: 92%; left: 50%; }
+.direction-letter.w { top: 50%; left: 8%; }
+
+.compass-needle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 40px;
+    background: linear-gradient(to bottom, #ff3e3e 50%, #00ffd2 50%);
+    transform: translate(-50%, -50%) rotate(0deg);
+    transform-origin: 50% 50%;
+    transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border-radius: 2px;
+}
+.compass-needle::after {
+    content: '';
+    position: absolute;
+    top: calc(50% - 3px);
+    left: calc(50% - 3px);
+    width: 6px;
+    height: 6px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
 }
 </style>
 {% endblock %}

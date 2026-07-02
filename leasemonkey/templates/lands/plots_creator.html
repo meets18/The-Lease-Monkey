@@ -1,0 +1,727 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Plot Creator Workspace — The Lease Monkey{% endblock %}
+
+{% block content %}
+<!-- Leaflet CSS & JS CDNs -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div class="container-fluid min-vh-100 p-0" style="position: relative; z-index: 10; padding-top: 75px !important;">
+    <!-- Map Canvas Viewport -->
+    <div id="mapPlotCreator" style="width: 100%; height: calc(100vh - 75px); background: #0b0e14;"></div>
+
+    <!-- Floating Compass HUD -->
+    <div id="compassWidget" class="compass-hud" title="Plot Orientation Indicator">
+        <div class="compass-dial">
+            <span class="direction-letter n">N</span>
+            <span class="direction-letter e">E</span>
+            <span class="direction-letter s">S</span>
+            <span class="direction-letter w">W</span>
+            <div class="compass-needle" id="compassNeedle"></div>
+        </div>
+    </div>
+
+    <!-- Left Controls Panel Overlay -->
+    <div class="creator-card glass-panel shadow-2xl p-4 text-white font-opensans" style="position: absolute; top: 95px; left: 20px; z-index: 1000; width: 340px; max-height: calc(100vh - 120px); overflow-y: auto;">
+        <div class="border-bottom border-secondary-glow pb-3 mb-3">
+            <h4 class="font-ranade fw-bold text-white mb-1"><i class="bi bi-grid-3x3-gap-fill text-cyan-glow me-2"></i>Plot Creator</h4>
+            <p class="text-muted-glow fs-13 mb-0">Create individual plots inside <strong>{{ land.name }}</strong>.</p>
+        </div>
+
+        <!-- Add Plot Form -->
+        <form id="frmAddPlot" autocomplete="off" onsubmit="event.preventDefault();">
+            <div class="mb-2">
+                <label for="plot_number" class="form-label fs-12 text-secondary-glow mb-1">Plot Number / Identifier</label>
+                <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_number" required placeholder="e.g. 101, P5">
+            </div>
+
+            <div class="row">
+                <div class="col-6 mb-2">
+                    <label for="plot_area" class="form-label fs-12 text-secondary-glow mb-1">Area (sq ft)</label>
+                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_area" required placeholder="e.g. 1,500">
+                </div>
+                <div class="col-6 mb-2">
+                    <label for="plot_price" class="form-label fs-12 text-secondary-glow mb-1">Lease Price (INR)</label>
+                    <input type="number" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_price" required placeholder="e.g. 4500000">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="plot_status" class="form-label fs-12 text-secondary-glow mb-1">Status</label>
+                <select class="form-select form-select-sm bg-dark border-secondary text-white fs-13" id="plot_status">
+                    <option value="available" selected>Available</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="sold">Booked</option>
+                </select>
+            </div>
+
+            <!-- Drawing State Banner -->
+            <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-11 mb-3 py-2 text-center" role="alert">
+                <i class="bi bi-cursor-fill text-cyan-glow me-1"></i>
+                <span id="drawingInstructions">Click corner points directly on the map to trace this plot's outline.</span>
+            </div>
+
+            <!-- Staging actions -->
+            <div class="d-flex gap-2 mb-3">
+                <button type="button" onclick="undoPlotPoint();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
+                    <i class="bi bi-arrow-counterclockwise"></i> Undo
+                </button>
+                <button type="button" onclick="clearPlotPoints();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
+                    <i class="bi-trash"></i> Reset
+                </button>
+            </div>
+
+            <button type="button" id="btnSavePlot" onclick="submitPlotRecord();" class="btn btn-action-primary w-100 py-2 fs-12 text-uppercase fw-bold mb-2">
+                Save Plot <i class="bi bi-plus-lg ms-1"></i>
+            </button>
+            <button type="button" id="btnCancelEdit" onclick="cancelEditingMode();" class="btn btn-action-secondary w-100 py-2 fs-12 text-uppercase fw-bold mb-3" style="display: none;">
+                Cancel Edit <i class="bi bi-x-circle ms-1"></i>
+            </button>
+        </form>
+
+        <!-- Dynamic Staged/Saved Plots Count -->
+        <div class="border-top border-secondary-glow pt-3 mt-2">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="fs-13 text-secondary-glow fw-bold mb-0">Plotted Layouts</h5>
+                <span class="badge bg-admin-glow fs-11" id="lblStagedCount">Total: 0</span>
+            </div>
+            
+            <!-- List scroll container -->
+            <div id="stagedPlotsList" class="d-flex flex-column gap-1.5 max-h-180 overflow-y-auto pr-1 text-white-50 fs-12.5" style="max-height: 150px;">
+                <!-- Dynamically populated rows -->
+                <div class="text-center py-2 text-muted-glow fs-12">No plots added yet. Trace one above!</div>
+            </div>
+        </div>
+
+        <div class="border-top border-secondary-glow pt-3 mt-3 d-flex flex-column gap-2">
+            <a href="{% url 'admin_dashboard' %}" class="btn btn-action-primary-glow w-100 py-2.5 fs-13 text-uppercase fw-bold text-decoration-none d-block text-center text-white">
+                Finish & Save Layout <i class="bi bi-check-all ms-1"></i>
+            </a>
+            <a href="{% url 'admin_dashboard' %}" onclick="return confirm('Are you sure you want to exit the workspace? Any unsaved plot modifications will be lost.');" class="btn btn-action-secondary w-100 py-2 fs-13 text-uppercase fw-bold text-decoration-none d-block text-center text-white">
+                Exit Workspace <i class="bi bi-box-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Load land boundaries and parent centroid passed from Django
+    const landBoundaryCoords = {{ land.boundary_coordinates|safe|default:"[]" }};
+    const centerCoords = [{{ land.center_lat|default:26.788506 }}, {{ land.center_lng|default:75.836371 }}];
+
+    // Load initial database records for this land to display on map load
+    const existingPlots = [
+        {% for plot in plots %}
+        {
+            number: "{{ plot.plot_number|escapejs }}",
+            area: "{{ plot.area|escapejs }}",
+            price: "{{ plot.price|escapejs }}",
+            facing: "{{ plot.facing|escapejs }}",
+            status: "{{ plot.status|escapejs }}",
+            coordinates: {{ plot.coordinates|safe }}
+        },
+        {% endfor %}
+    ];
+
+    const STATUS_COLORS = {
+        available: '#9CB447', // Available
+        reserved: '#8e9aa8',  // Booked (Grey)
+        sold: '#C7483F'       // On Hold
+    };
+
+    let map = null;
+    let currentPlotPoints = [];
+    let currentPlotMarkers = [];
+    let currentPlotPolygon = null;
+    let registeredPlotLayers = [];
+    let editingPlotNumber = null;
+
+    // Cookie CSRF helper
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Initialize Map Workspace
+    document.addEventListener("DOMContentLoaded", function() {
+        map = L.map('mapPlotCreator', {
+            zoomControl: false
+        }).setView(centerCoords, 18);
+
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        // Load Satellite view
+        L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 19,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+        }).addTo(map);
+
+        // Render parent land boundary overlay
+        if (landBoundaryCoords.length >= 3) {
+            const landOverlay = L.polygon(landBoundaryCoords, {
+                color: '#00ffd2',
+                weight: 3.5,
+                opacity: 0.9,
+                fillColor: '#0b0f19',
+                fillOpacity: 0.5,
+                interactive: false
+            }).addTo(map);
+            
+            // Auto fit boundaries on screen
+            map.fitBounds(landOverlay.getBounds());
+        }
+
+        // Render all existing plots in the database
+        existingPlots.forEach(plot => {
+            renderPlotOnMap(plot);
+        });
+        updatePlotsSidebarList();
+
+        // Register dropdown change for compass indicator
+        // Register Click handler for drawing plot outlines
+        map.on('click', function(e) {
+            addPlotPoint(e.latlng);
+        });
+    });
+
+    // Helper: Draw solid plot polygon on map with tooltip number label
+    function renderPlotOnMap(plot) {
+        const poly = L.polygon(plot.coordinates, {
+            color: '#3d4045',
+            weight: 1.5,
+            fillColor: STATUS_COLORS[plot.status] || '#eaddca',
+            fillOpacity: 0.85
+        }).addTo(map);
+
+        // Permanent rotated label center point marker tooltip
+        const centroid = getPolygonCentroid(plot.coordinates);
+        
+        const labelIcon = L.divIcon({
+            className: 'plot-number-tooltip',
+            html: `<div>${plot.number}</div>`,
+            iconSize: [30, 16],
+            iconAnchor: [15, 8]
+        });
+        
+        L.marker(centroid, { icon: labelIcon, interactive: false }).addTo(map);
+        registeredPlotLayers.push(poly);
+    }
+
+    // Centroid calculator helper
+    function getPolygonCentroid(latlngs) {
+        let pts = latlngs;
+        let points = pts.map(p => {
+            if (Array.isArray(p)) {
+                return { lat: p[0], lng: p[1] };
+            }
+            return { lat: p.lat, lng: p.lng };
+        });
+
+        if (points.length === 0) return { lat: 0, lng: 0 };
+        if (points.length < 3) return points[0];
+
+        let first = points[0];
+        let last = points[points.length - 1];
+        let closedPts = [...points];
+        if (first.lat !== last.lat || first.lng !== last.lng) {
+            closedPts.push(first);
+        }
+
+        let area = 0;
+        let cx = 0;
+        let cy = 0;
+        let n = closedPts.length - 1;
+
+        for (let i = 0; i < n; i++) {
+            let p1 = closedPts[i];
+            let p2 = closedPts[i+1];
+            let factor = (p1.lat * p2.lng) - (p2.lat * p1.lng);
+            area += factor;
+            cx += (p1.lat + p2.lat) * factor;
+            cy += (p1.lng + p2.lng) * factor;
+        }
+
+        area = area / 2.0;
+        if (area === 0) return points[0];
+
+        cx = cx / (6.0 * area);
+        cy = cy / (6.0 * area);
+
+        return { lat: cx, lng: cy };
+    }
+
+    // Ray-casting point-in-polygon helper
+    function isPointInPolygon(point, polygon) {
+        const x = point[0], y = point[1];
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i][0], yi = polygon[i][1];
+            const xj = polygon[j][0], yj = polygon[j][1];
+            
+            const intersect = ((yi > y) !== (yj > y))
+                && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    // Add point during plot tracing
+    function addPlotPoint(latlng) {
+        const pt = [latlng.lat, latlng.lng];
+
+        // Enforce land boundary confinement
+        if (landBoundaryCoords && landBoundaryCoords.length >= 3) {
+            if (!isPointInPolygon(pt, landBoundaryCoords)) {
+                alert("Invalid Position: All corner points of the plot must lie strictly inside the marked land boundary outline.");
+                return;
+            }
+        }
+
+        // Enforce plot separation (cannot click inside other plot areas)
+        if (existingPlots && existingPlots.length > 0) {
+            for (let i = 0; i < existingPlots.length; i++) {
+                const otherPlot = existingPlots[i];
+                if (editingPlotNumber && otherPlot.number === editingPlotNumber) {
+                    continue; // Skip check against self if editing
+                }
+                if (isPointInPolygon(pt, otherPlot.coordinates)) {
+                    alert(`Invalid Position: Plot corners cannot overlap or sit inside existing Plot "${otherPlot.number}".`);
+                    return;
+                }
+            }
+        }
+
+        currentPlotPoints.push(latlng);
+        
+        const marker = L.circleMarker(latlng, {
+            radius: 5,
+            color: '#ffff00', // Yellow corners for staged plotting
+            fillColor: '#0b0f19',
+            fillOpacity: 1,
+            weight: 2
+        }).addTo(map);
+        
+        currentPlotMarkers.push(marker);
+        updatePlotPolygon();
+    }
+
+    // Undo last plot point
+    function undoPlotPoint() {
+        if (currentPlotPoints.length === 0) return;
+        currentPlotPoints.pop();
+        const marker = currentPlotMarkers.pop();
+        if (marker) map.removeLayer(marker);
+        updatePlotPolygon();
+    }
+
+    // Reset current plot staging coordinates
+    function clearPlotPoints() {
+        currentPlotPoints = [];
+        currentPlotMarkers.forEach(m => map.removeLayer(m));
+        currentPlotMarkers = [];
+        updatePlotPolygon();
+    }
+
+    // Calculate geographical area of Leaflet polygon in square meters
+    function calculatePolygonArea(latlngs) {
+        if (latlngs.length < 3) return 0;
+        
+        const origin = latlngs[0];
+        const r = 6378137; // Earth radius in meters
+        
+        const xCoords = [];
+        const yCoords = [];
+        
+        for (let i = 0; i < latlngs.length; i++) {
+            const lat = latlngs[i].lat;
+            const lng = latlngs[i].lng;
+            
+            const y = (lat - origin.lat) * (Math.PI / 180) * r;
+            const x = (lng - origin.lng) * (Math.PI / 180) * r * Math.cos(origin.lat * Math.PI / 180);
+            
+            xCoords.push(x);
+            yCoords.push(y);
+        }
+        
+        // Shoelace area formula
+        let area = 0;
+        const j = xCoords.length - 1;
+        
+        for (let i = 0; i < xCoords.length; i++) {
+            const prevIndex = i === 0 ? j : i - 1;
+            area += (xCoords[prevIndex] + xCoords[i]) * (yCoords[prevIndex] - yCoords[i]);
+        }
+        
+        return Math.abs(area / 2);
+    }
+
+    // Update staged plot polygon shape
+    function updatePlotPolygon() {
+        if (currentPlotPolygon) {
+            map.removeLayer(currentPlotPolygon);
+            currentPlotPolygon = null;
+        }
+
+        if (currentPlotPoints.length >= 3) {
+            currentPlotPolygon = L.polygon(currentPlotPoints, {
+                color: '#ffff00',
+                weight: 1.5,
+                fillColor: '#ffff00',
+                fillOpacity: 0.25
+            }).addTo(map);
+
+            // Dynamically calculate area in square feet
+            const areaM2 = calculatePolygonArea(currentPlotPoints);
+            const areaSqFt = Math.round(areaM2 * 10.7639104);
+            // Autofill the editable area input field
+            document.getElementById('plot_area').value = areaSqFt;
+        } else {
+            if (!editingPlotNumber) {
+                document.getElementById('plot_area').value = '';
+            }
+        }
+
+        document.getElementById('drawingInstructions').innerText = 
+            `Plot corners marked: ${currentPlotPoints.length} (Min 3 required)`;
+    }
+
+    // Update sidebar plots listing
+    function updatePlotsSidebarList() {
+        const listEl = document.getElementById('stagedPlotsList');
+        document.getElementById('lblStagedCount').innerText = `Total: ${existingPlots.length}`;
+        
+        if (existingPlots.length === 0) {
+            listEl.innerHTML = '<div class="text-center py-2 text-muted-glow fs-12">No plots added yet. Trace one above!</div>';
+            return;
+        }
+
+        listEl.innerHTML = existingPlots.map(plot => `
+            <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-glow bg-dark-glow mb-1.5" style="cursor: pointer;" onclick="selectPlotForEditing('${plot.number}');" title="Click to Edit Plot">
+                <div>
+                    <strong class="text-white">Plot ${plot.number}</strong>
+                    <span class="text-muted-glow fs-11 ms-2">(${plot.area})</span>
+                </div>
+                <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation();">
+                    <span class="fs-11 fw-bold" style="color: ${STATUS_COLORS[plot.status]}">${plot.status.toUpperCase()}</span>
+                    <span class="text-cyan-glow fw-bold fs-11">INR ${(Number(plot.price)/100000).toFixed(1)}L</span>
+                    <button type="button" onclick="deleteStagedPlot('${plot.number}');" class="btn btn-sm btn-outline-danger border-0 p-1 lh-1" title="Delete Plot">
+                        <i class="bi bi-trash-fill fs-12"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // AJAX post delete staged plot
+    function deleteStagedPlot(plotNumber) {
+        if (!confirm(`Are you sure you want to delete Plot ${plotNumber}?`)) return;
+
+        fetch(`/lands/plots-creator/{{ land.slug }}/delete/${encodeURIComponent(plotNumber)}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(res => {
+            if (res.success) {
+                // Find and remove plot from existingPlots array
+                const index = existingPlots.findIndex(p => p.number === plotNumber);
+                if (index > -1) {
+                    existingPlots.splice(index, 1);
+                }
+
+                // Clear map layers and redraw all plots
+                registeredPlotLayers.forEach(layer => map.removeLayer(layer));
+                registeredPlotLayers = [];
+
+                // Remove all markers (which includes plot number divs)
+                map.eachLayer(layer => {
+                    if (layer instanceof L.Marker && layer.options.icon && layer.options.icon.options.className === 'plot-number-tooltip') {
+                        map.removeLayer(layer);
+                    }
+                });
+
+                // Redraw remainings
+                existingPlots.forEach(plot => {
+                    renderPlotOnMap(plot);
+                });
+
+                updatePlotsSidebarList();
+                alert(`Plot ${plotNumber} deleted successfully.`);
+            } else {
+                alert("Error deleting plot: " + res.error);
+            }
+        })
+        .catch(err => {
+            console.error("AJAX Error: ", err);
+            alert("Error sending delete request.");
+        });
+    }    // Submit AJAX call to save or update plot record
+    function submitPlotRecord() {
+        const plotNum = document.getElementById('plot_number').value.trim();
+        const areaStr = document.getElementById('plot_area').value.trim() + " sqft";
+        const priceVal = document.getElementById('plot_price').value.trim();
+        const facingVal = 'North';
+        const statusVal = document.getElementById('plot_status').value;
+
+        if (!plotNum || !priceVal || document.getElementById('plot_area').value.trim() === '') {
+            alert("Please fill in all plot details before saving.");
+            return;
+        }
+
+        if (!editingPlotNumber && currentPlotPoints.length < 3) {
+            alert("Please click at least 3 points inside the map boundary to trace this plot's outline shape.");
+            return;
+        }
+
+        const url = editingPlotNumber
+            ? `/lands/plots-creator/{{ land.slug }}/update/${encodeURIComponent(editingPlotNumber)}/`
+            : "{% url 'lands:save_plot_layout' slug=land.slug %}";
+
+        const boundaryCoords = currentPlotPoints.map(p => [p.lat, p.lng]);
+        const data = {
+            plot_number: plotNum,
+            area: areaStr,
+            price: priceVal,
+            facing: facingVal,
+            status: statusVal
+        };
+        if (!editingPlotNumber) {
+            data.coordinates = boundaryCoords;
+        }
+
+        const btnSave = document.getElementById('btnSavePlot');
+        btnSave.disabled = true;
+        btnSave.innerHTML = editingPlotNumber 
+            ? 'Updating <span class="spinner-border spinner-border-sm ms-1" role="status" aria-hidden="true"></span>'
+            : 'Saving <span class="spinner-border spinner-border-sm ms-1" role="status" aria-hidden="true"></span>';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(res => {
+            if (res.success) {
+                if (editingPlotNumber) {
+                    const index = existingPlots.findIndex(p => p.number === editingPlotNumber);
+                    if (index > -1) {
+                        existingPlots[index] = res.plot;
+                    }
+                    alert(`Plot "${res.plot.number}" successfully updated!`);
+                } else {
+                    existingPlots.push(res.plot);
+                    alert(`Plot "${res.plot.number}" successfully saved!`);
+                }
+
+                // Clear map layers and redraw all plots
+                registeredPlotLayers.forEach(layer => map.removeLayer(layer));
+                registeredPlotLayers = [];
+
+                map.eachLayer(layer => {
+                    if (layer instanceof L.Marker && layer.options.icon && layer.options.icon.options.className === 'plot-number-tooltip') {
+                        map.removeLayer(layer);
+                    }
+                });
+
+                existingPlots.forEach(plot => {
+                    renderPlotOnMap(plot);
+                });
+
+                cancelEditingMode();
+                updatePlotsSidebarList();
+            } else {
+                alert("Error: " + res.error);
+                btnSave.disabled = false;
+                btnSave.innerHTML = editingPlotNumber 
+                    ? 'Update Plot <i class="bi bi-save ms-1"></i>' 
+                    : 'Save Plot <i class="bi bi-plus-lg ms-1"></i>';
+            }
+        })
+        .catch(err => {
+            console.error("AJAX error: ", err);
+            alert("Network connection error.");
+            btnSave.disabled = false;
+            btnSave.innerHTML = editingPlotNumber 
+                ? 'Update Plot <i class="bi bi-save ms-1"></i>' 
+                : 'Save Plot <i class="bi bi-plus-lg ms-1"></i>';
+        });
+    }
+
+    function selectPlotForEditing(plotNumber) {
+        editingPlotNumber = plotNumber;
+        const plot = existingPlots.find(p => p.number === plotNumber);
+        if (!plot) return;
+
+        document.getElementById('plot_number').value = plot.number;
+        document.getElementById('plot_number').disabled = true;
+        document.getElementById('plot_area').value = plot.area.replace(' sqft', '');
+        document.getElementById('plot_price').value = Math.round(Number(plot.price));
+        document.getElementById('plot_status').value = plot.status;
+
+        const btnSave = document.getElementById('btnSavePlot');
+        btnSave.innerHTML = 'Update Plot <i class="bi bi-save ms-1"></i>';
+        document.getElementById('btnCancelEdit').style.display = 'block';
+
+        document.getElementById('drawingInstructions').innerHTML = 
+            `<i class="bi bi-pencil-fill text-warning me-1"></i> Editing Plot <strong>${plotNumber}</strong>. You can change details. (Boundary locked)`;
+    }
+
+    function cancelEditingMode() {
+        editingPlotNumber = null;
+
+        document.getElementById('plot_number').value = '';
+        document.getElementById('plot_number').disabled = false;
+        document.getElementById('plot_area').value = '';
+        document.getElementById('plot_price').value = '';
+        document.getElementById('plot_status').selectedIndex = 0;
+
+        const btnSave = document.getElementById('btnSavePlot');
+        btnSave.disabled = false;
+        btnSave.innerHTML = 'Save Plot <i class="bi bi-plus-lg ms-1"></i>';
+        document.getElementById('btnCancelEdit').style.display = 'none';
+
+        document.getElementById('drawingInstructions').innerText = 
+            "Click corner points directly on the map to trace this plot's outline.";
+        
+        clearPlotPoints();
+    }
+
+</script>
+
+<style>
+.creator-card {
+    border: 1px solid rgba(0, 255, 196, 0.15);
+    backdrop-filter: blur(15px);
+    border-radius: 12px;
+}
+.btn-action-primary {
+    background: linear-gradient(135deg, #00b2ff, #00ffc4);
+    border: none;
+    color: #0b0f19;
+    transition: all 0.3s ease;
+}
+.btn-action-primary:hover:not(:disabled) {
+    box-shadow: 0 0 15px rgba(0, 255, 196, 0.5);
+}
+.btn-action-primary-glow {
+    background: linear-gradient(135deg, rgba(0, 255, 196, 0.15), rgba(0, 178, 255, 0.15));
+    border: 1px solid rgba(0, 255, 196, 0.35);
+    transition: all 0.3s ease;
+}
+.btn-action-primary-glow:hover {
+    background: linear-gradient(135deg, #00ffc4, #00b2ff);
+    color: #0b0f19 !important;
+    box-shadow: 0 0 15px rgba(0, 255, 196, 0.5);
+}
+.btn-action-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    transition: all 0.25s ease;
+}
+.btn-action-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+.mb-1.5 {
+    margin-bottom: 6px;
+}
+/* Rotated numbers label styling */
+.plot-number-tooltip {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #000000 !important;
+    font-family: 'Ranade', sans-serif;
+    font-weight: 800;
+    font-size: 11px !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.pr-1 {
+    padding-right: 4px;
+}
+/* Compass HUD Overlay style */
+.compass-hud {
+    position: absolute;
+    top: 50%;
+    right: 20px;
+    transform: translateY(-50%);
+    z-index: 1000;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(0, 255, 196, 0.3);
+    backdrop-filter: blur(10px);
+    background: rgba(11, 14, 20, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 15px rgba(0, 255, 196, 0.1);
+    transition: all 0.3s ease;
+}
+.compass-dial {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+}
+.direction-letter {
+    position: absolute;
+    font-size: 9px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.7);
+    font-family: 'Ranade', sans-serif;
+    transform: translate(-50%, -50%);
+}
+.direction-letter.n { top: 8%; left: 50%; color: #ff3e3e; }
+.direction-letter.e { top: 50%; left: 92%; }
+.direction-letter.s { top: 92%; left: 50%; }
+.direction-letter.w { top: 50%; left: 8%; }
+
+.compass-needle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 40px;
+    background: linear-gradient(to bottom, #ff3e3e 50%, #00ffd2 50%);
+    transform: translate(-50%, -50%) rotate(0deg);
+    transform-origin: 50% 50%;
+    transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border-radius: 2px;
+}
+.compass-needle::after {
+    content: '';
+    position: absolute;
+    top: calc(50% - 3px);
+    left: calc(50% - 3px);
+    width: 6px;
+    height: 6px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+}
+</style>
+{% endblock %}

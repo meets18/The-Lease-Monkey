@@ -179,6 +179,11 @@ let selectedMapPolygon = null;
 let currentFilter = 'all';
 let colorCodingActive = false; // Default: OFF (Cream plots)
 let satelliteActive = false;    // Default: OFF (Dark backdrop map view)
+let centerCoords = [26.788506, 75.836371];
+let initialZoom = 17;
+let minZoomLimit = 16;
+
+
 
 // Constants for color codes
 const COLORS = {
@@ -195,48 +200,98 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Initialize Leaflet Map
 function initMap() {
-  const centerCoords = [26.788506, 75.836371];
+  // Use dynamic configuration if provided by Django context
+  if (typeof landConfig !== 'undefined') {
+    if (landConfig.center) centerCoords = landConfig.center;
+    if (landConfig.zoom) initialZoom = landConfig.zoom;
+    // For newly plotted custom lands, allow standard zoom ranges
+    if (landConfig.slug !== 'demo-land') {
+      minZoomLimit = 1;
+    }
+  }
   
   // Create Leaflet map container on div 'map'
   map = L.map('map', {
     center: centerCoords,
-    zoom: 17,
+    zoom: initialZoom,
     zoomControl: false, // Disable default top-left control to place on right
     attributionControl: false,
-    minZoom: 16,
+    minZoom: minZoomLimit,
     maxZoom: 19
   });
 
   // Position zoom controls on the right-hand side
   L.control.zoom({ position: 'topright' }).addTo(map);
 
-  // Draw land boundary rectangle shape in flat dark theme
-  const landBoundaryCoords = [
+  // If satellite mode is active on load, add satellite layer and toggle class
+  if (satelliteActive) {
+    const mapEl = document.getElementById('map');
+    const satelliteBtn = document.getElementById('btnSatelliteToggle');
+    if (satelliteBtn) satelliteBtn.classList.add('active-cyan-btn');
+    if (mapEl) mapEl.classList.add('satellite-active');
+
+    satelliteLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      maxZoom: 19,
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+    });
+    satelliteLayer.addTo(map);
+  }
+
+  // Draw land boundary rectangle shape in flat dark theme or glowing translucent
+  let landBoundaryCoords = [
     [26.787651, 75.833059],
     [26.786722, 75.838976],
     [26.789209, 75.839725],
     [26.790382, 75.833765]
   ];
 
-  boundaryPolygon = L.polygon(landBoundaryCoords, {
+  if (typeof landConfig !== 'undefined' && landConfig.boundary && landConfig.boundary.length > 0) {
+    landBoundaryCoords = landConfig.boundary;
+  }
+
+  let boundaryStyle = {
     color: '#282b30',
     weight: 3,
     opacity: 0.8,
     fillColor: '#151922',
     fillOpacity: 0.95
-  }).addTo(map);
+  };
+
+  if (typeof landConfig !== 'undefined' && landConfig.slug !== 'demo-land') {
+    boundaryStyle = {
+      color: '#00ffd2', // Neon cyan border
+      weight: 3.5,
+      opacity: 0.9,
+      fillColor: '#151922', // Solid dark fill to match dummy land
+      fillOpacity: 0.95 // Solid opacity to match dummy land
+    };
+  }
+
+  boundaryPolygon = L.polygon(landBoundaryCoords, boundaryStyle).addTo(map);
+
+  // Auto zoom map to fit boundary polygon bounding box perfectly
+  if (typeof landConfig !== 'undefined' && landConfig.slug !== 'demo-land') {
+    map.fitBounds(boundaryPolygon.getBounds());
+  }
 
   // Add road label in the central corridor between North and South plot rows
-  const roadIcon = L.divIcon({
-    className: 'road-label-container',
-    html: '<div class="map-road-label">12M WIDE ACCESS ROAD</div>',
-    iconSize: [250, 20],
-    iconAnchor: [125, 10]
-  });
-  L.marker([26.78851, 75.8363], { icon: roadIcon, interactive: false }).addTo(map);
+  if (typeof landConfig === 'undefined' || landConfig.slug === 'demo-land') {
+    const roadIcon = L.divIcon({
+      className: 'road-label-container',
+      html: '<div class="map-road-label">12M WIDE ACCESS ROAD</div>',
+      iconSize: [250, 20],
+      iconAnchor: [125, 10]
+    });
+    L.marker([26.78851, 75.8363], { icon: roadIcon, interactive: false }).addTo(map);
+  }
 
   // Draw plot polygons on top of the boundary
-  plotData.forEach(plot => {
+  let activePlotData = plotData;
+  if (typeof landConfig !== 'undefined' && landConfig.slug !== 'demo-land') {
+    activePlotData = landConfig.plots || []; 
+  }
+
+  activePlotData.forEach(plot => {
     let statusColorKey = plot.status;
     if (plot.status === 'sold') statusColorKey = 'sold';
     if (plot.status === 'available') statusColorKey = 'available';
@@ -253,12 +308,16 @@ function initMap() {
     polygon.plotData = plot;
     polygon.statusColorKey = statusColorKey;
 
-    // Bind permanent plot number label centered inside the polygon
-    polygon.bindTooltip(plot.number, {
-      permanent: true,
-      direction: 'center',
-      className: 'plot-number-tooltip'
+    // Bind permanent plot number label centered inside the polygon using custom centroid marker
+    const centroid = getPolygonCentroid(plot.coordinates);
+    const labelIcon = L.divIcon({
+      className: 'plot-number-tooltip',
+      html: `<div>${plot.number}</div>`,
+      iconSize: [30, 16],
+      iconAnchor: [15, 8]
     });
+    const labelMarker = L.marker(centroid, { icon: labelIcon, interactive: false }).addTo(map);
+    polygon.labelMarker = labelMarker;
 
     mapPolygons.push(polygon);
 
@@ -323,7 +382,7 @@ function selectMapPlot(polygon) {
   });
 
   populateDetailsPanel(polygon.plotData, polygon.statusColorKey);
-  map.panTo([polygon.plotData.center.lat, polygon.plotData.center.lng]);
+  map.panTo(polygon.getBounds().getCenter());
 }
 
 // Populate Left Slide-In Panel
@@ -331,12 +390,21 @@ function populateDetailsPanel(data, statusColorKey) {
   document.getElementById('detailNum').innerText = data.number;
   document.getElementById('detailArea').innerText = data.area;
   document.getElementById('detailPrice').innerText = data.price;
-  document.getElementById('detailFacing').innerText = data.facing;
 
   const statusLabel = document.getElementById('detailStatus');
   statusLabel.innerText = data.status.toUpperCase();
   statusLabel.className = 'badge fw-bold py-1.5 px-3 text-uppercase text-dark';
   statusLabel.style.backgroundColor = COLORS[statusColorKey];
+
+  // Toggle Raise a Request CTA display based on plot status
+  const btnHoldPlot = document.getElementById('btnHoldPlot');
+  if (btnHoldPlot) {
+    if (data.status === 'available') {
+      btnHoldPlot.style.display = 'block';
+    } else {
+      btnHoldPlot.style.display = 'none';
+    }
+  }
 
   document.getElementById('detailsPanel').style.display = 'block';
 }
@@ -407,11 +475,11 @@ function setupToggleControls() {
       satelliteBtn.classList.remove('active-cyan-btn');
       if (mapEl) mapEl.classList.remove('satellite-active');
       
-      // Reset zoom limits and re-center if user zoomed out past 16
-      if (map.getZoom() < 16) {
-        map.setView([26.788506, 75.836371], 17);
+      // Reset zoom limits and re-center if user zoomed out past minZoomLimit
+      if (map.getZoom() < minZoomLimit) {
+        map.setView(centerCoords, initialZoom);
       }
-      map.setMinZoom(16);
+      map.setMinZoom(minZoomLimit);
       
       // Unload/remove Satellite tiles from Leaflet map view
       if (satelliteLayer) {
@@ -442,10 +510,12 @@ function applyFilters() {
     if (currentFilter === 'all' || status === currentFilter) {
       if (!map.hasLayer(polygon)) {
         polygon.addTo(map);
+        if (polygon.labelMarker) polygon.labelMarker.addTo(map);
       }
     } else {
       if (map.hasLayer(polygon)) {
         map.removeLayer(polygon);
+        if (polygon.labelMarker) map.removeLayer(polygon.labelMarker);
       }
     }
   });
@@ -471,7 +541,7 @@ function triggerSearch(query) {
       currentFilter = 'all';
       applyFilters();
     }
-    map.setView([matched.plotData.center.lat, matched.plotData.center.lng], 19);
+    map.setView(matched.getBounds().getCenter(), 19);
     selectMapPlot(matched);
     
     // Outline pulse animation in Leaflet
@@ -515,14 +585,14 @@ function resetFilters() {
     selectedMapPolygon = null;
   }
   document.getElementById('detailsPanel').style.display = 'none';
-  map.setView([26.788506, 75.836371], 17);
+  map.setView(centerCoords, initialZoom);
 }
 
 // Setup menu utilities
 function setupUtilities() {
   // Reset locate home view
   document.getElementById('btnHomeLocate').addEventListener('click', () => {
-    map.setView([26.788506, 75.836371], 17);
+    map.setView(centerCoords, initialZoom);
   });
 }
 
@@ -538,4 +608,47 @@ function closeDetailsPanel() {
     });
     selectedMapPolygon = null;
   }
+}
+
+// Centroid calculator helper
+function getPolygonCentroid(latlngs) {
+  let pts = latlngs;
+  let points = pts.map(p => {
+    if (Array.isArray(p)) {
+      return { lat: p[0], lng: p[1] };
+    }
+    return { lat: p.lat, lng: p.lng };
+  });
+
+  if (points.length === 0) return { lat: 0, lng: 0 };
+  if (points.length < 3) return points[0];
+
+  let first = points[0];
+  let last = points[points.length - 1];
+  let closedPts = [...points];
+  if (first.lat !== last.lat || first.lng !== last.lng) {
+    closedPts.push(first);
+  }
+
+  let area = 0;
+  let cx = 0;
+  let cy = 0;
+  let n = closedPts.length - 1;
+
+  for (let i = 0; i < n; i++) {
+    let p1 = closedPts[i];
+    let p2 = closedPts[i+1];
+    let factor = (p1.lat * p2.lng) - (p2.lat * p1.lng);
+    area += factor;
+    cx += (p1.lat + p2.lat) * factor;
+    cy += (p1.lng + p2.lng) * factor;
+  }
+
+  area = area / 2.0;
+  if (area === 0) return points[0];
+
+  cx = cx / (6.0 * area);
+  cy = cy / (6.0 * area);
+
+  return { lat: cx, lng: cy };
 }

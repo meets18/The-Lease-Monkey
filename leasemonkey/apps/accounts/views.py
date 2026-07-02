@@ -11,7 +11,7 @@ def portal_selection(request):
         if request.user.role == User.BUYER:
             return redirect('buyer_dashboard')
         elif request.user.role == User.ADMIN or request.user.is_superuser:
-            return redirect('/admin/')
+            return redirect('admin_dashboard')
     return render(request, 'accounts/portal_selection.html')
 
 def buyer_login(request):
@@ -94,6 +94,34 @@ def landowner_login(request):
 
     return render(request, 'accounts/landowner_login.html')
 
+def admin_login(request):
+    """Handles authentication checks for the Admin Portal."""
+    if request.user.is_authenticated:
+        if request.user.role == User.ADMIN or request.user.is_superuser:
+            return redirect('admin_dashboard')
+        logout(request)
+
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
+
+        if not username or not password:
+            messages.error(request, 'Please provide both username and password.')
+            return render(request, 'accounts/admin_login.html')
+
+        user = authenticate(request, username=username, password=password)
+
+        if user is not None:
+            if user.role == User.ADMIN or user.is_superuser:
+                login(request, user)
+                return redirect('admin_dashboard')
+            else:
+                messages.error(request, 'Invalid credentials for the Admin portal.')
+        else:
+            messages.error(request, 'Invalid login credentials.')
+
+    return render(request, 'accounts/admin_login.html')
+
 @login_required(login_url='portal_selection')
 def landowner_dashboard(request):
     """Displays the Land Owner Portal Dashboard if role matches."""
@@ -101,3 +129,20 @@ def landowner_dashboard(request):
         if not request.user.is_superuser:
             raise PermissionDenied("You do not have access to this portal.")
     return render(request, 'accounts/landowner_dashboard.html')
+
+@login_required(login_url='portal_selection')
+def admin_dashboard(request):
+    """Displays the Admin Portal Dashboard if role matches."""
+    if request.user.role != User.ADMIN:
+        if not request.user.is_superuser:
+            raise PermissionDenied("You do not have access to this portal.")
+            
+    from apps.lands.models import Land
+    lands = Land.objects.select_related('owner').all()
+    landowners = User.objects.filter(role=User.LAND_OWNER)
+    
+    context = {
+        'lands': lands,
+        'landowners': landowners,
+    }
+    return render(request, 'accounts/admin_dashboard.html', context)

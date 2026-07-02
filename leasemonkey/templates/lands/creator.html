@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Plot Land Boundary — The Lease Monkey{% endblock %}
+
+{% block content %}
+<!-- Leaflet CSS & JS CDNs -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div class="container-fluid min-vh-100 p-0" style="position: relative; z-index: 10; padding-top: 75px !important;">
+    <!-- Map Canvas Viewport -->
+    <div id="mapCreator" style="width: 100%; height: calc(100vh - 75px); background: #0b0e14;"></div>
+
+    <!-- Floating Drawing Tool Control Panel (Left Sidebar Overlay) -->
+    <div class="creator-card glass-panel shadow-2xl p-4 text-white font-opensans" style="position: absolute; top: 95px; left: 20px; z-index: 1000; width: 340px;">
+        <div class="border-bottom border-secondary-glow pb-3 mb-3">
+            <h4 class="font-ranade fw-bold text-white mb-1"><i class="bi bi-pencil-fill text-cyan-glow me-2"></i>Boundary Plotter</h4>
+            <p class="text-muted-glow fs-13 mb-0">Trace the corners of your property to draw its boundaries.</p>
+        </div>
+
+        <!-- Metadata Properties -->
+        <div class="mb-3 fs-13">
+            <div class="d-flex justify-content-between mb-1">
+                <span class="text-white-50">Property Name:</span>
+                <strong class="text-white" id="lblLandName">-</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-1">
+                <span class="text-white-50">Land Owner:</span>
+                <strong class="text-white" id="lblLandOwner">-</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-1">
+                <span class="text-white-50">Average Price:</span>
+                <strong class="text-cyan-glow" id="lblLandPrice">-</strong>
+            </div>
+            <div class="d-flex justify-content-between">
+                <span class="text-white-50">Target Location:</span>
+                <strong class="text-white text-truncate max-w-180" id="lblLandLocation" title="">-</strong>
+            </div>
+        </div>
+
+        <!-- Live Area Calculations -->
+        <div class="area-badge-panel p-3 rounded-3 mb-3 border border-secondary-glow text-center">
+            <span class="fs-11 text-uppercase tracking-wider text-secondary-glow d-block mb-1">Calculated Land Area</span>
+            <span class="fs-24 font-ranade fw-bold text-white d-block mb-1" id="lblCalculatedArea">0.00 Acres</span>
+            <span class="fs-12 text-white-50 d-block" id="lblCalculatedSqFt">0 sq ft</span>
+            <span class="badge bg-dark-glow border border-secondary-glow mt-2 fs-11 text-cyan-glow" id="lblCornerCount">Drawn Corners: 0</span>
+        </div>
+
+        <!-- Mode status banner -->
+        <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-12 mb-3 py-2 text-center" role="alert">
+            <i class="bi bi-info-circle-fill text-cyan-glow me-1"></i>
+            Click points directly on the map to define the outer corners.
+        </div>
+
+        <!-- Form action buttons -->
+        <div class="d-flex gap-2 mb-2">
+            <button type="button" onclick="undoPoint();" class="btn btn-action-secondary w-50 py-2 fs-12 text-uppercase fw-bold">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Undo
+            </button>
+            <button type="button" onclick="clearPoints();" class="btn btn-action-secondary w-50 py-2 fs-12 text-uppercase fw-bold">
+                <i class="bi bi-trash-fill me-1"></i> Clear
+            </button>
+        </div>
+        <button type="button" id="btnSaveLand" onclick="submitLandLayout();" disabled class="btn btn-action-primary w-100 py-2.5 fs-13 text-uppercase fw-bold">
+            Next: Add Plots <i class="bi bi-arrow-right ms-1"></i>
+        </button>
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-link text-white-50 fs-12 w-100 text-center text-decoration-none mt-2">
+            <i class="bi bi-x-circle me-1"></i> Cancel & Exit
+        </a>
+    </div>
+</div>
+
+<!-- CSFR Token Generation Helper -->
+<script>
+    const landName = "{{ name|escapejs }}";
+    const landOwner = "{{ owner|escapejs }}";
+    const landLocation = "{{ location|escapejs }}";
+    const landPrice = "{{ price|escapejs }}";
+
+    // Setup basic details labels
+    document.getElementById('lblLandName').innerText = landName;
+    document.getElementById('lblLandOwner').innerText = landOwner;
+    document.getElementById('lblLandPrice').innerText = 'INR ' + Number(landPrice).toLocaleString();
+    const locLabel = document.getElementById('lblLandLocation');
+    locLabel.innerText = landLocation;
+    locLabel.title = landLocation;
+
+    let map = null;
+    let drawnPoints = [];
+    let markers = [];
+    let boundaryPolygon = null;
+
+    // Get cookie helper
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Initialize Map Workspace
+    document.addEventListener("DOMContentLoaded", function() {
+        // Start centered in Sitapura default
+        map = L.map('mapCreator', {
+            zoomControl: false
+        }).setView([26.788506, 75.836371], 17);
+
+        // Standard zoom controls in top-right
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        // Load Satellite Hybrid base by default for precise boundary tracing
+        const satLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 19,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+        }).addTo(map);
+
+        // Geocode Location with OpenStreetMap Nominatim
+        if (landLocation) {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(landLocation)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        const lat = parseFloat(data[0].lat);
+                        const lon = parseFloat(data[0].lon);
+                        map.setView([lat, lon], 18);
+                    }
+                })
+                .catch(err => console.error("Error geocoding location: ", err));
+        }
+
+        // Map Click Listener to Draw Points
+        map.on('click', function(e) {
+            addPoint(e.latlng);
+        });
+    });
+
+    // Add coordinate point
+    function addPoint(latlng) {
+        drawnPoints.push(latlng);
+        
+        // Add Marker
+        const marker = L.circleMarker(latlng, {
+            radius: 6,
+            color: '#00ffd2',
+            fillColor: '#0b0f19',
+            fillOpacity: 1,
+            weight: 2
+        }).addTo(map);
+        markers.push(marker);
+
+        updatePolygon();
+    }
+
+    // Undo last point
+    function undoPoint() {
+        if (drawnPoints.length === 0) return;
+        drawnPoints.pop();
+        const marker = markers.pop();
+        if (marker) map.removeLayer(marker);
+        updatePolygon();
+    }
+
+    // Clear all points
+    function clearPoints() {
+        drawnPoints = [];
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+        updatePolygon();
+    }
+
+    // Redraw and recompute area
+    function updatePolygon() {
+        // Redraw Polygon
+        if (boundaryPolygon) {
+            map.removeLayer(boundaryPolygon);
+            boundaryPolygon = null;
+        }
+
+        if (drawnPoints.length >= 3) {
+            boundaryPolygon = L.polygon(drawnPoints, {
+                color: '#00ffd2',
+                weight: 2,
+                fillColor: '#00ffd2',
+                fillOpacity: 0.25
+            }).addTo(map);
+            document.getElementById('btnSaveLand').disabled = false;
+        } else {
+            document.getElementById('btnSaveLand').disabled = true;
+        }
+
+        // Calculate and Update Area
+        const areaSqMeters = calculatePolygonArea(drawnPoints);
+        const areaAcres = (areaSqMeters / 4046.85642).toFixed(2);
+        const areaSqFt = (areaSqMeters * 10.76391).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+        document.getElementById('lblCalculatedArea').innerText = areaAcres + ' Acres';
+        document.getElementById('lblCalculatedSqFt').innerText = areaSqFt + ' sq ft';
+        document.getElementById('lblCornerCount').innerText = 'Drawn Corners: ' + drawnPoints.length;
+    }
+
+    // Shoelace algorithm to calculate area relative to first coordinate node
+    function calculatePolygonArea(pointsList) {
+        if (pointsList.length < 3) return 0;
+        
+        const lat0 = pointsList[0].lat;
+        const lng0 = pointsList[0].lng;
+        
+        // Convert lat/lng to meter distance coordinates relative to starting point
+        const relativeMeters = pointsList.map(p => {
+            const y = (p.lat - lat0) * 111139;
+            const x = (p.lng - lng0) * 111139 * Math.cos(lat0 * Math.PI / 180);
+            return { x, y };
+        });
+        
+        let area = 0;
+        const n = relativeMeters.length;
+        for (let i = 0; i < n; i++) {
+            const j = (i + 1) % n;
+            area += relativeMeters[i].x * relativeMeters[j].y;
+            area -= relativeMeters[j].x * relativeMeters[i].y;
+        }
+        
+        return Math.abs(area / 2.0);
+    }
+
+    // Submit layout structure
+    function submitLandLayout() {
+        if (drawnPoints.length < 3) return;
+
+        const boundaryCoords = drawnPoints.map(p => [p.lat, p.lng]);
+        const areaSqMeters = calculatePolygonArea(drawnPoints);
+        const areaAcres = (areaSqMeters / 4046.85642).toFixed(2);
+
+        const data = {
+            name: landName,
+            owner: landOwner,
+            location: landLocation,
+            price: landPrice,
+            area: areaAcres,
+            boundary_coordinates: boundaryCoords
+        };
+
+        const saveButton = document.getElementById('btnSaveLand');
+        saveButton.disabled = true;
+        saveButton.innerHTML = 'Registering <span class="spinner-border spinner-border-sm ms-1" role="status" aria-hidden="true"></span>';
+
+        fetch("{% url 'lands:save_land_layout' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(res => {
+            if (res.success) {
+                window.location.href = res.redirect_url;
+            } else {
+                alert("Error registering land: " + res.error);
+                saveButton.disabled = false;
+                saveButton.innerHTML = 'Next: Add Plots <i class="bi bi-arrow-right ms-1"></i>';
+            }
+        })
+        .catch(err => {
+            console.error("AJAX Error: ", err);
+            alert("Error sending layout to server.");
+            saveButton.disabled = false;
+            saveButton.innerHTML = 'Next: Add Plots <i class="bi bi-arrow-right ms-1"></i>';
+        });
+    }
+</script>
+
+<style>
+.creator-card {
+    border: 1px solid rgba(0, 255, 196, 0.15);
+    backdrop-filter: blur(15px);
+    border-radius: 12px;
+}
+.area-badge-panel {
+    background: rgba(11, 15, 25, 0.4);
+}
+.btn-action-primary {
+    background: linear-gradient(135deg, #00b2ff, #00ffc4);
+    border: none;
+    color: #0b0f19;
+    transition: all 0.3s ease;
+}
+.btn-action-primary:hover:not(:disabled) {
+    box-shadow: 0 0 15px rgba(0, 255, 196, 0.5);
+    transform: translateY(-1px);
+}
+.btn-action-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.btn-action-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    transition: all 0.25s ease;
+}
+.btn-action-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+.max-w-180 {
+    max-width: 180px;
+}
+</style>
+{% endblock %}
