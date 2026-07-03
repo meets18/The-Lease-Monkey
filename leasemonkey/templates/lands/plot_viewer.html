@@ -88,13 +88,40 @@
 
 <!-- Bottom-Right Solace Control Panel overlay -->
 <div style="position: absolute; bottom: 20px; right: 20px; z-index: 10; display: flex; flex-direction: column; gap: 12px; width: 340px;">
-    <!-- 1. Search Bar -->
+    <!-- 1. Interactive Control Dock Row (Gallery, Info, Locate, Route) -->
+    <div class="d-flex gap-2 align-items-center justify-content-between">
+        <!-- Gallery button -->
+        <button id="btnGallery" class="btn-dock-button flex-grow-1 px-1" onclick="openGalleryOverlay();" title="View Property Gallery">
+            <i class="bi bi-images text-cyan-glow"></i>
+            <span class="fs-10 fw-bold text-white text-uppercase">Gallery</span>
+        </button>
+
+        <!-- Info button -->
+        <button id="btnInfo" class="btn-dock-button flex-grow-1 px-1" onclick="openInfoOverlay();" title="View Property Details">
+            <i class="bi bi-info-circle text-cyan-glow"></i>
+            <span class="fs-10 fw-bold text-white text-uppercase">Info</span>
+        </button>
+
+        <!-- Locate button -->
+        <button id="btnLocate" class="btn-dock-button flex-grow-1 px-1" onclick="openGoogleMapsRedirect();" title="Locate on Google Maps">
+            <i class="bi bi-geo-alt-fill text-cyan-glow"></i>
+            <span class="fs-10 fw-bold text-white text-uppercase">Locate</span>
+        </button>
+
+        <!-- GPS Route button (Visible only when map toggle/satellite is active) -->
+        <button id="btnRoute" class="btn-dock-button flex-grow-1 px-1" style="display: none;" onclick="triggerGpsRouting();" title="GPS Route Path">
+            <i class="bi bi-compass text-cyan-glow"></i>
+            <span class="fs-10 fw-bold text-white text-uppercase">Route</span>
+        </button>
+    </div>
+
+    <!-- 2. Search Bar -->
     <div class="search-input-group shadow-lg">
         <i class="bi bi-search"></i>
         <input type="text" id="plotSearchInput" class="search-field" placeholder="Search Plot" />
     </div>
 
-    <!-- 2. Control Row: Status Switch, Satellite Toggle and Home Reset -->
+    <!-- 3. Control Row: Status Switch, Satellite Toggle and Home Reset -->
     <div class="d-flex gap-2 align-items-center justify-content-between">
         <!-- Status Switch -->
         <div class="glass-pill-container d-flex align-items-center justify-content-between flex-grow-1 px-3 py-2 rounded-3 border border-secondary-glow bg-dark-glow" style="height: 42px;">
@@ -190,9 +217,501 @@
             alert("Error sending delete request.");
         });
     }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Gallery Overlay control handlers
+    function openGalleryOverlay() {
+        const gridContainer = document.getElementById('galleryGrid');
+        gridContainer.innerHTML = '';
+
+        if (landConfig.isAdmin) {
+            const addCol = document.createElement('div');
+            addCol.className = 'col';
+            addCol.innerHTML = `
+                <div class="gallery-grid-card shadow-lg position-relative overflow-hidden rounded-3 border border-dashed border-cyan d-flex flex-column align-items-center justify-content-center text-center cursor-pointer p-4 text-cyan-glow" onclick="triggerAddPhotoForm()" style="aspect-ratio: 4/3; background: rgba(0, 255, 196, 0.04); min-height: 100%;">
+                    <i class="bi bi-plus-circle-fill fs-2 mb-2 text-cyan-glow"></i>
+                    <span class="font-ranade fw-bold fs-13 text-uppercase text-white">Add Photo</span>
+                </div>
+            `;
+            gridContainer.appendChild(addCol);
+        }
+
+        if ((!landConfig.images || landConfig.images.length === 0) && !landConfig.isAdmin) {
+            gridContainer.innerHTML = `
+                <div class="col-12 text-center text-white-50 py-5">
+                    <i class="bi bi-images fs-1 text-muted-glow mb-2"></i>
+                    <p class="fs-13">No gallery images uploaded for this property yet.</p>
+                </div>
+            `;
+        } else if (landConfig.images && landConfig.images.length > 0) {
+            landConfig.images.forEach(img => {
+                const col = document.createElement('div');
+                col.className = 'col';
+                
+                let trashBtn = '';
+                if (landConfig.isAdmin) {
+                    trashBtn = `
+                        <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 rounded-circle p-1 line-height-1 z-3 shadow-lg" onclick="event.stopPropagation(); deleteGalleryPhotoConfirm(${img.id})" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; opacity: 0.85; border: none; background: #dc3545;">
+                            <i class="bi bi-trash-fill fs-14 text-white"></i>
+                        </button>
+                    `;
+                }
+
+                col.innerHTML = `
+                    <div class="gallery-grid-card shadow-lg position-relative overflow-hidden rounded-3 border border-secondary-glow" onclick="openImageLightbox('${img.url}', '${img.caption}')" style="min-height: 100%;">
+                        ${trashBtn}
+                        <img src="${img.url}" class="w-100 h-100 object-fit-cover" style="aspect-ratio: 4/3; display: block; transition: transform 0.3s ease;" alt="${img.caption}">
+                        <div class="gallery-grid-overlay position-absolute bottom-0 start-0 w-100 p-2 text-center text-truncate text-white">
+                            ${img.caption}
+                        </div>
+                    </div>
+                `;
+                gridContainer.appendChild(col);
+            });
+        }
+
+        document.getElementById('galleryOverlay').style.display = 'flex';
+    }
+
+    function closeGalleryOverlay() {
+        document.getElementById('galleryOverlay').style.display = 'none';
+    }
+
+    function triggerAddPhotoForm() {
+        document.getElementById('adminGalleryPhotoInput').click();
+    }
+
+    function handleAdminPhotoUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const caption = prompt("Enter a custom caption for this image:", "");
+        if (caption === null) return; // User cancelled
+
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('caption', caption);
+
+        fetch(`/lands/plots/${landConfig.slug}/add-photo/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Add uploaded image to local list
+                landConfig.images.push(data.image);
+                // Re-render gallery grid
+                openGalleryOverlay();
+                alert("Image uploaded successfully!");
+            } else {
+                alert("Upload failed: " + (data.error || "Unknown error"));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error uploading image file.");
+        });
+
+        // Reset file input
+        event.target.value = '';
+    }
+
+    function deleteGalleryPhotoConfirm(photoId) {
+        if (!confirm("Are you sure you want to delete this photo from the gallery? This is permanent.")) return;
+
+        fetch(`/lands/plots/${landConfig.slug}/delete-photo/${photoId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Filter out from local array
+                landConfig.images = landConfig.images.filter(img => img.id !== photoId);
+                // Re-render gallery grid
+                openGalleryOverlay();
+                alert("Photo successfully deleted!");
+            } else {
+                alert("Deletion failed: " + (data.error || "Unknown error"));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error deleting photo record.");
+        });
+    }
+
+    function openImageLightbox(url, caption) {
+        document.getElementById('lightboxImg').src = url;
+        document.getElementById('lightboxCaption').innerText = caption;
+        document.getElementById('lightboxOverlay').style.display = 'flex';
+    }
+
+    function closeLightbox() {
+        document.getElementById('lightboxOverlay').style.display = 'none';
+    }
+
+    // Info Overlay control handlers
+    function openInfoOverlay() {
+        if (landConfig.slug === 'demo-land') {
+            document.getElementById('infoDescriptionText').innerText = "This is a premium model demonstration property exhibiting standard layouts of Solace Layout model, including entry, exit gate alignments and internal road spacing constraints.";
+        }
+        document.getElementById('infoOverlay').style.display = 'flex';
+    }
+
+    function closeInfoOverlay() {
+        document.getElementById('infoOverlay').style.display = 'none';
+        toggleInfoEditing(false); // Reset to read-only when closed
+    }
+
+    function toggleInfoEditing(editActive) {
+        const headerView = document.getElementById('infoHeaderView');
+        const headerEdit = document.getElementById('infoHeaderEdit');
+        const bodyView = document.getElementById('infoBodyView');
+        const bodyEdit = document.getElementById('infoBodyEdit');
+
+        if (!headerView || !headerEdit || !bodyView || !bodyEdit) return;
+
+        if (editActive) {
+            // Load current config values to form inputs
+            document.getElementById('txtEditName').value = landConfig.name;
+            document.getElementById('txtEditLocation').value = landConfig.location;
+            document.getElementById('txtEditPrice').value = landConfig.averagePrice;
+            document.getElementById('txtEditDescription').value = landConfig.description;
+
+            headerView.style.setProperty('display', 'none', 'important');
+            headerEdit.style.setProperty('display', 'flex', 'important');
+            bodyView.style.display = 'none';
+            bodyEdit.style.display = 'block';
+        } else {
+            headerView.style.setProperty('display', 'flex', 'important');
+            headerEdit.style.setProperty('display', 'none', 'important');
+            bodyView.style.display = 'block';
+            bodyEdit.style.display = 'none';
+        }
+    }
+
+    function saveInfoChanges() {
+        const name = document.getElementById('txtEditName').value.trim();
+        const location = document.getElementById('txtEditLocation').value.trim();
+        const price = parseFloat(document.getElementById('txtEditPrice').value) || 0;
+        const description = document.getElementById('txtEditDescription').value.trim();
+
+        if (!name || !location) {
+            alert("Name and Location are required fields.");
+            return;
+        }
+
+        const data = {
+            name: name,
+            location: location,
+            average_plot_price: price,
+            description: description
+        };
+
+        fetch(`/lands/plots/${landConfig.slug}/update-info/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                // Update local configuration state
+                landConfig.name = name;
+                landConfig.location = location;
+                landConfig.averagePrice = price;
+                landConfig.description = description;
+
+                // Sync view display labels
+                document.getElementById('lblInfoName').innerText = name;
+                document.getElementById('lblInfoLocation').innerText = location;
+                document.getElementById('lblInfoPrice').innerText = "INR " + price.toLocaleString();
+                document.getElementById('infoDescriptionText').innerHTML = description ? description.replace(/\n/g, '<br>') : "No additional description supplied by landowner.";
+
+                // Exit edit mode
+                toggleInfoEditing(false);
+                alert("Specs updated successfully!");
+            } else {
+                alert("Failed to update specs: " + (res.error || "Unknown error"));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error updating property details.");
+        });
+    }
+
+    // Locate (Google Maps / GPS routing) handler
+    let routingLayerGroup = null; 
+    let gpsMarker = null;
+
+    window.clearGpsRouting = function() {
+        if (routingLayerGroup) {
+            map.removeLayer(routingLayerGroup);
+            routingLayerGroup = null;
+        }
+        gpsMarker = null;
+        
+        // Reset Route button icon & text
+        const btn = document.getElementById('btnRoute');
+        if (btn) {
+            btn.innerHTML = `<i class="bi bi-compass text-cyan-glow"></i><span class="fs-10 fw-bold text-white text-uppercase">Route</span>`;
+        }
+    };
+
+    function openGoogleMapsRedirect() {
+        // Open official Google Maps coordinates
+        const lat = landConfig.center[0];
+        const lng = landConfig.center[1];
+        const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+        window.open(url, '_blank');
+    }
+
+    let manualRoutingActive = false;
+
+    function askForManualRouting(reason) {
+        const proceed = confirm(`We couldn't resolve your GPS location (${reason}).\n\nWould you like to manually click a starting point on the map to trace the route?`);
+        if (proceed) {
+            startManualRoutingMode();
+        }
+    }
+
+    function startManualRoutingMode() {
+        manualRoutingActive = true;
+        
+        // Show a custom top toast instructions bar
+        let toast = document.getElementById('manualRouteToast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'manualRouteToast';
+            toast.className = 'position-absolute start-50 translate-middle-x bg-dark text-white fs-12 px-3 py-2 rounded-pill shadow-lg font-ranade text-center z-3';
+            toast.style.top = '20px';
+            toast.style.minWidth = '290px';
+            toast.style.border = '1px solid #00ffd2';
+            toast.innerHTML = `<i class="bi bi-info-circle-fill text-cyan-glow me-1"></i> Click map to set starting point. <button class="btn btn-sm btn-outline-danger border-0 p-0 ms-2 text-decoration-underline text-white" onclick="window.cancelManualRoutingMode()">Cancel</button>`;
+            document.getElementById('map').appendChild(toast);
+        } else {
+            toast.style.display = 'block';
+        }
+
+        // Add map click listener
+        map.on('click', handleMapClickForRoute);
+        // Change cursor to crosshair
+        document.getElementById('map').style.cursor = 'crosshair';
+    }
+
+    window.cancelManualRoutingMode = function() {
+        manualRoutingActive = false;
+        const toast = document.getElementById('manualRouteToast');
+        if (toast) toast.style.display = 'none';
+        
+        if (map) {
+            map.off('click', handleMapClickForRoute);
+            const mapEl = document.getElementById('map');
+            if (mapEl) mapEl.style.cursor = '';
+        }
+    };
+
+    function handleMapClickForRoute(e) {
+        const startLat = e.latlng.lat;
+        const startLng = e.latlng.lng;
+        
+        // Clean up manual routing mode settings
+        window.cancelManualRoutingMode();
+        
+        // Calculate route from clicked coordinates
+        const landLat = landConfig.center[0];
+        const landLng = landConfig.center[1];
+
+        const distanceKm = calculateHaversineDistance(startLat, startLng, landLat, landLng);
+        const distanceFt = distanceKm * 3280.84;
+
+        let distanceStr = '';
+        if (distanceKm < 1.0) {
+            distanceStr = `${Math.round(distanceFt).toLocaleString()} ft`;
+        } else {
+            distanceStr = `${distanceKm.toFixed(2)} km (${Math.round(distanceFt).toLocaleString()} ft)`;
+        }
+
+        if (routingLayerGroup) {
+            map.removeLayer(routingLayerGroup);
+        }
+        routingLayerGroup = L.layerGroup().addTo(map);
+
+        // Custom Start Point pin marker
+        gpsMarker = L.marker([startLat, startLng], {
+            icon: L.divIcon({
+                className: 'gps-user-marker',
+                html: `<div class="user-gps-dot" style="background-color: #00ffd2;">
+                          <div class="user-gps-pulse" style="background: rgba(0, 255, 210, 0.4);"></div>
+                       </div>`,
+                iconSize: [24, 24]
+            })
+        }).addTo(routingLayerGroup);
+
+        // Routing polyline track
+        const routePath = L.polyline([[startLat, startLng], [landLat, landLng]], {
+            color: '#00ffd2',
+            weight: 4,
+            opacity: 0.85,
+            dashArray: '10, 15'
+        }).addTo(routingLayerGroup);
+
+        // Center distance indicator tooltip
+        const midLat = (startLat + landLat) / 2;
+        const midLng = (startLng + landLng) / 2;
+        L.marker([midLat, midLng], {
+            icon: L.divIcon({
+                className: 'route-distance-label',
+                html: `<div class="distance-pill"><i class="bi bi-compass-fill me-1"></i>${distanceStr} to property (Manual Start)</div>`,
+                iconSize: [260, 30]
+            })
+        }).addTo(routingLayerGroup);
+
+        map.fitBounds(routePath.getBounds(), { padding: [50, 50] });
+
+        // Update Route button to Clear
+        const btn = document.getElementById('btnRoute');
+        if (btn) {
+            btn.innerHTML = `<i class="bi bi-trash-fill text-danger"></i><span class="fs-10 fw-bold text-white text-uppercase">Clear</span>`;
+        }
+    }
+
+    function triggerGpsRouting() {
+        // Toggle behavior: if route is active, click clears it!
+        if (routingLayerGroup) {
+            window.clearGpsRouting();
+            return;
+        }
+
+        // Calculate Haversine GPS routing
+        if (!navigator.geolocation) {
+            alert("Geolocation is not supported by your browser.");
+            return;
+        }
+
+        alert("Requesting your current GPS coordinates to trace route path...");
+        
+        function successCallback(position) {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+            const landLat = landConfig.center[0];
+            const landLng = landConfig.center[1];
+
+            const distanceKm = calculateHaversineDistance(userLat, userLng, landLat, landLng);
+            const distanceFt = distanceKm * 3280.84;
+
+            let distanceStr = '';
+            if (distanceKm < 1.0) {
+                distanceStr = `${Math.round(distanceFt).toLocaleString()} ft`;
+            } else {
+                distanceStr = `${distanceKm.toFixed(2)} km (${Math.round(distanceFt).toLocaleString()} ft)`;
+            }
+
+            if (routingLayerGroup) {
+                map.removeLayer(routingLayerGroup);
+            }
+            routingLayerGroup = L.layerGroup().addTo(map);
+
+            // User GPS marker dot
+            gpsMarker = L.marker([userLat, userLng], {
+                icon: L.divIcon({
+                    className: 'gps-user-marker',
+                    html: `<div class="user-gps-dot">
+                              <div class="user-gps-pulse"></div>
+                           </div>`,
+                    iconSize: [24, 24]
+                })
+            }).addTo(routingLayerGroup);
+
+            // Routing polyline track
+            const routePath = L.polyline([[userLat, userLng], [landLat, landLng]], {
+                color: '#00ffd2',
+                weight: 4,
+                opacity: 0.85,
+                dashArray: '10, 15'
+            }).addTo(routingLayerGroup);
+
+            // Center distance indicator tooltip
+            const midLat = (userLat + landLat) / 2;
+            const midLng = (userLng + landLng) / 2;
+            L.marker([midLat, midLng], {
+                icon: L.divIcon({
+                    className: 'route-distance-label',
+                    html: `<div class="distance-pill"><i class="bi bi-compass-fill me-1"></i>${distanceStr} to property</div>`,
+                    iconSize: [220, 30]
+                })
+            }).addTo(routingLayerGroup);
+
+            map.fitBounds(routePath.getBounds(), { padding: [50, 50] });
+
+            // Update Route button to Clear
+            const btn = document.getElementById('btnRoute');
+            if (btn) {
+                btn.innerHTML = `<i class="bi bi-trash-fill text-danger"></i><span class="fs-10 fw-bold text-white text-uppercase">Clear</span>`;
+            }
+        }
+
+        // Try with high accuracy first (5s timeout)
+        navigator.geolocation.getCurrentPosition(
+            successCallback,
+            function(error) {
+                console.warn(`GPS High Accuracy failed: ${error.message}. Retrying with standard accuracy...`);
+                // Fallback to Wi-Fi/Cellular positioning
+                navigator.geolocation.getCurrentPosition(
+                    successCallback,
+                    function(err) {
+                        askForManualRouting(err.message);
+                    },
+                    { enableHighAccuracy: false, timeout: 15000, maximumAge: 10000 }
+                );
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    }
+
+    function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; 
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+
     const landConfig = {
         name: "{{ land.name|escapejs }}",
         slug: "{{ land.slug|escapejs }}",
+        isAdmin: {% if is_admin %}true{% else %}false{% endif %},
+        location: "{{ land.location|escapejs }}",
+        description: "{{ land.description|escapejs }}",
+        averagePrice: {{ land.average_plot_price|default:0 }},
         center: [{{ land.center_lat|default:26.788506 }}, {{ land.center_lng|default:75.836371 }}],
         zoom: {{ land.zoom_level|default:17 }},
         boundary: {{ land.boundary_coordinates|safe|default:"[]" }},
@@ -207,12 +726,130 @@
                 coordinates: {{ plot.coordinates|safe }}
             },
             {% endfor %}
-        ]
+        ],
+        images: {{ images_list_json|safe|default:"[]" }},
+        roads: {{ roads_list_json|safe|default:"[]" }},
+        gates: {{ gates_list_json|safe|default:"[]" }}
     };
 </script>
 
 <!-- Map script controller hooks -->
 <script src="{% static 'js/map_viewer.js' %}?v={{ land.updated_at|date:'U' }}"></script>
+
+<!-- Hidden Admin Gallery File Input -->
+<input type="file" id="adminGalleryPhotoInput" accept="image/*" style="display: none;" onchange="handleAdminPhotoUpload(event)" />
+
+<!-- Glassmorphic Gallery Modal Overlay -->
+<div id="galleryOverlay" class="glass-modal-overlay" style="display: none;">
+    <div class="gallery-modal-content">
+        <div class="modal-header-custom">
+            <h4 class="font-ranade fw-bold text-white mb-0"><i class="bi bi-images text-cyan-glow me-2"></i>Property Gallery</h4>
+            <button type="button" class="btn-close-custom" onclick="closeGalleryOverlay();"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="modal-body-custom mt-3" style="overflow-y: auto; max-height: calc(80vh - 100px); padding-right: 6px;">
+            <div id="galleryGrid" class="row g-3 row-cols-1 row-cols-sm-2 row-cols-md-3">
+                <!-- Dynamically populated card grid columns -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Glassmorphic Lightbox Overlay -->
+<div id="lightboxOverlay" class="glass-modal-overlay" style="display: none; z-index: 3000; background: rgba(5, 5, 8, 0.95);" onclick="closeLightbox();">
+    <div class="position-relative text-center d-flex flex-column align-items-center justify-content-center" style="max-width: 90%; max-height: 90%;" onclick="event.stopPropagation();">
+        <button type="button" class="btn-close-custom position-absolute" style="top: -40px; right: 0; font-size: 24px;" onclick="closeLightbox();"><i class="bi bi-x-lg"></i></button>
+        <img id="lightboxImg" src="" class="img-fluid rounded shadow-2xl" style="max-height: 75vh; object-fit: contain;" />
+        <p id="lightboxCaption" class="text-white font-ranade mt-3 mb-0 fw-semibold fs-15 text-cyan-glow"></p>
+    </div>
+</div>
+
+<!-- Glassmorphic Info Modal Overlay -->
+<div id="infoOverlay" class="glass-modal-overlay" style="display: none;">
+    <div class="gallery-modal-content" id="infoModalContent">
+        <!-- Read-Only View Header -->
+        <div class="modal-header-custom d-flex justify-content-between align-items-center" id="infoHeaderView" style="display: flex !important;">
+            <h4 class="font-ranade fw-bold text-white mb-0"><i class="bi bi-info-circle text-cyan-glow me-2"></i>Property Details</h4>
+            <div class="d-flex align-items-center gap-3">
+                {% if is_admin %}
+                <button type="button" class="btn btn-sm btn-outline-cyan font-ranade fw-bold fs-12 px-2.5 py-1" onclick="toggleInfoEditing(true)"><i class="bi bi-pencil-fill me-1"></i>Edit Info</button>
+                {% endif %}
+                <button type="button" class="btn-close-custom" onclick="closeInfoOverlay();"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+
+        <!-- Edit Mode Header -->
+        <div class="modal-header-custom d-flex justify-content-between align-items-center" id="infoHeaderEdit" style="display: none !important;">
+            <h4 class="font-ranade fw-bold text-cyan-glow mb-0"><i class="bi bi-pencil-square me-2"></i>Edit Property Details</h4>
+            <button type="button" class="btn-close-custom" onclick="toggleInfoEditing(false);"><i class="bi bi-x-lg"></i></button>
+        </div>
+
+        <!-- Read-Only View Body -->
+        <div class="modal-body-custom mt-3 font-opensans text-white-50" id="infoBodyView" style="display: block; overflow-y: auto; max-height: calc(80vh - 100px); padding-right: 6px;">
+            <div class="mb-3">
+                <h5 class="text-white fs-15 mb-1" id="lblInfoName">{{ land.name }}</h5>
+                <p class="fs-13 text-muted-glow"><i class="bi bi-geo-alt-fill me-1 text-cyan-glow"></i><span id="lblInfoLocation">{{ land.location }}</span></p>
+            </div>
+            
+            <div class="border-top border-secondary-glow pt-3 mb-3 fs-13">
+                <p class="text-white mb-2 fw-semibold">Description:</p>
+                <p class="lh-base" id="infoDescriptionText">{{ land.description|default:"No additional description supplied by landowner."|linebreaksbr }}</p>
+            </div>
+
+            <div class="row g-2 border-top border-secondary-glow pt-3">
+                <div class="col-6">
+                    <div class="bg-dark-glow border border-secondary-glow rounded p-2 text-center">
+                        <span class="fs-11 text-secondary-glow text-uppercase d-block">Landowner</span>
+                        <strong class="text-white fs-13">{{ land.owner.username }}</strong>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="bg-dark-glow border border-secondary-glow rounded p-2 text-center">
+                        <span class="fs-11 text-secondary-glow text-uppercase d-block">Total Area</span>
+                        <strong class="text-white fs-13">{{ land.area }} Acres</strong>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="bg-dark-glow border border-secondary-glow rounded p-2 text-center">
+                        <span class="fs-11 text-secondary-glow text-uppercase d-block">Plots Count</span>
+                        <strong class="text-white fs-13">{{ land.plots.count }}</strong>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="bg-dark-glow border border-secondary-glow rounded p-2 text-center">
+                        <span class="fs-11 text-secondary-glow text-uppercase d-block">Avg Plot Price</span>
+                        <strong class="text-white fs-13" id="lblInfoPrice">INR {{ land.average_plot_price|floatformat:0 }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Form Body -->
+        <div class="modal-body-custom mt-3 font-opensans text-white-50" id="infoBodyEdit" style="display: none; overflow-y: auto; max-height: calc(80vh - 100px); padding-right: 6px;">
+            <form id="frmEditLandInfo" onsubmit="event.preventDefault();" class="d-flex flex-column gap-3">
+                <div>
+                    <label class="form-label fs-12 text-secondary-glow mb-1">Land Name</label>
+                    <input type="text" id="txtEditName" class="form-control bg-dark border-secondary text-white fs-13" />
+                </div>
+                <div>
+                    <label class="form-label fs-12 text-secondary-glow mb-1">Location / Address</label>
+                    <input type="text" id="txtEditLocation" class="form-control bg-dark border-secondary text-white fs-13" />
+                </div>
+                <div>
+                    <label class="form-label fs-12 text-secondary-glow mb-1">Average Plot Price (INR)</label>
+                    <input type="number" id="txtEditPrice" class="form-control bg-dark border-secondary text-white fs-13" />
+                </div>
+                <div>
+                    <label class="form-label fs-12 text-secondary-glow mb-1">Description</label>
+                    <textarea id="txtEditDescription" class="form-control bg-dark border-secondary text-white fs-13" rows="6"></textarea>
+                </div>
+                <div class="d-flex gap-2.5 mt-2">
+                    <button type="button" class="btn btn-action-primary w-50 py-2 fs-12 text-uppercase fw-bold text-white" onclick="saveInfoChanges()">Save Changes <i class="bi bi-check-lg ms-1"></i></button>
+                    <button type="button" class="btn btn-action-secondary w-50 py-2 fs-12 text-uppercase fw-bold text-white" onclick="toggleInfoEditing(false)">Cancel <i class="bi bi-x-circle ms-1"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <style>
 /* Fullscreen Lock */
@@ -316,6 +953,259 @@ body {
     background: #ffffff;
     border-radius: 50%;
     box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Glassmorphic Modal Overlays */
+.glass-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(10, 14, 22, 0.65);
+    backdrop-filter: blur(15px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeInOverlay 0.35s ease;
+}
+.glass-modal-content {
+    background: rgba(18, 25, 38, 0.82);
+    border: 1.5px solid rgba(0, 255, 196, 0.2);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border-radius: 16px;
+    width: 480px;
+    max-width: 90%;
+    padding: 24px;
+    animation: slideUpModal 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+.modal-header-custom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 12px;
+}
+.btn-close-custom {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 16px;
+    transition: all 0.25s ease;
+}
+.btn-close-custom:hover {
+    color: #ff3b30;
+    transform: rotate(90deg);
+}
+
+/* Control dock rectangular buttons */
+.btn-dock-button {
+    background: #0c101b !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    color: #ffffff;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 10px !important;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6) !important;
+}
+.btn-dock-button:hover {
+    background: rgba(0, 255, 196, 0.15) !important;
+    border-color: var(--primary-cyan) !important;
+    color: var(--primary-cyan) !important;
+    box-shadow: 0 0 12px rgba(0, 255, 196, 0.4) !important;
+}
+
+/* Cache-bypassing search field high contrast overlay styling */
+.search-field {
+    width: 100%;
+    padding: 10px 12px 10px 40px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background: rgba(10, 18, 30, 0.95) !important;
+    color: #ffffff !important;
+    font-size: 14px !important;
+    transition: all 0.3s ease !important;
+}
+.search-field::placeholder {
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+.search-field:focus {
+    outline: none !important;
+    border-color: var(--primary-cyan) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 196, 0.3) !important;
+    background: rgba(10, 18, 30, 0.98) !important;
+}
+
+/* Scrollable Grid Gallery styles */
+.gallery-modal-content {
+    background: rgba(18, 25, 38, 0.88) !important;
+    border: 1.5px solid rgba(0, 255, 196, 0.2) !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+    border-radius: 16px !important;
+    width: 1100px !important;
+    max-width: 95% !important;
+    height: 80vh !important;
+    padding: 24px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    animation: slideUpModal 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.gallery-grid-card {
+    position: relative;
+    cursor: pointer;
+    background: #090c12;
+    transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+.gallery-grid-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 255, 196, 0.25) !important;
+    border-color: var(--primary-cyan) !important;
+}
+.gallery-grid-card img {
+    transition: transform 0.4s ease;
+}
+.gallery-grid-card:hover img {
+    transform: scale(1.05);
+}
+
+.gallery-grid-overlay {
+    background: rgba(9, 12, 18, 0.75) !important;
+    font-size: 11px !important;
+    font-family: 'Ranade', sans-serif !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    opacity: 0.95 !important;
+    transition: all 0.25s ease !important;
+}
+.gallery-grid-card:hover .gallery-grid-overlay {
+    background: rgba(9, 12, 18, 0.92) !important;
+    color: var(--primary-cyan) !important;
+}
+
+/* User GPS Pulse Dot */
+.gps-user-marker {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+.user-gps-dot {
+    width: 14px;
+    height: 14px;
+    background: #00ffd2;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    position: relative;
+    box-shadow: 0 0 10px rgba(0, 255, 210, 0.8);
+}
+.user-gps-pulse {
+    width: 30px;
+    height: 30px;
+    background: rgba(0, 255, 210, 0.35);
+    border-radius: 50%;
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    animation: gpsPulse 1.8s infinite ease-out;
+}
+
+/* Route Distance Label styling */
+.route-distance-label {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.distance-pill {
+    background: #0b0f19;
+    color: #00ffd2;
+    border: 1px solid rgba(0, 255, 210, 0.4);
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+    white-space: nowrap;
+}
+
+/* Road center line text tooltip styling */
+.road-label-tooltip {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    text-align: center;
+    pointer-events: none !important;
+    user-select: none !important;
+}
+.road-name-text {
+    color: rgba(255, 255, 255, 0.95);
+    font-family: 'Ranade', sans-serif;
+    font-weight: 800;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    background: rgba(10, 15, 25, 0.85);
+    padding: 2px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+/* Gate Marker styling */
+.gate-marker-tooltip {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+}
+.gate-pin {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #0c0f19;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 3px 10px;
+    color: #ffffff;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+}
+.gate-pin i {
+    font-size: 11px;
+    animation: pulseGate 2s infinite alternate;
+}
+.gate-pin-label {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+@keyframes gpsPulse {
+    0% { transform: scale(0.3); opacity: 1; }
+    100% { transform: scale(1); opacity: 0; }
+}
+@keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes slideUpModal {
+    from { transform: translateY(40px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+@keyframes pulseGate {
+    0% { transform: scale(1); filter: brightness(1); }
+    100% { transform: scale(1.15); filter: brightness(1.3); }
 }
 </style>
 {% endblock %}

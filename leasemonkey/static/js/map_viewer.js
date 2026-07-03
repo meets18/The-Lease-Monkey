@@ -175,10 +175,39 @@ let map = null;
 let satelliteLayer = null;
 let boundaryPolygon = null;
 let mapPolygons = [];
+let renderedRoadLayers = [];
+let activeLabelMarkers = [];
 let selectedMapPolygon = null;
 let currentFilter = 'all';
 let colorCodingActive = false; // Default: OFF (Cream plots)
 let satelliteActive = false;    // Default: OFF (Dark backdrop map view)
+
+// Dynamic road weight scaling based on zoom levels
+function calculateRoadWeight(width, zoom) {
+  const baseWeight = width * 2.8;
+  const zoomFactor = Math.pow(2, zoom - 18);
+  return Math.max(1.5, baseWeight * zoomFactor);
+}
+
+function calculateRoadOutlineWeight(width, zoom) {
+  const baseWeight = width * 2.8 + 3.0;
+  const zoomFactor = Math.pow(2, zoom - 18);
+  return Math.max(2.5, baseWeight * zoomFactor);
+}
+
+function calculateRoadStripeWeight(zoom) {
+  const zoomFactor = Math.pow(2, zoom - 18);
+  return Math.max(0.5, 1.5 * zoomFactor);
+}
+
+function updateRoadWeights() {
+  const currentZoom = map.getZoom();
+  renderedRoadLayers.forEach(layer => {
+    if (layer.outline) layer.outline.setStyle({ weight: calculateRoadOutlineWeight(layer.width, currentZoom) });
+    if (layer.polyline) layer.polyline.setStyle({ weight: calculateRoadWeight(layer.width, currentZoom) });
+    if (layer.stripe) layer.stripe.setStyle({ weight: calculateRoadStripeWeight(currentZoom) });
+  });
+}
 let centerCoords = [26.788506, 75.836371];
 let initialZoom = 17;
 let minZoomLimit = 16;
@@ -222,6 +251,9 @@ function initMap() {
 
   // Position zoom controls on the right-hand side
   L.control.zoom({ position: 'topright' }).addTo(map);
+
+  // Listen to map zoom changes to dynamically scale road weights
+  map.on('zoomend', updateRoadWeights);
 
   // If satellite mode is active on load, add satellite layer and toggle class
   if (satelliteActive) {
@@ -283,6 +315,14 @@ function initMap() {
       iconAnchor: [125, 10]
     });
     L.marker([26.78851, 75.8363], { icon: roadIcon, interactive: false }).addTo(map);
+  } else {
+    // Render database roads and gates for custom properties
+    if (landConfig.roads) {
+      landConfig.roads.forEach(road => renderRoadOnMap(road));
+    }
+    if (landConfig.gates) {
+      landConfig.gates.forEach(gate => renderGateOnMap(gate));
+    }
   }
 
   // Draw plot polygons on top of the boundary
@@ -449,6 +489,8 @@ function setupToggleControls() {
 
   // Circular Satellite Map Toggler button (OFF/ON)
   const satelliteBtn = document.getElementById('btnSatelliteToggle');
+  const routeBtn = document.getElementById('btnRoute');
+  const locateBtn = document.getElementById('btnLocate');
   satelliteBtn.addEventListener('click', () => {
     satelliteActive = !satelliteActive;
     const mapEl = document.getElementById('map');
@@ -456,6 +498,8 @@ function setupToggleControls() {
     if (satelliteActive) {
       satelliteBtn.classList.add('active-cyan-btn');
       if (mapEl) mapEl.classList.add('satellite-active');
+      if (locateBtn) locateBtn.style.display = 'none';
+      if (routeBtn) routeBtn.style.display = 'inline-flex';
       
       // Allow unrestricted zoom out when satellite is active
       map.setMinZoom(1);
@@ -471,9 +515,19 @@ function setupToggleControls() {
       
       // Send satellite tiles to the back so vector plots sit on top
       satelliteLayer.bringToBack();
+
+      // Hide road and gate text labels on satellite layer
+      activeLabelMarkers.forEach(m => map.removeLayer(m));
     } else {
       satelliteBtn.classList.remove('active-cyan-btn');
       if (mapEl) mapEl.classList.remove('satellite-active');
+      if (locateBtn) locateBtn.style.display = 'inline-flex';
+      if (routeBtn) routeBtn.style.display = 'none';
+      
+      // Clean up routing layer when toggling satellite off
+      if (typeof window.clearGpsRouting === 'function') {
+        window.clearGpsRouting();
+      }
       
       // Reset zoom limits and re-center if user zoomed out past minZoomLimit
       if (map.getZoom() < minZoomLimit) {
@@ -485,6 +539,9 @@ function setupToggleControls() {
       if (satelliteLayer) {
         map.removeLayer(satelliteLayer);
       }
+
+      // Show road and gate text labels back on vector layout
+      activeLabelMarkers.forEach(m => m.addTo(map));
     }
   });
 }
@@ -651,4 +708,107 @@ function getPolygonCentroid(latlngs) {
   cy = cy / (6.0 * area);
 
   return { lat: cx, lng: cy };
+}
+
+function renderRoadOnMap(road) {
+  const currentZoom = map.getZoom();
+  const roadWidth = road.width || road.width_meters || 9.0;
+
+  // Thin white road boundary outline
+  const outline = L.polyline(road.coordinates, {
+    color: '#ffffff',
+    weight: calculateRoadOutlineWeight(roadWidth, currentZoom),
+    opacity: 0.9,
+    interactive: false
+  }).addTo(map);
+
+  // Thick road background lane
+  const polyline = L.polyline(road.coordinates, {
+    color: '#000000',
+    weight: calculateRoadWeight(roadWidth, currentZoom),
+    opacity: 0.95,
+    interactive: false
+  }).addTo(map);
+  
+  // Double yellow dashed dividing strip
+  const stripe = L.polyline(road.coordinates, {
+    color: '#ffc107',
+    weight: calculateRoadStripeWeight(currentZoom),
+    dashArray: '4, 8',
+    opacity: 0.8,
+    interactive: false
+  }).addTo(map);
+
+  // Road text tag indicator
+  const coords = road.coordinates;
+  const centerIdx = Math.floor(coords.length / 2);
+  const centerPt = coords[centerIdx];
+
+  const labelMarker = L.marker(centerPt, {
+    icon: L.divIcon({
+      className: 'road-label-tooltip',
+      html: `<span class="road-name-text text-uppercase">${road.name}</span>`,
+      iconSize: [200, 20]
+    }),
+    interactive: false
+  });
+
+  // Push to dynamic toggle list
+  activeLabelMarkers.push(labelMarker);
+
+  // Render on initial load only if satellite view is disabled
+  if (!satelliteActive) {
+    labelMarker.addTo(map);
+  }
+
+  renderedRoadLayers.push({
+    outline: outline,
+    polyline: polyline,
+    stripe: stripe,
+    width: roadWidth
+  });
+}
+
+function renderGateOnMap(gate) {
+  let gateColor = '#00ffd2'; // Entry: cyan
+  let gateLabel = 'ENTRY';
+  if (gate.point_type === 'exit') {
+    gateColor = '#ff6c00'; // Exit: orange
+    gateLabel = 'EXIT';
+  } else if (gate.point_type === 'both') {
+    gateColor = '#00b2ff'; // Both: blue
+    gateLabel = 'ENTRY/EXIT';
+  }
+
+  // 1. Static Pin Marker icon (always visible)
+  L.marker([gate.latitude, gate.longitude], {
+    icon: L.divIcon({
+      className: 'gate-marker-tooltip-icon-only',
+      html: `<div class="gate-pin-icon" style="background-color: ${gateColor}; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.6);">
+                <i class="bi bi-geo-alt-fill text-dark" style="font-size: 11px; line-height: 1;"></i>
+             </div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11]
+    }),
+    interactive: false
+  }).addTo(map);
+
+  // 2. Gate text label (hidden in satellite view)
+  const labelMarker = L.marker([gate.latitude, gate.longitude], {
+    icon: L.divIcon({
+      className: 'gate-label-tooltip',
+      html: `<div class="gate-pin-label-text" style="color: #ffffff; font-family: 'Ranade', sans-serif; font-size: 11px; font-weight: 700; white-space: nowrap; margin-left: 26px; margin-top: -3px; text-shadow: 0 1px 4px rgba(0,0,0,0.8);">${gate.name} (${gateLabel})</div>`,
+      iconSize: [150, 20],
+      iconAnchor: [0, 10]
+    }),
+    interactive: false
+  });
+
+  // Push to dynamic toggle list
+  activeLabelMarkers.push(labelMarker);
+
+  // Render on initial load only if satellite view is disabled
+  if (!satelliteActive) {
+    labelMarker.addTo(map);
+  }
 }

@@ -14,4 +14,11 @@ urlpatterns = [
     path('delete/<slug:slug>/', views.delete_land, name='delete_land'),
     path('plots-creator/<slug:slug>/delete/<str:plot_number>/', views.delete_plot, name='delete_plot'),
     path('plots-creator/<slug:slug>/update/<str:plot_number>/', views.update_plot, name='update_plot'),
+    path('plots-creator/<slug:slug>/save-road/', views.save_road, name='save_road'),
+    path('plots-creator/<slug:slug>/delete-road/<int:road_id>/', views.delete_road, name='delete_road'),
+    path('plots-creator/<slug:slug>/save-gate/', views.save_gate, name='save_gate'),
+    path('plots-creator/<slug:slug>/delete-gate/<int:gate_id>/', views.delete_gate, name='delete_gate'),
+    path('plots/<slug:slug>/update-info/', views.update_land_info, name='update_land_info'),
+    path('plots/<slug:slug>/add-photo/', views.add_gallery_photo, name='add_gallery_photo'),
+    path('plots/<slug:slug>/delete-photo/<int:photo_id>/', views.delete_gallery_photo, name='delete_gallery_photo'),
 ]

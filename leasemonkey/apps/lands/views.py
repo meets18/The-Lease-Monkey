@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
-from .models import Land, Plot
+from .models import Land, Plot, LandImage, Road, EntryExitPoint
 
 User = get_user_model()
 
@@ -18,9 +18,21 @@ def lands_directory(request):
 def plot_viewer(request, slug):
     """Renders the fullscreen dynamic plot viewer for the specific land site."""
     land = get_object_or_404(Land, slug=slug)
+    
+    # Serialize images, roads, and entry/exit points to pass directly to JavaScript
+    images_list = [{'id': img.id, 'url': img.image.url, 'caption': img.caption} for img in land.images.all()]
+    roads_list = [{'id': r.id, 'name': r.name, 'width': float(r.width_meters), 'coordinates': r.coordinates} for r in land.roads.all()]
+    gates_list = [{'id': g.id, 'name': g.name, 'point_type': g.point_type, 'latitude': g.latitude, 'longitude': g.longitude} for g in land.points.all()]
+
+    is_admin = request.user.is_authenticated and (request.user.role == 'ADMIN' or request.user.is_superuser or request.user == land.owner)
+
     context = {
         'land': land,
-        'google_maps_api_key': os.getenv('GOOGLE_MAPS_API_KEY', '')
+        'images_list_json': json.dumps(images_list),
+        'roads_list_json': json.dumps(roads_list),
+        'gates_list_json': json.dumps(gates_list),
+        'google_maps_api_key': os.getenv('GOOGLE_MAPS_API_KEY', ''),
+        'is_admin': is_admin,
     }
     return render(request, 'lands/plot_viewer.html', context)
 
@@ -35,11 +47,16 @@ def create_land(request):
         name = request.POST.get('name', '').strip()
         owner_username = request.POST.get('owner', '').strip()
         location = request.POST.get('location', '').strip()
-        area = request.POST.get('area', '').strip()
-        average_plot_price = request.POST.get('average_plot_price', '').strip()
+        average_plot_price = request.POST.get('price', '').strip()
+        description = request.POST.get('description', '').strip()
 
-        if not name or not owner_username or not location or not area or not average_plot_price:
-            messages.error(request, "All fields are required to register a new land.")
+        if not name or not owner_username or not location or not average_plot_price:
+            messages.error(request, "All fields (except description/images) are required to register a new land.")
+            return redirect('admin_dashboard')
+
+        # Check for unique land name
+        if Land.objects.filter(name__iexact=name).exists():
+            messages.error(request, f"A land property named '{name}' already exists. Please select a unique name.")
             return redirect('admin_dashboard')
 
         try:
@@ -53,10 +70,36 @@ def create_land(request):
                 name=name,
                 owner=owner,
                 location=location,
-                area=area,
-                average_plot_price=average_plot_price
+                area=0.00,  # Will be calculated and set when boundary is plotted
+                average_plot_price=average_plot_price,
+                description=description
             )
-            messages.success(request, f"Land '{land.name}' has been successfully created.")
+            
+            # Save uploaded gallery images and their corresponding custom captions
+            idx = 0
+            while True:
+                img_key = f'gallery_image_{idx}'
+                cap_key = f'gallery_caption_{idx}'
+                
+                if img_key in request.FILES:
+                    img_file = request.FILES[img_key]
+                    caption = request.POST.get(cap_key, '').strip()
+                    if not caption:
+                        caption = f"Gallery Photo {idx + 1}"
+                    
+                    LandImage.objects.create(
+                        land=land,
+                        image=img_file,
+                        caption=caption
+                    )
+                    idx += 1
+                elif idx < 30: # Scan up to 30 slots to account for any deleted intermediate rows
+                    idx += 1
+                else:
+                    break
+                
+            messages.success(request, f"Land '{land.name}' metadata successfully saved. Please trace its boundary on the map.")
+            return redirect(f'/lands/creator/?slug={land.slug}')
         except Exception as e:
             messages.error(request, f"Error creating land: {str(e)}")
 
@@ -68,11 +111,26 @@ def land_creator(request):
     if request.user.role != 'ADMIN' and not request.user.is_superuser:
         raise PermissionDenied("You do not have permission to access the plotting board.")
 
+    slug = request.GET.get('slug')
+    land = get_object_or_404(Land, slug=slug)
+
+    # Fetch other lands to prevent overlapping
+    other_lands = Land.objects.exclude(slug=slug)
+    other_lands_list = []
+    for ol in other_lands:
+        if ol.boundary_coordinates and len(ol.boundary_coordinates) >= 3:
+            other_lands_list.append({
+                'name': ol.name,
+                'boundary': ol.boundary_coordinates
+            })
+
     context = {
-        'name': request.GET.get('name', ''),
-        'owner': request.GET.get('owner', ''),
-        'location': request.GET.get('location', ''),
-        'price': request.GET.get('price', ''),
+        'land': land,
+        'name': land.name,
+        'owner': land.owner.username,
+        'location': land.location,
+        'price': land.average_plot_price,
+        'other_lands_json': json.dumps(other_lands_list),
     }
     return render(request, 'lands/creator.html', context)
 
@@ -91,14 +149,23 @@ def save_land_layout(request):
             area = data.get('area')
             average_plot_price = data.get('price')
             boundary_coordinates = data.get('boundary_coordinates')
+            slug = data.get('slug', '').strip()
 
             if not name or not owner_username or not location or not area or not average_plot_price or not boundary_coordinates:
                 return JsonResponse({'error': 'All fields and coordinates are required.'}, status=400)
 
-            try:
-                owner = User.objects.get(username=owner_username, role='LAND_OWNER')
-            except User.DoesNotExist:
-                return JsonResponse({'error': 'The selected landowner does not exist.'}, status=400)
+            # Query the existing Land
+            if slug:
+                try:
+                    land = Land.objects.get(slug=slug)
+                except Land.DoesNotExist:
+                    return JsonResponse({'error': f"Land with slug '{slug}' not found."}, status=404)
+            else:
+                # Fallback to name slug if not supplied directly
+                try:
+                    land = Land.objects.get(slug=slugify(name))
+                except Land.DoesNotExist:
+                    return JsonResponse({'error': f"Land with name '{name}' not found."}, status=404)
 
             # Compute boundary centroid for map center coordinate
             lats = [pt[0] for pt in boundary_coordinates]
@@ -106,18 +173,14 @@ def save_land_layout(request):
             center_lat = sum(lats) / len(lats)
             center_lng = sum(lngs) / len(lngs)
 
-            land = Land.objects.create(
-                name=name,
-                owner=owner,
-                location=location,
-                area=area,
-                average_plot_price=average_plot_price,
-                boundary_coordinates=boundary_coordinates,
-                center_lat=center_lat,
-                center_lng=center_lng,
-                zoom_level=17
-            )
-            messages.success(request, f"Land '{land.name}' successfully plotted and registered.")
+            # Update coordinates, area, and center values
+            land.boundary_coordinates = boundary_coordinates
+            land.area = area
+            land.center_lat = center_lat
+            land.center_lng = center_lng
+            land.save()
+
+            messages.success(request, f"Land '{land.name}' boundary successfully plotted and registered.")
             return JsonResponse({'success': True, 'redirect_url': f'/lands/plots-creator/{land.slug}/'})
         except Exception as e:
             return JsonResponse({'error': f"Error registering land: {str(e)}"}, status=500)
@@ -132,7 +195,18 @@ def plot_creator(request, slug):
 
     land = get_object_or_404(Land, slug=slug)
     plots = land.plots.all()
-    return render(request, 'lands/plots_creator.html', {'land': land, 'plots': plots})
+    
+    # Serialize roads and entry/exit points for creator JS
+    roads_list = [{'id': r.id, 'name': r.name, 'width': float(r.width_meters), 'coordinates': r.coordinates} for r in land.roads.all()]
+    gates_list = [{'id': g.id, 'name': g.name, 'point_type': g.point_type, 'latitude': g.latitude, 'longitude': g.longitude} for g in land.points.all()]
+    
+    context = {
+        'land': land,
+        'plots': plots,
+        'roads_list_json': json.dumps(roads_list),
+        'gates_list_json': json.dumps(gates_list),
+    }
+    return render(request, 'lands/plots_creator.html', context)
 
 @login_required
 def save_plot_layout(request, slug):
@@ -260,3 +334,192 @@ def update_plot(request, slug, plot_number):
         return JsonResponse({'error': str(e)}, status=500)
         
     return JsonResponse({'error': 'Invalid request method.'}, status=400)
+
+@login_required
+def save_road(request, slug):
+    """Creates a new road inside the land boundary."""
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    land = get_object_or_404(Land, slug=slug)
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            name = data.get('name', '').strip()
+            width_meters = data.get('width_meters', 9.0)
+            coordinates = data.get('coordinates')
+
+            if not name or not coordinates:
+                return JsonResponse({'error': 'Road name and coordinates are required.'}, status=400)
+
+            road = Road.objects.create(
+                land=land,
+                name=name,
+                width_meters=width_meters,
+                coordinates=coordinates
+            )
+
+            return JsonResponse({
+                'success': True,
+                'road': {
+                    'id': road.id,
+                    'name': road.name,
+                    'width': float(road.width_meters),
+                    'coordinates': road.coordinates
+                }
+            })
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid request method.'}, status=400)
+
+@login_required
+def delete_road(request, slug, road_id):
+    """Deletes a specific road from a land."""
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    land = get_object_or_404(Land, slug=slug)
+    try:
+        road = land.roads.get(id=road_id)
+        road.delete()
+        return JsonResponse({'success': True})
+    except Road.DoesNotExist:
+        return JsonResponse({'error': 'Road not found.'}, status=404)
+
+@login_required
+def save_gate(request, slug):
+    """Creates a new entry/exit point inside the land."""
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    land = get_object_or_404(Land, slug=slug)
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            name = data.get('name', '').strip()
+            point_type = data.get('point_type', 'entry')
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+
+            if not name or latitude is None or longitude is None:
+                return JsonResponse({'error': 'Name, latitude, and longitude are required.'}, status=400)
+
+            gate = EntryExitPoint.objects.create(
+                land=land,
+                name=name,
+                point_type=point_type,
+                latitude=latitude,
+                longitude=longitude
+            )
+
+            return JsonResponse({
+                'success': True,
+                'gate': {
+                    'id': gate.id,
+                    'name': gate.name,
+                    'point_type': gate.point_type,
+                    'latitude': gate.latitude,
+                    'longitude': gate.longitude
+                }
+            })
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid request method.'}, status=400)
+
+@login_required
+def delete_gate(request, slug, gate_id):
+    """Deletes a specific entry/exit point."""
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    land = get_object_or_404(Land, slug=slug)
+    try:
+        gate = land.points.get(id=gate_id)
+        gate.delete()
+        return JsonResponse({'success': True})
+    except EntryExitPoint.DoesNotExist:
+        return JsonResponse({'error': 'Gate not found.'}, status=404)
+
+@login_required
+def update_land_info(request, slug):
+    """Updates Land metadata (name, location, description) via AJAX."""
+    land = get_object_or_404(Land, slug=slug)
+    if request.user.role != 'ADMIN' and not request.user.is_superuser and request.user != land.owner:
+        return JsonResponse({'success': False, 'error': "Permission Denied"}, status=403)
+        
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            name = data.get('name', '').strip()
+            location = data.get('location', '').strip()
+            description = data.get('description', '').strip()
+            
+            if not name or not location:
+                return JsonResponse({'success': False, 'error': 'Name and location are required.'})
+
+            # Check for name uniqueness excluding current land
+            if Land.objects.filter(name__iexact=name).exclude(id=land.id).exists():
+                return JsonResponse({'success': False, 'error': f"A land property named '{name}' already exists."})
+                
+            land.name = name
+            land.location = location
+            land.description = description
+            
+            avg_price = data.get('average_plot_price')
+            if avg_price is not None:
+                land.average_plot_price = float(avg_price)
+                
+            land.save()
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': "Invalid request method"}, status=400)
+
+@login_required
+def add_gallery_photo(request, slug):
+    """Adds a new photo to the land gallery via AJAX/Form POST."""
+    land = get_object_or_404(Land, slug=slug)
+    if request.user.role != 'ADMIN' and not request.user.is_superuser and request.user != land.owner:
+        return JsonResponse({'success': False, 'error': "Permission Denied"}, status=403)
+        
+    if request.method == 'POST' and request.FILES.get('image'):
+        try:
+            image_file = request.FILES['image']
+            caption = request.POST.get('caption', '').strip()
+            if not caption:
+                caption = f"Gallery Photo {land.images.count() + 1}"
+            
+            new_img = LandImage.objects.create(
+                land=land,
+                image=image_file,
+                caption=caption
+            )
+            return JsonResponse({
+                'success': True,
+                'image': {
+                    'id': new_img.id,
+                    'url': new_img.image.url,
+                    'caption': new_img.caption
+                }
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': "Invalid request or missing file"}, status=400)
+
+@login_required
+def delete_gallery_photo(request, slug, photo_id):
+    """Deletes a specific gallery photo via AJAX."""
+    land = get_object_or_404(Land, slug=slug)
+    if request.user.role != 'ADMIN' and not request.user.is_superuser and request.user != land.owner:
+        return JsonResponse({'success': False, 'error': "Permission Denied"}, status=403)
+        
+    if request.method == 'POST':
+        try:
+            photo = get_object_or_404(LandImage, id=photo_id, land=land)
+            photo.delete()
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': "Invalid request method"}, status=400)

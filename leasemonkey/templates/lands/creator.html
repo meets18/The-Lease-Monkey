@@ -77,6 +77,8 @@
     const landOwner = "{{ owner|escapejs }}";
     const landLocation = "{{ location|escapejs }}";
     const landPrice = "{{ price|escapejs }}";
+    const landSlug = "{{ land.slug|escapejs }}";
+    const otherLands = {{ other_lands_json|safe|default:"[]" }};
 
     // Setup basic details labels
     document.getElementById('lblLandName').innerText = landName;
@@ -141,6 +143,18 @@
         map.on('click', function(e) {
             addPoint(e.latlng);
         });
+
+        // Draw existing lands on map
+        otherLands.forEach(ol => {
+            L.polygon(ol.boundary, {
+                color: '#ff4d4d',
+                weight: 1.5,
+                dashArray: '4, 6',
+                fillColor: '#ff4d4d',
+                fillOpacity: 0.1,
+                interactive: true
+            }).addTo(map).bindTooltip(ol.name, { sticky: true });
+        });
     });
 
     // Add coordinate point
@@ -177,6 +191,58 @@
         updatePolygon();
     }
 
+    // Counter-clockwise orientation test for segment intersection
+    function lineSegmentsIntersect(p1, q1, p2, q2) {
+        function ccw(A, B, C) {
+            return (C[1] - A[1]) * (B[0] - A[0]) > (B[1] - A[1]) * (C[0] - A[0]);
+        }
+        return (ccw(p1, p2, q2) !== ccw(q1, p2, q2)) && (ccw(p1, q1, p2) !== ccw(p1, q1, q2));
+    }
+
+    // Ray-casting point-in-polygon helper
+    function isPointInPolygon(point, polygon) {
+        const x = point[0], y = point[1];
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i][0], yi = polygon[i][1];
+            const xj = polygon[j][0], yj = polygon[j][1];
+            const intersect = ((yi > y) !== (yj > y))
+                && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    // Comprehensive polygon containment and edge intersection collision check
+    function checkPolygonOverlap(newCoords, existingCoords) {
+        // 1. Check if any edge intersects
+        for (let i = 0; i < newCoords.length; i++) {
+            const p1 = newCoords[i];
+            const q1 = newCoords[(i + 1) % newCoords.length];
+            
+            for (let j = 0; j < existingCoords.length; j++) {
+                const p2 = existingCoords[j];
+                const q2 = existingCoords[(j + 1) % existingCoords.length];
+                
+                if (lineSegmentsIntersect(p1, q1, p2, q2)) {
+                    return true;
+                }
+            }
+        }
+        
+        // 2. Check if a point of newCoords is inside existingCoords
+        if (isPointInPolygon(newCoords[0], existingCoords)) {
+            return true;
+        }
+        
+        // 3. Check if a point of existingCoords is inside newCoords
+        if (isPointInPolygon(existingCoords[0], newCoords)) {
+            return true;
+        }
+        
+        return false;
+    }
+
     // Redraw and recompute area
     function updatePolygon() {
         // Redraw Polygon
@@ -185,14 +251,29 @@
             boundaryPolygon = null;
         }
 
+        let isOverlapping = false;
+        let overlappingLandName = '';
+
+        if (drawnPoints.length >= 3) {
+            const newCoords = drawnPoints.map(p => [p.lat, p.lng]);
+            for (let k = 0; k < otherLands.length; k++) {
+                const ol = otherLands[k];
+                if (checkPolygonOverlap(newCoords, ol.boundary)) {
+                    isOverlapping = true;
+                    overlappingLandName = ol.name;
+                    break;
+                }
+            }
+        }
+
         if (drawnPoints.length >= 3) {
             boundaryPolygon = L.polygon(drawnPoints, {
-                color: '#00ffd2',
+                color: isOverlapping ? '#ff3b30' : '#00ffd2',
                 weight: 2,
-                fillColor: '#00ffd2',
-                fillOpacity: 0.25
+                fillColor: isOverlapping ? '#ff3b30' : '#00ffd2',
+                fillOpacity: isOverlapping ? 0.35 : 0.25
             }).addTo(map);
-            document.getElementById('btnSaveLand').disabled = false;
+            document.getElementById('btnSaveLand').disabled = isOverlapping;
         } else {
             document.getElementById('btnSaveLand').disabled = true;
         }
@@ -202,8 +283,13 @@
         const areaAcres = (areaSqMeters / 4046.85642).toFixed(2);
         const areaSqFt = (areaSqMeters * 10.76391).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
-        document.getElementById('lblCalculatedArea').innerText = areaAcres + ' Acres';
-        document.getElementById('lblCalculatedSqFt').innerText = areaSqFt + ' sq ft';
+        if (isOverlapping) {
+            document.getElementById('lblCalculatedArea').innerHTML = `<span class="text-danger fw-bold fs-14">OVERLAPS ${overlappingLandName.toUpperCase()}</span>`;
+            document.getElementById('lblCalculatedSqFt').innerText = 'Boundary collision detected. Adjust outline.';
+        } else {
+            document.getElementById('lblCalculatedArea').innerText = areaAcres + ' Acres';
+            document.getElementById('lblCalculatedSqFt').innerText = areaSqFt + ' sq ft';
+        }
         document.getElementById('lblCornerCount').innerText = 'Drawn Corners: ' + drawnPoints.length;
     }
 
@@ -246,7 +332,8 @@
             location: landLocation,
             price: landPrice,
             area: areaAcres,
-            boundary_coordinates: boundaryCoords
+            boundary_coordinates: boundaryCoords,
+            slug: landSlug
         };
 
         const saveButton = document.getElementById('btnSaveLand');

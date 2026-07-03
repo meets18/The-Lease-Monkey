@@ -28,70 +28,162 @@
         <div class="border-bottom border-secondary-glow pb-3 mb-3">
             <h4 class="font-ranade fw-bold text-white mb-1"><i class="bi bi-grid-3x3-gap-fill text-cyan-glow me-2"></i>Plot Creator</h4>
             <p class="text-muted-glow fs-13 mb-0">Create individual plots inside <strong>{{ land.name }}</strong>.</p>
+        </div>        <!-- Segmented Mode Control Tabs -->
+        <div class="btn-group btn-group-sm w-100 mb-3" role="group" aria-label="Creator Workspace Modes">
+            <button type="button" id="tabPlots" class="btn btn-outline-cyan active" onclick="setWorkspaceMode('plots')">Plots</button>
+            <button type="button" id="tabRoads" class="btn btn-outline-cyan" onclick="setWorkspaceMode('roads')">Roads</button>
+            <button type="button" id="tabGates" class="btn btn-outline-cyan" onclick="setWorkspaceMode('gates')">Gates</button>
         </div>
 
-        <!-- Add Plot Form -->
-        <form id="frmAddPlot" autocomplete="off" onsubmit="event.preventDefault();">
-            <div class="mb-2">
-                <label for="plot_number" class="form-label fs-12 text-secondary-glow mb-1">Plot Number / Identifier</label>
-                <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_number" required placeholder="e.g. 101, P5">
-            </div>
-
-            <div class="row">
-                <div class="col-6 mb-2">
-                    <label for="plot_area" class="form-label fs-12 text-secondary-glow mb-1">Area (sq ft)</label>
-                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_area" required placeholder="e.g. 1,500">
+        <!-- 1. PLOTS FORM SECTION -->
+        <div id="sectionPlots" class="workspace-section">
+            <!-- Add Plot Form -->
+            <form id="frmAddPlot" autocomplete="off" onsubmit="event.preventDefault();">
+                <div class="mb-2">
+                    <label for="plot_number" class="form-label fs-12 text-secondary-glow mb-1">Plot Number / Identifier</label>
+                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_number" placeholder="e.g. 101, P5">
                 </div>
-                <div class="col-6 mb-2">
-                    <label for="plot_price" class="form-label fs-12 text-secondary-glow mb-1">Lease Price (INR)</label>
-                    <input type="number" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_price" required placeholder="e.g. 4500000">
+
+                <div class="row">
+                    <div class="col-6 mb-2">
+                        <label for="plot_area" class="form-label fs-12 text-secondary-glow mb-1">Area (sq ft)</label>
+                        <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_area" placeholder="e.g. 1,500">
+                    </div>
+                    <div class="col-6 mb-2">
+                        <label for="plot_price" class="form-label fs-12 text-secondary-glow mb-1">Lease Price (INR)</label>
+                        <input type="number" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_price" placeholder="e.g. 4500000">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="plot_status" class="form-label fs-12 text-secondary-glow mb-1">Status</label>
+                    <select class="form-select form-select-sm bg-dark border-secondary text-white fs-13" id="plot_status">
+                        <option value="available" selected>Available</option>
+                        <option value="reserved">Reserved</option>
+                        <option value="sold">Booked</option>
+                    </select>
+                </div>
+
+                <!-- Drawing State Banner -->
+                <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-11 mb-3 py-2 text-center" role="alert">
+                    <i class="bi bi-cursor-fill text-cyan-glow me-1"></i>
+                    <span id="drawingInstructions">Click corner points directly on the map to trace this plot's outline.</span>
+                </div>
+
+                <!-- Staging actions -->
+                <div class="d-flex gap-2 mb-3">
+                    <button type="button" onclick="undoPlotPoint();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
+                        <i class="bi bi-arrow-counterclockwise"></i> Undo
+                    </button>
+                    <button type="button" onclick="clearPlotPoints();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
+                        <i class="bi-trash"></i> Reset
+                    </button>
+                </div>
+
+                <button type="button" id="btnSavePlot" onclick="submitPlotRecord();" class="btn btn-action-primary w-100 py-2 fs-12 text-uppercase fw-bold mb-2">
+                    Save Plot <i class="bi bi-plus-lg ms-1"></i>
+                </button>
+                <button type="button" id="btnCancelEdit" onclick="cancelEditingMode();" class="btn btn-action-secondary w-100 py-2 fs-12 text-uppercase fw-bold mb-3" style="display: none;">
+                    Cancel Edit <i class="bi bi-x-circle ms-1"></i>
+                </button>
+            </form>
+
+            <!-- Dynamic Staged/Saved Plots Count -->
+            <div class="border-top border-secondary-glow pt-3 mt-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="fs-13 text-secondary-glow fw-bold mb-0">Plotted Layouts</h5>
+                    <span class="badge bg-admin-glow fs-11" id="lblStagedCount">Total: 0</span>
+                </div>
+                
+                <!-- List scroll container -->
+                <div id="stagedPlotsList" class="d-flex flex-column gap-1.5 max-h-180 overflow-y-auto pr-1 text-white-50 fs-12.5" style="max-height: 150px;">
+                    <div class="text-center py-2 text-muted-glow fs-12">No plots added yet. Trace one above!</div>
                 </div>
             </div>
+        </div>
 
-            <div class="mb-3">
-                <label for="plot_status" class="form-label fs-12 text-secondary-glow mb-1">Status</label>
-                <select class="form-select form-select-sm bg-dark border-secondary text-white fs-13" id="plot_status">
-                    <option value="available" selected>Available</option>
-                    <option value="reserved">Reserved</option>
-                    <option value="sold">Booked</option>
-                </select>
-            </div>
+        <!-- 2. ROADS FORM SECTION -->
+        <div id="sectionRoads" class="workspace-section" style="display: none;">
+            <form id="frmAddRoad" autocomplete="off" onsubmit="event.preventDefault();">
+                <div class="mb-2">
+                    <label for="road_name" class="form-label fs-12 text-secondary-glow mb-1">Road Name / Label</label>
+                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="road_name" placeholder="e.g. 9 Meter Road, Main Access Road">
+                </div>
+                <div class="mb-3">
+                    <label for="road_width" class="form-label fs-12 text-secondary-glow mb-1">Road Width (meters)</label>
+                    <input type="number" step="0.5" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="road_width" value="9.0">
+                </div>
 
-            <!-- Drawing State Banner -->
-            <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-11 mb-3 py-2 text-center" role="alert">
-                <i class="bi bi-cursor-fill text-cyan-glow me-1"></i>
-                <span id="drawingInstructions">Click corner points directly on the map to trace this plot's outline.</span>
-            </div>
+                <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-11 mb-3 py-2 text-center" role="alert">
+                    <i class="bi bi-cursor-fill text-cyan-glow me-1"></i>
+                    <span id="roadDrawingInstructions">Click map coordinates inside the land to trace the road's centerline path.</span>
+                </div>
 
-            <!-- Staging actions -->
-            <div class="d-flex gap-2 mb-3">
-                <button type="button" onclick="undoPlotPoint();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
-                    <i class="bi bi-arrow-counterclockwise"></i> Undo
+                <div class="d-flex gap-2 mb-3">
+                    <button type="button" onclick="undoRoadPoint();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
+                        <i class="bi bi-arrow-counterclockwise"></i> Undo
+                    </button>
+                    <button type="button" onclick="clearRoadPoints();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
+                        <i class="bi-trash"></i> Reset
+                    </button>
+                </div>
+
+                <button type="button" id="btnSaveRoad" onclick="submitRoadRecord();" class="btn btn-action-primary w-100 py-2 fs-12 text-uppercase fw-bold mb-3">
+                    Save Road <i class="bi bi-plus-lg ms-1"></i>
                 </button>
-                <button type="button" onclick="clearPlotPoints();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
-                    <i class="bi-trash"></i> Reset
+            </form>
+
+            <div class="border-top border-secondary-glow pt-3 mt-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="fs-13 text-secondary-glow fw-bold mb-0">Mapped Roads</h5>
+                    <span class="badge bg-admin-glow fs-11" id="lblRoadsCount">Total: 0</span>
+                </div>
+                <div id="savedRoadsList" class="d-flex flex-column gap-1.5 max-h-180 overflow-y-auto pr-1 text-white-50 fs-12.5" style="max-height: 150px;">
+                    <div class="text-center py-2 text-muted-glow fs-12">No roads mapped yet. Trace one above!</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. GATES FORM SECTION -->
+        <div id="sectionGates" class="workspace-section" style="display: none;">
+            <form id="frmAddGate" autocomplete="off" onsubmit="event.preventDefault();">
+                <div class="mb-2">
+                    <label for="gate_name" class="form-label fs-12 text-secondary-glow mb-1">Gate / Entry-Exit Point Name</label>
+                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="gate_name" placeholder="e.g. Main Entry Gate, East Exit">
+                </div>
+                <div class="mb-3">
+                    <label for="gate_type" class="form-label fs-12 text-secondary-glow mb-1">Point Type</label>
+                    <select class="form-select form-select-sm bg-dark border-secondary text-white fs-13" id="gate_type">
+                        <option value="entry" selected>Entry Point</option>
+                        <option value="exit">Exit Point</option>
+                        <option value="both">Entry & Exit Point</option>
+                    </select>
+                </div>
+
+                <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-11 mb-3 py-2 text-center" role="alert">
+                    <i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i>
+                    <span id="gateInstructions">Click on the map boundary outline to set the coordinates of this entry/exit gate.</span>
+                </div>
+
+                <div class="d-flex gap-2 mb-3">
+                    <button type="button" onclick="clearGatePoint();" class="btn btn-action-secondary w-100 py-1.5 fs-12 text-uppercase fw-bold">
+                        <i class="bi-trash"></i> Reset Point
+                    </button>
+                </div>
+
+                <button type="button" id="btnSaveGate" onclick="submitGateRecord();" class="btn btn-action-primary w-100 py-2 fs-12 text-uppercase fw-bold mb-3">
+                    Save Gate Point <i class="bi bi-plus-lg ms-1"></i>
                 </button>
-            </div>
+            </form>
 
-            <button type="button" id="btnSavePlot" onclick="submitPlotRecord();" class="btn btn-action-primary w-100 py-2 fs-12 text-uppercase fw-bold mb-2">
-                Save Plot <i class="bi bi-plus-lg ms-1"></i>
-            </button>
-            <button type="button" id="btnCancelEdit" onclick="cancelEditingMode();" class="btn btn-action-secondary w-100 py-2 fs-12 text-uppercase fw-bold mb-3" style="display: none;">
-                Cancel Edit <i class="bi bi-x-circle ms-1"></i>
-            </button>
-        </form>
-
-        <!-- Dynamic Staged/Saved Plots Count -->
-        <div class="border-top border-secondary-glow pt-3 mt-2">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5 class="fs-13 text-secondary-glow fw-bold mb-0">Plotted Layouts</h5>
-                <span class="badge bg-admin-glow fs-11" id="lblStagedCount">Total: 0</span>
-            </div>
-            
-            <!-- List scroll container -->
-            <div id="stagedPlotsList" class="d-flex flex-column gap-1.5 max-h-180 overflow-y-auto pr-1 text-white-50 fs-12.5" style="max-height: 150px;">
-                <!-- Dynamically populated rows -->
-                <div class="text-center py-2 text-muted-glow fs-12">No plots added yet. Trace one above!</div>
+            <div class="border-top border-secondary-glow pt-3 mt-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="fs-13 text-secondary-glow fw-bold mb-0">Entrance / Exit Gates</h5>
+                    <span class="badge bg-admin-glow fs-11" id="lblGatesCount">Total: 0</span>
+                </div>
+                <div id="savedGatesList" class="d-flex flex-column gap-1.5 max-h-180 overflow-y-auto pr-1 text-white-50 fs-12.5" style="max-height: 150px;">
+                    <div class="text-center py-2 text-muted-glow fs-12">No gates mapped yet. Place one above!</div>
+                </div>
             </div>
         </div>
 
@@ -125,18 +217,64 @@
         {% endfor %}
     ];
 
+    // Load initial roads and entry/exit gates from context
+    let existingRoads = {{ roads_list_json|safe|default:"[]" }};
+    let existingGates = {{ gates_list_json|safe|default:"[]" }};
+
     const STATUS_COLORS = {
         available: '#9CB447', // Available
         reserved: '#8e9aa8',  // Booked (Grey)
         sold: '#C7483F'       // On Hold
     };
 
+    let activeMode = 'plots'; // 'plots', 'roads', 'gates'
+
+    // Plot drawing arrays
     let map = null;
     let currentPlotPoints = [];
     let currentPlotMarkers = [];
     let currentPlotPolygon = null;
     let registeredPlotLayers = [];
     let editingPlotNumber = null;
+
+    // Road drawing arrays
+    let currentRoadPoints = [];
+    let currentRoadMarkers = [];
+    let currentRoadPolyline = null;
+    let registeredRoadLayers = [];
+
+    // Gate/Entrance drawing state
+    let currentGateLatLng = null;
+    let currentGateMarker = null;
+    let registeredGateLayers = [];
+
+    // Dynamic road weight scaling based on zoom levels
+    function calculateRoadWeight(width, zoom) {
+        const baseWeight = width * 2.8;
+        const zoomFactor = Math.pow(2, zoom - 18);
+        return Math.max(1.5, baseWeight * zoomFactor);
+    }
+
+    function calculateRoadOutlineWeight(width, zoom) {
+        const baseWeight = width * 2.8 + 3.0;
+        const zoomFactor = Math.pow(2, zoom - 18);
+        return Math.max(2.5, baseWeight * zoomFactor);
+    }
+
+    function calculateRoadStripeWeight(zoom) {
+        const zoomFactor = Math.pow(2, zoom - 18);
+        return Math.max(0.5, 1.5 * zoomFactor);
+    }
+
+    function updateRoadWeights() {
+        if (!map) return;
+        const currentZoom = map.getZoom();
+        registeredRoadLayers.forEach(layer => {
+            if (layer.outline) layer.outline.setStyle({ weight: calculateRoadOutlineWeight(layer.width, currentZoom) });
+            if (layer.polyline) layer.polyline.setStyle({ weight: calculateRoadWeight(layer.width, currentZoom) });
+            if (layer.stripe) layer.stripe.setStyle({ weight: calculateRoadStripeWeight(currentZoom) });
+        });
+    }
 
     // Cookie CSRF helper
     function getCookie(name) {
@@ -161,6 +299,7 @@
         }).setView(centerCoords, 18);
 
         L.control.zoom({ position: 'topright' }).addTo(map);
+        map.on('zoomend', updateRoadWeights);
 
         // Load Satellite view
         L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
@@ -189,10 +328,27 @@
         });
         updatePlotsSidebarList();
 
-        // Register dropdown change for compass indicator
-        // Register Click handler for drawing plot outlines
+        // Render all existing roads in the database
+        existingRoads.forEach(road => {
+            renderRoadOnMap(road);
+        });
+        updateRoadsSidebarList();
+
+        // Render all existing gates in the database
+        existingGates.forEach(gate => {
+            renderGateOnMap(gate);
+        });
+        updateGatesSidebarList();
+
+        // Register Click handler for dynamic drawings based on mode
         map.on('click', function(e) {
-            addPlotPoint(e.latlng);
+            if (activeMode === 'plots') {
+                addPlotPoint(e.latlng);
+            } else if (activeMode === 'roads') {
+                addRoadPoint(e.latlng);
+            } else if (activeMode === 'gates') {
+                placeGatePoint(e.latlng);
+            }
         });
     });
 
@@ -604,6 +760,464 @@
         clearPlotPoints();
     }
 
+    // Segmented Mode Switcher
+    function setWorkspaceMode(mode) {
+        activeMode = mode;
+
+        // Toggle active button style class
+        document.getElementById('tabPlots').classList.toggle('active', mode === 'plots');
+        document.getElementById('tabRoads').classList.toggle('active', mode === 'roads');
+        document.getElementById('tabGates').classList.toggle('active', mode === 'gates');
+
+        // Toggle form sections display
+        document.getElementById('sectionPlots').style.display = mode === 'plots' ? 'block' : 'none';
+        document.getElementById('sectionRoads').style.display = mode === 'roads' ? 'block' : 'none';
+        document.getElementById('sectionGates').style.display = mode === 'gates' ? 'block' : 'none';
+
+        // Clear active staging draws on transition
+        clearPlotPoints();
+        clearRoadPoints();
+        clearGatePoint();
+    }
+
+    // ==========================================
+    // ROADS DRAWING AND STAGING ACTIONS
+    // ==========================================
+    function addRoadPoint(latlng) {
+        // Enforce land boundary confinement
+        if (landBoundaryCoords && landBoundaryCoords.length >= 3) {
+            const pt = [latlng.lat, latlng.lng];
+            if (!isPointInPolygon(pt, landBoundaryCoords)) {
+                alert("Invalid Position: All road path points must lie strictly inside the marked land boundary outline.");
+                return;
+            }
+        }
+
+        currentRoadPoints.push(latlng);
+
+        const marker = L.circleMarker(latlng, {
+            radius: 4,
+            color: '#00ffd2', // Cyan markers for road tracing
+            fillColor: '#0b0f19',
+            fillOpacity: 1,
+            weight: 2
+        }).addTo(map);
+
+        currentRoadMarkers.push(marker);
+        updateRoadPolyline();
+    }
+
+    function updateRoadPolyline() {
+        if (currentRoadPolyline) {
+            map.removeLayer(currentRoadPolyline);
+            currentRoadPolyline = null;
+        }
+
+        if (currentRoadPoints.length >= 2) {
+            const widthVal = parseFloat(document.getElementById('road_width').value) || 9.0;
+            currentRoadPolyline = L.polyline(currentRoadPoints, {
+                color: '#00ffd2',
+                weight: widthVal * 1.5, // thickness scale
+                opacity: 0.55
+            }).addTo(map);
+        }
+
+        document.getElementById('roadDrawingInstructions').innerText = 
+            `Road points marked: ${currentRoadPoints.length} (Min 2 required)`;
+    }
+
+    function undoRoadPoint() {
+        if (currentRoadPoints.length === 0) return;
+        currentRoadPoints.pop();
+        const marker = currentRoadMarkers.pop();
+        if (marker) map.removeLayer(marker);
+        updateRoadPolyline();
+    }
+
+    function clearRoadPoints() {
+        currentRoadPoints = [];
+        currentRoadMarkers.forEach(m => map.removeLayer(m));
+        currentRoadMarkers = [];
+        updateRoadPolyline();
+    }
+
+    function submitRoadRecord() {
+        const roadName = document.getElementById('road_name').value.trim();
+        const roadWidth = document.getElementById('road_width').value.trim();
+
+        if (!roadName || !roadWidth) {
+            alert("Please fill in the road name/label and width before saving.");
+            return;
+        }
+
+        if (currentRoadPoints.length < 2) {
+            alert("Please click at least 2 points on the map to define the road centerline path.");
+            return;
+        }
+
+        const url = "/lands/plots-creator/{{ land.slug }}/save-road/";
+        const boundaryCoords = currentRoadPoints.map(p => [p.lat, p.lng]);
+        const data = {
+            name: roadName,
+            width_meters: parseFloat(roadWidth),
+            coordinates: boundaryCoords
+        };
+
+        const btnSave = document.getElementById('btnSaveRoad');
+        btnSave.disabled = true;
+        btnSave.innerText = 'Saving Road...';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(res => {
+            btnSave.disabled = false;
+            btnSave.innerHTML = 'Save Road <i class="bi bi-plus-lg ms-1"></i>';
+            if (res.success) {
+                existingRoads.push(res.road);
+                renderRoadOnMap(res.road);
+                
+                // Reset inputs and stage
+                document.getElementById('road_name').value = '';
+                clearRoadPoints();
+                updateRoadsSidebarList();
+                alert(`Access Road "${res.road.name}" successfully registered!`);
+            } else {
+                alert("Error saving road: " + res.error);
+            }
+        })
+        .catch(err => {
+            console.error("AJAX Error: ", err);
+            alert("Error sending road request.");
+            btnSave.disabled = false;
+            btnSave.innerHTML = 'Save Road <i class="bi bi-plus-lg ms-1"></i>';
+        });
+    }
+
+    function deleteRoad(roadId) {
+        if (!confirm("Are you sure you want to delete this access road? This action is permanent.")) return;
+
+        const url = `/lands/plots-creator/{{ land.slug }}/delete-road/${roadId}/`;
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(res => {
+            if (res.success) {
+                // Remove from local list
+                existingRoads = existingRoads.filter(r => r.id !== roadId);
+                
+                // Remove layers from map
+                const layers = registeredRoadLayers.filter(l => l.id === roadId);
+                layers.forEach(l => {
+                    if (l.outline) map.removeLayer(l.outline);
+                    if (l.polyline) map.removeLayer(l.polyline);
+                    if (l.stripe) map.removeLayer(l.stripe);
+                    if (l.label) map.removeLayer(l.label);
+                });
+                registeredRoadLayers = registeredRoadLayers.filter(l => l.id !== roadId);
+                
+                updateRoadsSidebarList();
+                alert("Road successfully deleted.");
+            } else {
+                alert("Error deleting road: " + res.error);
+            }
+        })
+        .catch(err => {
+            console.error("AJAX Error: ", err);
+            alert("Error sending delete road request.");
+        });
+    }
+
+    function updateRoadsSidebarList() {
+        const listDiv = document.getElementById('savedRoadsList');
+        document.getElementById('lblRoadsCount').innerText = `Total: ${existingRoads.length}`;
+
+        if (existingRoads.length === 0) {
+            listDiv.innerHTML = '<div class="text-center py-2 text-muted-glow fs-12">No roads mapped yet. Trace one above!</div>';
+            return;
+        }
+
+        listDiv.innerHTML = '';
+        existingRoads.forEach(road => {
+            const card = document.createElement('div');
+            card.className = 'd-flex justify-content-between align-items-center bg-dark-glow border border-secondary-glow rounded px-2.5 py-1.5 mb-1.5 text-white fs-12.5';
+            card.innerHTML = `
+                <div>
+                    <span class="fw-bold text-cyan-glow">${road.name}</span>
+                    <div class="text-muted-glow fs-11 mt-0.5">${road.width}m width</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1 line-height-1" onclick="deleteRoad(${road.id});" title="Delete Road">
+                    <i class="bi bi-trash fs-13"></i>
+                </button>
+            `;
+            listDiv.appendChild(card);
+        });
+    }
+
+    function renderRoadOnMap(road) {
+        const currentZoom = map.getZoom();
+
+        // Thin white road boundary outline
+        const outline = L.polyline(road.coordinates, {
+            color: '#ffffff',
+            weight: calculateRoadOutlineWeight(road.width, currentZoom),
+            opacity: 0.9,
+            interactive: false
+        }).addTo(map);
+
+        // Thick road background lane
+        const polyline = L.polyline(road.coordinates, {
+            color: '#000000',
+            weight: calculateRoadWeight(road.width, currentZoom),
+            opacity: 0.95,
+            interactive: false
+        }).addTo(map);
+        
+        // Double yellow dashed dividing strip
+        const stripe = L.polyline(road.coordinates, {
+            color: '#ffc107',
+            weight: calculateRoadStripeWeight(currentZoom),
+            dashArray: '4, 8',
+            opacity: 0.8,
+            interactive: false
+        }).addTo(map);
+
+        // Center text label tooltip (non-interactive)
+        const coords = road.coordinates;
+        const centerIdx = Math.floor(coords.length / 2);
+        const centerPt = coords[centerIdx];
+
+        const labelMarker = L.marker(centerPt, {
+            icon: L.divIcon({
+                className: 'road-label-tooltip',
+                html: `<span class="road-name-text text-uppercase">${road.name}</span>`,
+                iconSize: [200, 20]
+            }),
+            interactive: false
+        }).addTo(map);
+
+        registeredRoadLayers.push({
+            id: road.id,
+            width: road.width,
+            outline: outline,
+            polyline: polyline,
+            stripe: stripe,
+            label: labelMarker
+        });
+    }
+
+    // ==========================================
+    // GATES DRAWING AND STAGING ACTIONS
+    // ==========================================
+    function placeGatePoint(latlng) {
+        // Enforce boundary constraint
+        if (landBoundaryCoords && landBoundaryCoords.length >= 3) {
+            const pt = [latlng.lat, latlng.lng];
+            if (!isPointInPolygon(pt, landBoundaryCoords)) {
+                alert("Invalid Position: Entrance/Exit points must lie strictly inside the marked land boundary outline.");
+                return;
+            }
+        }
+
+        currentGateLatLng = latlng;
+
+        if (currentGateMarker) {
+            map.removeLayer(currentGateMarker);
+        }
+
+        // Stage preview marker
+        currentGateMarker = L.marker(latlng, {
+            icon: L.divIcon({
+                className: 'gate-marker-tooltip',
+                html: `<div class="gate-pin" style="background-color: #ffff00; border-color: #ffff00; color: #0b0f19;">
+                            <i class="bi bi-geo-alt-fill text-dark"></i>
+                            <span class="gate-pin-label text-dark">STAGED GATE</span>
+                        </div>`,
+                iconSize: [120, 40]
+            })
+        }).addTo(map);
+
+        document.getElementById('gateInstructions').innerText = 
+            `Staged Gate: [${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}]`;
+    }
+
+    function clearGatePoint() {
+        currentGateLatLng = null;
+        if (currentGateMarker) {
+            map.removeLayer(currentGateMarker);
+            currentGateMarker = null;
+        }
+        document.getElementById('gateInstructions').innerText = 
+            "Click on the map boundary outline to set the coordinates of this entry/exit gate.";
+    }
+
+    function submitGateRecord() {
+        const gateName = document.getElementById('gate_name').value.trim();
+        const gateType = document.getElementById('gate_type').value;
+
+        if (!gateName) {
+            alert("Please input a name/label for the gate or access point before saving.");
+            return;
+        }
+
+        if (!currentGateLatLng) {
+            alert("Please click a coordinate point on the map to position the gate.");
+            return;
+        }
+
+        const url = "/lands/plots-creator/{{ land.slug }}/save-gate/";
+        const data = {
+            name: gateName,
+            point_type: gateType,
+            latitude: currentGateLatLng.lat,
+            longitude: currentGateLatLng.lng
+        };
+
+        const btnSave = document.getElementById('btnSaveGate');
+        btnSave.disabled = true;
+        btnSave.innerText = 'Saving Gate...';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(res => {
+            btnSave.disabled = false;
+            btnSave.innerHTML = 'Save Gate Point <i class="bi bi-plus-lg ms-1"></i>';
+            if (res.success) {
+                existingGates.push(res.gate);
+                renderGateOnMap(res.gate);
+                
+                // Reset inputs and stage
+                document.getElementById('gate_name').value = '';
+                clearGatePoint();
+                updateGatesSidebarList();
+                alert(`Gate/Entrance point "${res.gate.name}" saved successfully!`);
+            } else {
+                alert("Error saving gate: " + res.error);
+            }
+        })
+        .catch(err => {
+            console.error("AJAX Error: ", err);
+            alert("Error sending gate request.");
+            btnSave.disabled = false;
+            btnSave.innerHTML = 'Save Gate Point <i class="bi bi-plus-lg ms-1"></i>';
+        });
+    }
+
+    function deleteGate(gateId) {
+        if (!confirm("Are you sure you want to delete this gate point? This action is permanent.")) return;
+
+        const url = `/lands/plots-creator/{{ land.slug }}/delete-gate/${gateId}/`;
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(res => {
+            if (res.success) {
+                // Remove from local list
+                existingGates = existingGates.filter(g => g.id !== gateId);
+                
+                // Remove marker from map
+                const layers = registeredGateLayers.filter(l => l.id === gateId);
+                layers.forEach(l => {
+                    if (l.marker) map.removeLayer(l.marker);
+                });
+                registeredGateLayers = registeredGateLayers.filter(l => l.id !== gateId);
+                
+                updateGatesSidebarList();
+                alert("Gate point successfully deleted.");
+            } else {
+                alert("Error deleting gate: " + res.error);
+            }
+        })
+        .catch(err => {
+            console.error("AJAX Error: ", err);
+            alert("Error sending delete gate request.");
+        });
+    }
+
+    function updateGatesSidebarList() {
+        const listDiv = document.getElementById('savedGatesList');
+        document.getElementById('lblGatesCount').innerText = `Total: ${existingGates.length}`;
+
+        if (existingGates.length === 0) {
+            listDiv.innerHTML = '<div class="text-center py-2 text-muted-glow fs-12">No gates mapped yet. Place one above!</div>';
+            return;
+        }
+
+        listDiv.innerHTML = '';
+        existingGates.forEach(gate => {
+            let badgeType = 'entry';
+            let badgeLabel = 'Entry';
+            if (gate.point_type === 'exit') {
+                badgeType = 'exit';
+                badgeLabel = 'Exit';
+            } else if (gate.point_type === 'both') {
+                badgeType = 'both';
+                badgeLabel = 'Entry/Exit';
+            }
+
+            const card = document.createElement('div');
+            card.className = 'd-flex justify-content-between align-items-center bg-dark-glow border border-secondary-glow rounded px-2.5 py-1.5 mb-1.5 text-white fs-12.5';
+            card.innerHTML = `
+                <div>
+                    <span class="fw-bold text-cyan-glow">${gate.name}</span>
+                    <div class="text-muted-glow fs-11 mt-0.5"><span class="badge badge-point-${badgeType}">${badgeLabel}</span></div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1 line-height-1" onclick="deleteGate(${gate.id});" title="Delete Gate">
+                    <i class="bi bi-trash fs-13"></i>
+                </button>
+            `;
+            listDiv.appendChild(card);
+        });
+    }
+
+    function renderGateOnMap(gate) {
+        let gateColor = '#00ffd2'; // Entry: cyan
+        let gateLabel = 'ENTRY';
+        if (gate.point_type === 'exit') {
+            gateColor = '#ff6c00'; // Exit: orange
+            gateLabel = 'EXIT';
+        } else if (gate.point_type === 'both') {
+            gateColor = '#00b2ff'; // Both: blue
+            gateLabel = 'ENTRY/EXIT';
+        }
+
+        const marker = L.marker([gate.latitude, gate.longitude], {
+            icon: L.divIcon({
+                className: 'gate-marker-tooltip',
+                html: `<div class="gate-pin" style="background-color: ${gateColor};">
+                            <i class="bi bi-geo-alt-fill text-dark"></i>
+                            <span class="gate-pin-label text-dark">${gate.name} (${gateLabel})</span>
+                        </div>`,
+                iconSize: [120, 40]
+            })
+        }).addTo(map);
+
+        registeredGateLayers.push({
+            id: gate.id,
+            marker: marker
+        });
+    }
 </script>
 
 <style>
@@ -722,6 +1336,80 @@
     background: #ffffff;
     border-radius: 50%;
     box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+}
+/* Road center line text tooltip styling */
+.road-label-tooltip {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    text-align: center;
+    pointer-events: none !important;
+    user-select: none !important;
+}
+.road-name-text {
+    color: rgba(255, 255, 255, 0.95);
+    font-family: 'Ranade', sans-serif;
+    font-weight: 800;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    background: rgba(10, 15, 25, 0.85);
+    padding: 2px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+/* Gate Marker styling */
+.gate-marker-tooltip {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+}
+.gate-pin {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #0c0f19;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 3px 10px;
+    color: #ffffff;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+}
+.gate-pin i {
+    font-size: 11px;
+    animation: pulseGate 2s infinite alternate;
+}
+.gate-pin-label {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* Sidebar Gate Badges */
+.badge-point-entry {
+    background-color: rgba(0, 255, 210, 0.15) !important;
+    color: #00ffd2 !important;
+    border: 0.5px solid rgba(0, 255, 210, 0.4);
+}
+.badge-point-exit {
+    background-color: rgba(255, 108, 0, 0.15) !important;
+    color: #ff6c00 !important;
+    border: 0.5px solid rgba(255, 108, 0, 0.4);
+}
+.badge-point-both {
+    background-color: rgba(0, 178, 255, 0.15) !important;
+    color: #00b2ff !important;
+    border: 0.5px solid rgba(0, 178, 255, 0.4);
+}
+
+@keyframes pulseGate {
+    0% { transform: scale(1); filter: brightness(1); }
+    100% { transform: scale(1.15); filter: brightness(1.3); }
 }
 </style>
 {% endblock %}

@@ -3,7 +3,7 @@ from django.conf import settings
 from django.utils.text import slugify
 
 class Land(models.Model):
-    name = models.CharField(max_length=150)
+    name = models.CharField(max_length=150, unique=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -48,6 +48,10 @@ class Land(models.Model):
     )
     zoom_level = models.IntegerField(
         default=17
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Detailed information about the land, amenities, and surroundings"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -105,3 +109,72 @@ class Plot(models.Model):
 
     def __str__(self):
         return f"Plot {self.plot_number} - {self.land.name}"
+
+def get_land_gallery_upload_path(instance, filename):
+    """Saves gallery photographs into a subfolder named after the land's slug."""
+    return f"land_gallery/{instance.land.slug}/{filename}"
+
+class LandImage(models.Model):
+    land = models.ForeignKey(Land, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to=get_land_gallery_upload_path)
+    caption = models.CharField(max_length=200, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Image for {self.land.name}"
+
+class Road(models.Model):
+    land = models.ForeignKey(Land, on_delete=models.CASCADE, related_name='roads')
+    name = models.CharField(max_length=150)
+    coordinates = models.JSONField(help_text="JSON list of [lat, lng] coordinates defining the road path")
+    width_meters = models.DecimalField(max_digits=5, decimal_places=1, default=9.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Road {self.name} - {self.land.name}"
+
+class EntryExitPoint(models.Model):
+    POINT_TYPES = [
+        ('entry', 'Entry Point'),
+        ('exit', 'Exit Point'),
+        ('both', 'Entry & Exit Point'),
+    ]
+    land = models.ForeignKey(Land, on_delete=models.CASCADE, related_name='points')
+    name = models.CharField(max_length=100)
+    point_type = models.CharField(max_length=20, choices=POINT_TYPES, default='entry')
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.get_point_type_display()}: {self.name} - {self.land.name}"
+
+# Signal handlers to clean up physical storage files on model instance deletions
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+import os
+import shutil
+
+@receiver(post_delete, sender=LandImage)
+def delete_land_image_file(sender, instance, **kwargs):
+    """Deletes the physical image file from disk storage when a LandImage is deleted."""
+    if instance.image:
+        try:
+            if os.path.isfile(instance.image.path):
+                os.remove(instance.image.path)
+        except Exception:
+            pass
+
+@receiver(post_delete, sender=Land)
+def delete_land_media_directory(sender, instance, **kwargs):
+    """Deletes the entire land-specific subfolder in media/ when a Land is deleted."""
+    try:
+        from django.conf import settings
+        land_dir = os.path.join(settings.MEDIA_ROOT, 'land_gallery', instance.slug)
+        if os.path.isdir(land_dir):
+            shutil.rmtree(land_dir)
+    except Exception:
+        pass
