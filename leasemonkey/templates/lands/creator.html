@@ -65,7 +65,7 @@
         <button type="button" id="btnSaveLand" onclick="submitLandLayout();" disabled class="btn btn-action-primary w-100 py-2.5 fs-13 text-uppercase fw-bold">
             Next: Add Plots <i class="bi bi-arrow-right ms-1"></i>
         </button>
-        <a href="{% url 'admin_dashboard' %}" class="btn btn-link text-white-50 fs-12 w-100 text-center text-decoration-none mt-2">
+        <a href="{% url 'lands:discard_land_draft' slug=land.slug %}" onclick="return confirm('Exit boundary workspace? If boundary is not saved, this land draft will be discarded.');" class="btn btn-link text-white-50 fs-12 w-100 text-center text-decoration-none mt-2">
             <i class="bi bi-x-circle me-1"></i> Cancel & Exit
         </a>
     </div>

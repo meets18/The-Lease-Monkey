@@ -12,7 +12,7 @@ User = get_user_model()
 
 def lands_directory(request):
     """Renders the catalog list of available land properties."""
-    lands = Land.objects.all()
+    lands = [land for land in Land.objects.all() if land.boundary_coordinates and len(land.boundary_coordinates) >= 3]
     return render(request, 'lands/directory.html', {'lands': lands})
 
 def plot_viewer(request, slug):
@@ -133,6 +133,28 @@ def land_creator(request):
         'other_lands_json': json.dumps(other_lands_list),
     }
     return render(request, 'lands/creator.html', context)
+
+@login_required
+def discard_land_draft(request, slug):
+    """Discards a newly created land draft if boundary plotting wasn't completed."""
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        raise PermissionDenied("You do not have permission to discard land drafts.")
+
+    land = get_object_or_404(Land, slug=slug)
+    has_boundary = bool(land.boundary_coordinates and len(land.boundary_coordinates) >= 3)
+
+    if has_boundary:
+        messages.info(request, f"Land '{land.name}' already has a saved boundary and was kept.")
+        return redirect('admin_dashboard')
+
+    if land.plots.exists() or land.roads.exists() or land.points.exists():
+        messages.info(request, f"Land '{land.name}' already has mapped data and was kept.")
+        return redirect('admin_dashboard')
+
+    name = land.name
+    land.delete()
+    messages.success(request, f"Draft land '{name}' was discarded because no boundary was saved.")
+    return redirect('admin_dashboard')
 
 @login_required
 def save_land_layout(request):
@@ -520,6 +542,25 @@ def delete_gallery_photo(request, slug, photo_id):
             photo = get_object_or_404(LandImage, id=photo_id, land=land)
             photo.delete()
             return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': "Invalid request method"}, status=400)
+
+@login_required
+def update_photo_caption(request, slug, photo_id):
+    """Updates the caption of a specific gallery photo via AJAX."""
+    land = get_object_or_404(Land, slug=slug)
+    if request.user.role != 'ADMIN' and not request.user.is_superuser and request.user != land.owner:
+        return JsonResponse({'success': False, 'error': "Permission Denied"}, status=403)
+
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            new_caption = data.get('caption', '').strip()
+            photo = get_object_or_404(LandImage, id=photo_id, land=land)
+            photo.caption = new_caption
+            photo.save()
+            return JsonResponse({'success': True, 'caption': photo.caption})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': "Invalid request method"}, status=400)

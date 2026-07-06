@@ -8,6 +8,7 @@ urlpatterns = [
     path('plots/<slug:slug>/', views.plot_viewer, name='plot_viewer'),
     path('create/', views.create_land, name='create_land'),
     path('creator/', views.land_creator, name='land_creator'),
+    path('creator/discard/<slug:slug>/', views.discard_land_draft, name='discard_land_draft'),
     path('creator/save/', views.save_land_layout, name='save_land_layout'),
     path('plots-creator/<slug:slug>/', views.plot_creator, name='plot_creator'),
     path('plots-creator/<slug:slug>/save/', views.save_plot_layout, name='save_plot_layout'),
@@ -21,4 +22,5 @@ urlpatterns = [
     path('plots/<slug:slug>/update-info/', views.update_land_info, name='update_land_info'),
     path('plots/<slug:slug>/add-photo/', views.add_gallery_photo, name='add_gallery_photo'),
     path('plots/<slug:slug>/delete-photo/<int:photo_id>/', views.delete_gallery_photo, name='delete_gallery_photo'),
+    path('plots/<slug:slug>/update-photo-caption/<int:photo_id>/', views.update_photo_caption, name='update_photo_caption'),
 ]

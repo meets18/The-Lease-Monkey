@@ -74,22 +74,23 @@
                     <tbody class="fs-14">
                         {% if lands %}
                             {% for land in lands %}
-                                <tr class="border-bottom border-dark-glow">
+                                <tr class="border-bottom border-dark-glow land-summary-row"
+                                    onclick="openLandActionsModal(this);"
+                                    data-land-name="{{ land.name|escape }}"
+                                    data-land-owner="{{ land.owner.username|escape }}"
+                                    data-land-location="{{ land.location|escape }}"
+                                    data-land-area="{{ land.area }}"
+                                    data-land-price="{{ land.average_plot_price }}"
+                                    data-explore-url="{% url 'lands:plot_viewer' slug=land.slug %}"
+                                    data-manage-url="{% url 'lands:plot_creator' slug=land.slug %}"
+                                    data-delete-url="{% url 'lands:delete_land' slug=land.slug %}">
                                     <td class="py-3 px-3 fw-bold text-white font-ranade fs-15">{{ land.name }}</td>
                                     <td class="py-3">{{ land.owner.username }}</td>
                                     <td class="py-3 text-muted-glow"><i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i>{{ land.location }}</td>
                                     <td class="py-3">{{ land.area }} Acres</td>
                                     <td class="py-3 text-cyan-glow fw-bold">INR {{ land.average_plot_price }}</td>
                                     <td class="py-3 text-end px-3">
-                                        <a href="{% url 'lands:plot_viewer' slug=land.slug %}" class="btn btn-sm btn-action px-3 py-1.5 fs-12 text-uppercase fw-bold text-decoration-none">
-                                            Explore Map <i class="bi bi-eye ms-1"></i>
-                                        </a>
-                                        <a href="{% url 'lands:plot_creator' slug=land.slug %}" class="btn btn-sm btn-action px-3 py-1.5 fs-12 text-uppercase fw-bold text-decoration-none ms-1">
-                                            Manage Plots <i class="bi bi-grid-3x3-gap ms-1"></i>
-                                        </a>
-                                        <a href="{% url 'lands:delete_land' slug=land.slug %}" onclick="return confirm('Are you sure you want to delete this land and all its plots? This action is permanent.');" class="btn btn-sm btn-outline-danger px-3 py-1.5 fs-12 text-uppercase fw-bold text-decoration-none ms-1">
-                                            Delete <i class="bi bi-trash ms-1"></i>
-                                        </a>
+                                        <span class="land-row-chevron"><i class="bi bi-box-arrow-up-right"></i></span>
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -156,6 +157,34 @@
     </main>
 </div>
 
+<!-- Land Actions Modal (Moved outside positioned wrapper to avoid backdrop clicks block) -->
+<div class="modal fade" id="landActionModal" tabindex="-1" aria-labelledby="landActionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel border border-secondary-glow shadow-2xl p-2 text-white">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title font-ranade fw-bold text-white fs-18" id="landActionModalLabel">
+                    🏢<span id="modalLandName">Land</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-3">
+                <div class="land-modal-info-panel mb-3">
+                    <div class="land-modal-info-item"><span class="text-muted-glow">Owner:</span> <strong id="modalLandOwner" class="text-white">-</strong></div>
+                    <div class="land-modal-info-item"><span class="text-muted-glow">Location:</span> <strong id="modalLandLocation" class="text-white">-</strong></div>
+                    <div class="land-modal-info-item"><span class="text-muted-glow">Area:</span> <strong id="modalLandArea" class="text-white">-</strong></div>
+                    <div class="land-modal-info-item"><span class="text-muted-glow">Avg Plot Price:</span> <strong id="modalLandPrice" class="text-cyan-glow">-</strong></div>
+                </div>
+                <div class="d-grid gap-2">
+                    <a id="modalExploreBtn" href="#" class="btn btn-action btn-lg py-2.5 fs-12 text-uppercase fw-bold text-decoration-none">Explore <i class="bi bi-eye ms-1"></i></a>
+                    <a id="modalManageBtn" href="#" class="btn btn-action btn-lg py-2.5 fs-12 text-uppercase fw-bold text-decoration-none">Manage Plots <i class="bi bi-grid-3x3-gap ms-1"></i></a>
+                    <a id="modalDeleteBtn" href="#" onclick="return confirm('Are you sure you want to delete this land and all its plots? This action is permanent.');" class="btn btn-outline-danger btn-lg py-2.5 fs-12 text-uppercase fw-bold text-decoration-none">Delete <i class="bi bi-trash ms-1"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 <!-- Floating Google Drive Style Action Button (+) -->
 <button class="btn btn-floating-plus shadow-lg" data-bs-toggle="modal" data-bs-target="#addLandModal" title="Register New Land">
     <i class="bi bi-plus-lg fs-4"></i>
@@ -205,25 +234,23 @@
                     </div>
 
                     <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label class="form-label fs-13 text-secondary-glow mb-0">Upload Gallery Images & Captions</label>
-                            <button type="button" class="btn btn-sm btn-action py-0.5 px-2 fs-11" onclick="addGalleryRow();">
-                                <i class="bi bi-plus-lg me-1"></i>Add Photo
-                            </button>
+                        <label class="form-label fs-13 text-secondary-glow mb-2">Upload Gallery Images &amp; Captions</label>
+
+                        <!-- Drag & Drop Zone -->
+                        <div id="galleryDropZone" class="gallery-dropzone border-dashed border-cyan rounded-3 text-center p-4 mb-3" onclick="document.getElementById('galleryBulkInput').click();">
+                            <i class="bi bi-cloud-upload-fill fs-2 text-cyan-glow mb-2 d-block"></i>
+                            <p class="fs-13 text-white mb-1">Drag &amp; drop photos here, or <span class="text-cyan-glow fw-bold">click to browse</span></p>
+                            <p class="fs-11 text-white-50 mb-0">Select up to 7 images at once &bull; JPEG, PNG, WEBP</p>
+                            <input type="file" id="galleryBulkInput" accept="image/*" multiple style="display:none;" onchange="handleBulkGallerySelect(event);">
                         </div>
-                        <div id="galleryRowsContainer" class="d-flex flex-column gap-2">
-                            <!-- First Row -->
-                            <div class="gallery-upload-row border border-secondary-glow p-2 rounded bg-dark-glow d-flex gap-2">
-                                <div class="flex-grow-1">
-                                    <input type="file" class="form-control form-control-sm bg-dark border-secondary text-white fs-12 mb-1.5" name="gallery_image_0" required accept="image/*">
-                                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-12" name="gallery_caption_0" placeholder="Enter image caption (e.g. Front Gate View)">
-                                </div>
-                                <button type="button" class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center px-2" style="height: 31px;" onclick="removeGalleryRow(this);">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="form-text text-white-50 fs-11 mt-1.5">Provide a unique descriptive caption for each uploaded photograph.</div>
+
+                        <!-- Photo Preview Grid (populated by JS) -->
+                        <div id="galleryPreviewGrid" class="gallery-preview-grid"></div>
+
+                        <!-- Hidden indexed inputs are generated by JS -->
+                        <div id="galleryHiddenInputs"></div>
+
+                        <div class="form-text text-white-50 fs-11 mt-2">Each photo must have a unique caption. Photos without a caption will still upload with a blank label.</div>
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
@@ -256,27 +283,128 @@
         }
     }
 
-    let galleryRowCount = 1;
-    function addGalleryRow() {
-        const container = document.getElementById('galleryRowsContainer');
-        const row = document.createElement('div');
-        row.className = 'gallery-upload-row border border-secondary-glow p-2 rounded bg-dark-glow d-flex gap-2';
-        row.innerHTML = `
-            <div class="flex-grow-1">
-                <input type="file" class="form-control form-control-sm bg-dark border-secondary text-white fs-12 mb-1.5" name="gallery_image_${galleryRowCount}" required accept="image/*">
-                <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-12" name="gallery_caption_${galleryRowCount}" placeholder="Enter image caption (e.g. Front Gate View)">
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center px-2" style="height: 31px;" onclick="removeGalleryRow(this);">
-                <i class="bi bi-trash"></i>
-            </button>
-        `;
-        container.appendChild(row);
-        galleryRowCount++;
+    function openLandActionsModal(rowEl) {
+        const get = (key) => rowEl.getAttribute(key) || '';
+
+        document.getElementById('modalLandName').innerText = get('data-land-name');
+        document.getElementById('modalLandOwner').innerText = get('data-land-owner');
+        document.getElementById('modalLandLocation').innerText = get('data-land-location');
+        document.getElementById('modalLandArea').innerText = `${get('data-land-area')} Acres`;
+        document.getElementById('modalLandPrice').innerText = `INR ${get('data-land-price')}`;
+
+        document.getElementById('modalExploreBtn').href = get('data-explore-url');
+        document.getElementById('modalManageBtn').href = get('data-manage-url');
+        document.getElementById('modalDeleteBtn').href = get('data-delete-url');
+
+        const modalEl = document.getElementById('landActionModal');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
     }
-    function removeGalleryRow(btn) {
-        const row = btn.closest('.gallery-upload-row');
-        row.remove();
+
+    // ─── Multi-Photo Upload Logic ─────────────────────────────────────────────
+    let galleryFiles = []; // [{file, caption}]
+
+    // Allow drag-over styling
+    const dropZone = document.getElementById('galleryDropZone');
+    if (dropZone) {
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            handleFilesAdded(Array.from(e.dataTransfer.files));
+        });
     }
+
+    function handleBulkGallerySelect(event) {
+        handleFilesAdded(Array.from(event.target.files));
+        event.target.value = ''; // reset so same files can be re-selected
+    }
+
+    function handleFilesAdded(files) {
+        const imageFiles = files.filter(f => f.type.startsWith('image/'));
+        if (galleryFiles.length + imageFiles.length > 12) {
+            alert('You can upload a maximum of 12 photos at once.');
+            return;
+        }
+        imageFiles.forEach(file => galleryFiles.push({ file, caption: '' }));
+        renderGalleryPreviewGrid();
+    }
+
+    function renderGalleryPreviewGrid() {
+        const grid = document.getElementById('galleryPreviewGrid');
+        const hiddenContainer = document.getElementById('galleryHiddenInputs');
+        grid.innerHTML = '';
+        hiddenContainer.innerHTML = '';
+
+        if (galleryFiles.length === 0) {
+            grid.innerHTML = '<p class="text-white-50 fs-12 text-center py-2">No photos selected yet.</p>';
+            return;
+        }
+
+        galleryFiles.forEach((item, idx) => {
+            const url = URL.createObjectURL(item.file);
+            const card = document.createElement('div');
+            card.className = 'gallery-preview-card';
+            card.innerHTML = `
+                <div class="gallery-preview-thumb" style="background-image: url('${url}');">
+                    <button type="button" class="gallery-remove-btn" onclick="removeGalleryPhoto(${idx})" title="Remove">&times;</button>
+                </div>
+                <input type="text"
+                    class="form-control form-control-sm bg-dark border-secondary text-white fs-11 mt-1"
+                    placeholder="Caption..."
+                    value="${escapeHtml(item.caption)}"
+                    oninput="galleryFiles[${idx}].caption = this.value;"
+                />
+            `;
+            grid.appendChild(card);
+
+            // Create a hidden file DataTransfer trick — we must use a named input + FormData
+            // We'll regenerate file references via a DataTransfer object on form submit
+            const fi = document.createElement('input');
+            fi.type = 'hidden';
+            fi.name = `gallery_caption_${idx}`;
+            fi.value = item.caption;
+            hiddenContainer.appendChild(fi);
+        });
+    }
+
+    function removeGalleryPhoto(idx) {
+        galleryFiles.splice(idx, 1);
+        renderGalleryPreviewGrid();
+    }
+
+    function escapeHtml(str) {
+        const el = document.createElement('div');
+        el.appendChild(document.createTextNode(str));
+        return el.innerHTML;
+    }
+
+    // On form submit, inject actual File objects into the form via DataTransfer
+    document.querySelector('#addLandModal form').addEventListener('submit', function(e) {
+        if (galleryFiles.length === 0) return; // Allow submit with no photos
+
+        // Sync captions to hidden inputs
+        const hiddenContainer = document.getElementById('galleryHiddenInputs');
+        hiddenContainer.innerHTML = '';
+        galleryFiles.forEach((item, idx) => {
+            const fi = document.createElement('input');
+            fi.type = 'hidden';
+            fi.name = `gallery_caption_${idx}`;
+            fi.value = item.caption;
+            hiddenContainer.appendChild(fi);
+
+            // Create a dynamic file input for each file
+            const dt = new DataTransfer();
+            dt.items.add(item.file);
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.name = `gallery_image_${idx}`;
+            fileInput.style.display = 'none';
+            fileInput.files = dt.files;
+            hiddenContainer.appendChild(fileInput);
+        });
+    });
 </script>
 
 <style>
@@ -351,6 +479,31 @@
     color: #0b0f19 !important;
     box-shadow: 0 0 15px rgba(0, 255, 196, 0.4);
 }
+.land-summary-row {
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+.land-summary-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+.land-row-chevron {
+    color: #00ffd2;
+}
+.land-modal-info-panel {
+    background: rgba(11, 15, 25, 0.55);
+    border: 1px solid rgba(0, 255, 196, 0.2);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.land-modal-info-item {
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
 
 /* Floating Action Button Style (Google Drive style) */
 .btn-floating-plus {
@@ -399,6 +552,57 @@
     background-color: rgba(245, 158, 11, 0.1) !important;
     color: #f59e0b !important;
     border: 1px solid rgba(245, 158, 11, 0.2);
+}
+/* Multi-photo gallery upload zone */
+.gallery-dropzone {
+    background: rgba(0, 255, 196, 0.02);
+    border: 2px dashed rgba(0, 255, 196, 0.25) !important;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+.gallery-dropzone:hover, .gallery-dropzone.drag-over {
+    background: rgba(0, 255, 196, 0.06);
+    border-color: rgba(0, 255, 196, 0.55) !important;
+}
+.gallery-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+}
+.gallery-preview-card {
+    display: flex;
+    flex-direction: column;
+}
+.gallery-preview-thumb {
+    aspect-ratio: 4/3;
+    background-size: cover;
+    background-position: center;
+    border-radius: 8px;
+    border: 1px solid rgba(0,255,196,0.2);
+    position: relative;
+    overflow: hidden;
+}
+.gallery-remove-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(220, 53, 69, 0.9);
+    border: none;
+    color: #fff;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+.gallery-preview-thumb:hover .gallery-remove-btn {
+    opacity: 1;
 }
 </style>
 {% endblock %}

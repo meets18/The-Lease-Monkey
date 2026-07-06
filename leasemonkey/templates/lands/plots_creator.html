@@ -49,7 +49,7 @@
                         <label for="plot_area" class="form-label fs-12 text-secondary-glow mb-1">Area (sq ft)</label>
                         <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_area" placeholder="e.g. 1,500">
                     </div>
-                    <div class="col-6 mb-2">
+                    <div class="col-6 mb-2" id="plotPriceField">
                         <label for="plot_price" class="form-label fs-12 text-secondary-glow mb-1">Lease Price (INR)</label>
                         <input type="number" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_price" placeholder="e.g. 4500000">
                     </div>
@@ -61,6 +61,7 @@
                         <option value="available" selected>Available</option>
                         <option value="reserved">Reserved</option>
                         <option value="sold">Booked</option>
+                        <option value="building">Building</option>
                     </select>
                 </div>
 
@@ -109,9 +110,16 @@
                     <label for="road_name" class="form-label fs-12 text-secondary-glow mb-1">Road Name / Label</label>
                     <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="road_name" placeholder="e.g. 9 Meter Road, Main Access Road">
                 </div>
-                <div class="mb-3">
+                <div class="mb-2">
                     <label for="road_width" class="form-label fs-12 text-secondary-glow mb-1">Road Width (meters)</label>
-                    <input type="number" step="0.5" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="road_width" value="9.0">
+                    <input type="number" step="0.5" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="road_width" value="9.0" oninput="updateRoadPolyline();">
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <label for="road_thickness_slider" class="form-label fs-12 text-secondary-glow mb-0">Visual Width Scale</label>
+                        <span id="roadThicknessScaleLabel" class="fs-11 fw-bold text-cyan-glow">1.0x</span>
+                    </div>
+                    <input type="range" class="form-range custom-slider" id="road_thickness_slider" min="0.2" max="2.5" step="0.1" value="1.0" style="cursor: pointer;" oninput="document.getElementById('roadThicknessScaleLabel').innerText = parseFloat(this.value).toFixed(1) + 'x'; updateRoadPolyline();">
                 </div>
 
                 <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-11 mb-3 py-2 text-center" role="alert">
@@ -224,7 +232,8 @@
     const STATUS_COLORS = {
         available: '#9CB447', // Available
         reserved: '#8e9aa8',  // Booked (Grey)
-        sold: '#C7483F'       // On Hold
+        sold: '#C7483F',      // On Hold
+        building: '#ffffff'   // Building (always white patch)
     };
 
     let activeMode = 'plots'; // 'plots', 'roads', 'gates'
@@ -350,7 +359,26 @@
                 placeGatePoint(e.latlng);
             }
         });
+
+        const statusSelect = document.getElementById('plot_status');
+        if (statusSelect) {
+            statusSelect.addEventListener('change', handlePlotStatusChange);
+            handlePlotStatusChange();
+        }
     });
+
+    function handlePlotStatusChange() {
+        const statusVal = document.getElementById('plot_status').value;
+        const priceFieldWrap = document.getElementById('plotPriceField');
+        const priceInput = document.getElementById('plot_price');
+
+        if (statusVal === 'building') {
+            priceFieldWrap.style.display = 'none';
+            priceInput.value = '';
+        } else {
+            priceFieldWrap.style.display = 'block';
+        }
+    }
 
     // Helper: Draw solid plot polygon on map with tooltip number label
     function renderPlotOnMap(plot) {
@@ -433,6 +461,112 @@
         return inside;
     }
 
+    // Line segment intersection detection (ccw/cross-product)
+    function ccw(A, B, C) {
+        return (C[1] - A[1]) * (B[0] - A[0]) > (B[1] - A[1]) * (C[0] - A[0]);
+    }
+    function lineSegmentsIntersect(A, B, C, D) {
+        return ccw(A, C, D) !== ccw(B, C, D) && ccw(A, B, C) !== ccw(A, B, D);
+    }
+
+    // Helper to normalize mixed lat/lng coordinates formats
+    function getCoordsArray(points) {
+        return points.map(p => {
+            if (Array.isArray(p)) return p;
+            if (p && typeof p.lat === 'number') return [p.lat, p.lng];
+            return p;
+        });
+    }
+
+    // Complete road-plot boundary intersection & encroachment check
+    function checkRoadPlotIntersection(plotCoordsRaw, roadCoordsRaw, roadWidthMeters) {
+        const plotCoords = getCoordsArray(plotCoordsRaw);
+        const roadCoords = getCoordsArray(roadCoordsRaw);
+
+        if (plotCoords.length < 3 || roadCoords.length < 2) return false;
+
+        const closedPlot = [...plotCoords, plotCoords[0]];
+
+        // 1. Check if any segment of the plot polygon boundary crosses the road centerline
+        for (let i = 0; i < closedPlot.length - 1; i++) {
+            const pA = closedPlot[i];
+            const pB = closedPlot[i + 1];
+            for (let j = 0; j < roadCoords.length - 1; j++) {
+                const rA = roadCoords[j];
+                const rB = roadCoords[j + 1];
+                if (lineSegmentsIntersect(pA, pB, rA, rB)) {
+                    return true;
+                }
+            }
+        }
+
+        // 2. Check if any road centerline vertex is inside the plot polygon
+        for (const rPt of roadCoords) {
+            if (isPointInPolygon(rPt, plotCoords)) {
+                return true;
+            }
+        }
+
+        // 3. Check if any plot corner is too close to any road centerline segment
+        const metersPerDegLat = 111000;
+        const avgLat = plotCoords[0][0];
+        const metersPerDegLng = 111000 * Math.cos(avgLat * Math.PI / 180);
+        const halfWidthM = roadWidthMeters / 2.0;
+        const halfWidthDeg = halfWidthM / Math.min(metersPerDegLat, metersPerDegLng);
+
+        for (const pPt of plotCoords) {
+            for (let j = 0; j < roadCoords.length - 1; j++) {
+                const [ax, ay] = roadCoords[j];
+                const [bx, by] = roadCoords[j + 1];
+                const dist = pointToSegmentDistanceDeg(pPt[0], pPt[1], ax, ay, bx, by);
+                if (dist < halfWidthDeg) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // ─── Road buffer collision check ───────────────────────────────────────────
+
+    // Returns the minimum distance in degrees from point [lat, lng] to a
+    // polyline segment defined by road.coordinates ([[lat,lng], ...])
+    function pointToSegmentDistanceDeg(px, py, ax, ay, bx, by) {
+        const dx = bx - ax, dy = by - ay;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq === 0) return Math.sqrt((px-ax)*(px-ax)+(py-ay)*(py-ay));
+        let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+        t = Math.max(0, Math.min(1, t));
+        const nx = ax + t * dx, ny = ay + t * dy;
+        return Math.sqrt((px - nx) * (px - nx) + (py - ny) * (py - ny));
+    }
+
+    function isPointTooCloseToRoad(latLng) {
+        // 1 degree lat ≈ 111,000 m; 1 degree lng ≈ 111,000 * cos(lat) m
+        const metersPerDegLat = 111000;
+        const metersPerDegLng = 111000 * Math.cos(latLng.lat * Math.PI / 180);
+
+        for (const road of existingRoads) {
+            const coords = road.coordinates; // [[lat, lng], ...]
+            const halfWidthM = (road.width || 9.0) / 2.0;
+            // Convert half-width in meters to approx degrees (use avg of lat/lng)
+            const halfWidthDeg = halfWidthM / Math.min(metersPerDegLat, metersPerDegLng);
+
+            for (let i = 0; i < coords.length - 1; i++) {
+                const [ax, ay] = coords[i];
+                const [bx, by] = coords[i + 1];
+                const dist = pointToSegmentDistanceDeg(
+                    latLng.lat, latLng.lng, ax, ay, bx, by
+                );
+                if (dist < halfWidthDeg) {
+                    return road.name || 'an access road';
+                }
+            }
+        }
+        return null; // No collision
+    }
+
     // Add point during plot tracing
     function addPlotPoint(latlng) {
         const pt = [latlng.lat, latlng.lng];
@@ -441,6 +575,15 @@
         if (landBoundaryCoords && landBoundaryCoords.length >= 3) {
             if (!isPointInPolygon(pt, landBoundaryCoords)) {
                 alert("Invalid Position: All corner points of the plot must lie strictly inside the marked land boundary outline.");
+                return;
+            }
+        }
+
+        // ── NEW: Enforce road clearance (plot cannot cross over roads) ────────
+        if (existingRoads && existingRoads.length > 0) {
+            const hitRoad = isPointTooCloseToRoad(latlng);
+            if (hitRoad) {
+                alert(`Invalid Position: This plot corner falls inside or overlaps "${hitRoad}". Plots cannot be placed over roads. Place the corner on the other side of the road.`);
                 return;
             }
         }
@@ -472,6 +615,7 @@
         currentPlotMarkers.push(marker);
         updatePlotPolygon();
     }
+
 
     // Undo last plot point
     function undoPlotPoint() {
@@ -629,11 +773,16 @@
     function submitPlotRecord() {
         const plotNum = document.getElementById('plot_number').value.trim();
         const areaStr = document.getElementById('plot_area').value.trim() + " sqft";
-        const priceVal = document.getElementById('plot_price').value.trim();
         const facingVal = 'North';
         const statusVal = document.getElementById('plot_status').value;
+        const priceInputVal = document.getElementById('plot_price').value.trim();
+        const priceVal = statusVal === 'building' ? '0' : priceInputVal;
 
-        if (!plotNum || !priceVal || document.getElementById('plot_area').value.trim() === '') {
+        if (!plotNum || document.getElementById('plot_area').value.trim() === '') {
+            alert("Please fill in all plot details before saving.");
+            return;
+        }
+        if (statusVal !== 'building' && !priceVal) {
             alert("Please fill in all plot details before saving.");
             return;
         }
@@ -648,6 +797,18 @@
             : "{% url 'lands:save_plot_layout' slug=land.slug %}";
 
         const boundaryCoords = currentPlotPoints.map(p => [p.lat, p.lng]);
+
+        // Validate that the plot boundary does not cross or overlap any existing roads
+        if (!editingPlotNumber && existingRoads && existingRoads.length > 0) {
+            for (const road of existingRoads) {
+                const roadWidthM = road.width || road.width_meters || 9.0;
+                if (checkRoadPlotIntersection(boundaryCoords, road.coordinates, roadWidthM)) {
+                    alert(`Invalid Plot: The proposed plot shape crosses, overlaps, or sits too close to access road "${road.name}". Plots cannot be placed over roads. Please adjust the plot points.`);
+                    return;
+                }
+            }
+        }
+
         const data = {
             plot_number: plotNum,
             area: areaStr,
@@ -664,6 +825,7 @@
         btnSave.innerHTML = editingPlotNumber 
             ? 'Updating <span class="spinner-border spinner-border-sm ms-1" role="status" aria-hidden="true"></span>'
             : 'Saving <span class="spinner-border spinner-border-sm ms-1" role="status" aria-hidden="true"></span>';
+
 
         fetch(url, {
             method: 'POST',
@@ -729,8 +891,13 @@
         document.getElementById('plot_number').value = plot.number;
         document.getElementById('plot_number').disabled = true;
         document.getElementById('plot_area').value = plot.area.replace(' sqft', '');
-        document.getElementById('plot_price').value = Math.round(Number(plot.price));
         document.getElementById('plot_status').value = plot.status;
+        if (plot.status === 'building') {
+            document.getElementById('plot_price').value = '';
+        } else {
+            document.getElementById('plot_price').value = Math.round(Number(plot.price));
+        }
+        handlePlotStatusChange();
 
         const btnSave = document.getElementById('btnSavePlot');
         btnSave.innerHTML = 'Update Plot <i class="bi bi-save ms-1"></i>';
@@ -748,6 +915,7 @@
         document.getElementById('plot_area').value = '';
         document.getElementById('plot_price').value = '';
         document.getElementById('plot_status').selectedIndex = 0;
+        handlePlotStatusChange();
 
         const btnSave = document.getElementById('btnSavePlot');
         btnSave.disabled = false;
@@ -815,9 +983,10 @@
 
         if (currentRoadPoints.length >= 2) {
             const widthVal = parseFloat(document.getElementById('road_width').value) || 9.0;
+            const multiplier = parseFloat(document.getElementById('road_thickness_slider').value) || 1.0;
             currentRoadPolyline = L.polyline(currentRoadPoints, {
                 color: '#00ffd2',
-                weight: widthVal * 1.5, // thickness scale
+                weight: widthVal * 1.5 * multiplier, // thickness scale
                 opacity: 0.55
             }).addTo(map);
         }
@@ -857,15 +1026,29 @@
 
         const url = "/lands/plots-creator/{{ land.slug }}/save-road/";
         const boundaryCoords = currentRoadPoints.map(p => [p.lat, p.lng]);
+        const multiplier = parseFloat(document.getElementById('road_thickness_slider').value) || 1.0;
+        const roadWidthVal = (parseFloat(roadWidth) || 9.0) * multiplier;
+
+        // Validate that the proposed road path does not cross or overlap any existing plots
+        if (existingPlots && existingPlots.length > 0) {
+            for (const plot of existingPlots) {
+                if (checkRoadPlotIntersection(plot.coordinates, boundaryCoords, roadWidthVal)) {
+                    alert(`Invalid Road: The proposed road path crosses, overlaps, or sits too close to existing Plot "${plot.number}". Please adjust the road points to keep it clear.`);
+                    return;
+                }
+            }
+        }
+
         const data = {
             name: roadName,
-            width_meters: parseFloat(roadWidth),
+            width_meters: roadWidthVal,
             coordinates: boundaryCoords
         };
 
         const btnSave = document.getElementById('btnSaveRoad');
         btnSave.disabled = true;
         btnSave.innerText = 'Saving Road...';
+
 
         fetch(url, {
             method: 'POST',
@@ -967,28 +1150,32 @@
     function renderRoadOnMap(road) {
         const currentZoom = map.getZoom();
 
-        // Thin white road boundary outline
+        // Dark shadow outline (gives road a defined body edge)
         const outline = L.polyline(road.coordinates, {
-            color: '#ffffff',
+            color: '#1e2024',
             weight: calculateRoadOutlineWeight(road.width, currentZoom),
-            opacity: 0.9,
-            interactive: false
+            opacity: 1.0,
+            interactive: false,
+            lineCap: 'butt',
+            lineJoin: 'miter'
         }).addTo(map);
 
-        // Thick road background lane
+        // Solid dark gray road surface (Solace-style)
         const polyline = L.polyline(road.coordinates, {
-            color: '#000000',
+            color: '#3a3d40',
             weight: calculateRoadWeight(road.width, currentZoom),
-            opacity: 0.95,
-            interactive: false
+            opacity: 1.0,
+            interactive: false,
+            lineCap: 'butt',
+            lineJoin: 'miter'
         }).addTo(map);
-        
-        // Double yellow dashed dividing strip
+
+        // Subtle grey lane dividing stripe
         const stripe = L.polyline(road.coordinates, {
-            color: '#ffc107',
+            color: '#6c727a',
             weight: calculateRoadStripeWeight(currentZoom),
-            dashArray: '4, 8',
-            opacity: 0.8,
+            dashArray: '5, 10',
+            opacity: 0.6,
             interactive: false
         }).addTo(map);
 
@@ -1253,6 +1440,30 @@
 }
 .btn-action-secondary:hover {
     background: rgba(255, 255, 255, 0.1);
+}
+.custom-slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.15) !important;
+    outline: none;
+    transition: background 0.3s ease;
+    margin: 8px 0;
+}
+.custom-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #00ffd2;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 255, 210, 0.8);
+    transition: transform 0.1s ease;
+}
+.custom-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
 }
 .mb-1.5 {
     margin-bottom: 6px;

@@ -197,6 +197,12 @@
     background-color: #C7483F;
 }
 
+.dot-building {
+    background-color: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.45);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
+}
+
 /* Utility menu icon button items */
 .btn-utility-icon {
     background: #0c101b !important;

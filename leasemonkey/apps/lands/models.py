@@ -84,6 +84,7 @@ class Plot(models.Model):
         ('available', 'Available'),
         ('reserved', 'Reserved'),
         ('sold', 'Sold'),
+        ('building', 'Building'),
     ]
 
     land = models.ForeignKey(

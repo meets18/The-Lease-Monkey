@@ -182,22 +182,24 @@ let currentFilter = 'all';
 let colorCodingActive = false; // Default: OFF (Cream plots)
 let satelliteActive = false;    // Default: OFF (Dark backdrop map view)
 
-// Dynamic road weight scaling based on zoom levels
+// Dynamic road weight scaling based on zoom levels and thickness multiplier
+let roadThicknessMultiplier = 1.0;
+
 function calculateRoadWeight(width, zoom) {
-  const baseWeight = width * 2.8;
+  const baseWeight = width * 2.8 * roadThicknessMultiplier;
   const zoomFactor = Math.pow(2, zoom - 18);
   return Math.max(1.5, baseWeight * zoomFactor);
 }
 
 function calculateRoadOutlineWeight(width, zoom) {
-  const baseWeight = width * 2.8 + 3.0;
+  const baseWeight = (width * 2.8 + 3.0) * roadThicknessMultiplier;
   const zoomFactor = Math.pow(2, zoom - 18);
   return Math.max(2.5, baseWeight * zoomFactor);
 }
 
 function calculateRoadStripeWeight(zoom) {
   const zoomFactor = Math.pow(2, zoom - 18);
-  return Math.max(0.5, 1.5 * zoomFactor);
+  return Math.max(0.5, 1.5 * zoomFactor * roadThicknessMultiplier);
 }
 
 function updateRoadWeights() {
@@ -219,6 +221,7 @@ const COLORS = {
   available: '#9CB447', // Available
   reserved: '#8e9aa8',  // Booked (Grey)
   sold: '#C7483F',      // On Hold
+  building: '#ffffff',  // Building
   uniform: '#eaddca'    // Uniform beige
 };
 
@@ -332,17 +335,19 @@ function initMap() {
   }
 
   activePlotData.forEach(plot => {
-    let statusColorKey = plot.status;
-    if (plot.status === 'sold') statusColorKey = 'sold';
-    if (plot.status === 'available') statusColorKey = 'available';
-    if (plot.status === 'reserved') statusColorKey = 'reserved';
+    const rawStatus = (plot.status || '').toLowerCase();
+    const statusColorKey = ['available', 'reserved', 'sold', 'building'].includes(rawStatus)
+      ? rawStatus
+      : 'available';
+    const isBuildingPlot = statusColorKey === 'building';
 
     const polygon = L.polygon(plot.coordinates, {
       color: '#3d4045',
       weight: 1.5,
       opacity: 0.8,
       fillColor: getPlotColor(statusColorKey),
-      fillOpacity: colorCodingActive ? 0.8 : 0.9
+      fillOpacity: colorCodingActive ? 0.8 : 0.9,
+      interactive: !isBuildingPlot
     }).addTo(map);
 
     polygon.plotData = plot;
@@ -361,37 +366,39 @@ function initMap() {
 
     mapPolygons.push(polygon);
 
-    // Hover Mouseover
-    polygon.on('mouseover', function(e) {
-      this.setStyle({
-        fillOpacity: colorCodingActive ? 0.75 : 0.98,
-        weight: 3,
-        color: '#00b8ff' // highlight blue on hover
-      });
-    });
-
-    // Hover Mouseout
-    polygon.on('mouseout', function(e) {
-      if (selectedMapPolygon !== this) {
-        this.setStyle({
-          fillOpacity: colorCodingActive ? 0.8 : 0.9,
-          weight: 1.5,
-          color: '#3d4045'
-        });
-      } else {
-        // Keep selected highlight style
+    if (!isBuildingPlot) {
+      // Hover Mouseover
+      polygon.on('mouseover', function(e) {
         this.setStyle({
           fillOpacity: colorCodingActive ? 0.75 : 0.98,
-          weight: 3.5,
-          color: '#00b8ff'
+          weight: 3,
+          color: '#00b8ff' // highlight blue on hover
         });
-      }
-    });
+      });
 
-    // Click selection
-    polygon.on('click', function(e) {
-      selectMapPlot(this);
-    });
+      // Hover Mouseout
+      polygon.on('mouseout', function(e) {
+        if (selectedMapPolygon !== this) {
+          this.setStyle({
+            fillOpacity: colorCodingActive ? 0.8 : 0.9,
+            weight: 1.5,
+            color: '#3d4045'
+          });
+        } else {
+          // Keep selected highlight style
+          this.setStyle({
+            fillOpacity: colorCodingActive ? 0.75 : 0.98,
+            weight: 3.5,
+            color: '#00b8ff'
+          });
+        }
+      });
+
+      // Click selection
+      polygon.on('click', function(e) {
+        selectMapPlot(this);
+      });
+    }
   });
 
   // Setup control listeners
@@ -451,16 +458,21 @@ function populateDetailsPanel(data, statusColorKey) {
 
 // Get plot color helper
 function getPlotColor(statusColorKey) {
+  if (statusColorKey === 'building') {
+    return COLORS.building;
+  }
   if (!colorCodingActive) {
     return COLORS.uniform;
   }
-  return COLORS[statusColorKey];
+  return COLORS[statusColorKey] || COLORS.uniform;
 }
 
 // Setup switches and button events
 function setupToggleControls() {
   const statusColorToggle = document.getElementById('statusColorToggle');
   const legendPanel = document.getElementById('legendPanel');
+
+
 
   // Status Switch (OFF/ON)
   statusColorToggle.addEventListener('change', (e) => {
@@ -594,6 +606,11 @@ function triggerSearch(query) {
   
   const matched = mapPolygons.find(p => p.plotData.number === query);
   if (matched) {
+    if (matched.statusColorKey === 'building') {
+      map.setView(matched.getBounds().getCenter(), 19);
+      alert(`Plot "${query}" is marked as Building and is not clickable.`);
+      return;
+    }
     if (!map.hasLayer(matched)) {
       currentFilter = 'all';
       applyFilters();
@@ -714,28 +731,32 @@ function renderRoadOnMap(road) {
   const currentZoom = map.getZoom();
   const roadWidth = road.width || road.width_meters || 9.0;
 
-  // Thin white road boundary outline
+  // ── Thin dark shadow outline (sits behind, gives road body) ──────────────
   const outline = L.polyline(road.coordinates, {
-    color: '#ffffff',
+    color: '#1e2024',
     weight: calculateRoadOutlineWeight(roadWidth, currentZoom),
-    opacity: 0.9,
-    interactive: false
+    opacity: 1.0,
+    interactive: false,
+    lineCap: 'butt',
+    lineJoin: 'miter'
   }).addTo(map);
 
-  // Thick road background lane
+  // ── Solid road surface (clean dark gray, matching Solace style) ──────────
   const polyline = L.polyline(road.coordinates, {
-    color: '#000000',
+    color: '#3a3d40',
     weight: calculateRoadWeight(roadWidth, currentZoom),
-    opacity: 0.95,
-    interactive: false
+    opacity: 1.0,
+    interactive: false,
+    lineCap: 'butt',
+    lineJoin: 'miter'
   }).addTo(map);
-  
-  // Double yellow dashed dividing strip
+
+  // ── Clean lane dividing strip (makes the road immediately recognizable) ──
   const stripe = L.polyline(road.coordinates, {
-    color: '#ffc107',
+    color: '#6c727a',
     weight: calculateRoadStripeWeight(currentZoom),
-    dashArray: '4, 8',
-    opacity: 0.8,
+    dashArray: '5, 10',
+    opacity: 0.6,
     interactive: false
   }).addTo(map);
 
@@ -764,7 +785,7 @@ function renderRoadOnMap(road) {
   renderedRoadLayers.push({
     outline: outline,
     polyline: polyline,
-    stripe: stripe,
+    stripe: stripe, // road lane dividing stripe
     width: roadWidth
   });
 }

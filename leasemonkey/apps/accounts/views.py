@@ -138,6 +138,12 @@ def admin_dashboard(request):
             raise PermissionDenied("You do not have access to this portal.")
             
     from apps.lands.models import Land
+    # Auto-discard draft lands that never progressed past boundary plotting.
+    for land in Land.objects.select_related('owner').all():
+        has_boundary = bool(land.boundary_coordinates and len(land.boundary_coordinates) >= 3)
+        if not has_boundary and not land.plots.exists() and not land.roads.exists() and not land.points.exists():
+            land.delete()
+
     lands = Land.objects.select_related('owner').all()
     landowners = User.objects.filter(role=User.LAND_OWNER)
     
