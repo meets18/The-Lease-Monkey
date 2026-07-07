@@ -22,5 +22,9 @@ urlpatterns = [
     path('plots/<slug:slug>/update-info/', views.update_land_info, name='update_land_info'),
     path('plots/<slug:slug>/add-photo/', views.add_gallery_photo, name='add_gallery_photo'),
     path('plots/<slug:slug>/delete-photo/<int:photo_id>/', views.delete_gallery_photo, name='delete_gallery_photo'),
-    path('plots/<slug:slug>/update-photo-caption/<int:photo_id>/', views.update_photo_caption, name='update_photo_caption'),
+    path('plots/<slug:slug>/update-photo-caption/<int:photo_id>/',   views.update_photo_caption,   name='update_photo_caption'),
+
+    # ── Landowner Deletion Requests ───────────────────────────────────────────
+    path('request-delete-land/<slug:slug>/',                         views.request_land_deletion,  name='request_land_deletion'),
+    path('request-delete-plot/<slug:slug>/<str:plot_number>/',       views.request_plot_deletion,  name='request_plot_deletion'),
 ]

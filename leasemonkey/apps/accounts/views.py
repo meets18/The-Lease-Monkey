@@ -124,11 +124,30 @@ def admin_login(request):
 
 @login_required(login_url='portal_selection')
 def landowner_dashboard(request):
-    """Displays the Land Owner Portal Dashboard if role matches."""
+    """Displays the Land Owner Portal Dashboard — shows only this owner's lands and their notifications."""
     if request.user.role != User.LAND_OWNER:
         if not request.user.is_superuser:
             raise PermissionDenied("You do not have access to this portal.")
-    return render(request, 'accounts/landowner_dashboard.html')
+
+    from apps.lands.models import Land
+    from apps.core.models import Notification
+
+    lands = Land.objects.filter(owner=request.user).prefetch_related('plots', 'images')
+    notifications = Notification.objects.filter(recipient=request.user)
+    unread_count  = notifications.filter(is_read=False).count()
+    sent_requests = Notification.objects.filter(
+        sender=request.user,
+        notif_type__in=['land_delete_request', 'plot_delete_request']
+    ).order_by('-created_at')
+
+    context = {
+        'lands': lands,
+        'notifications': notifications,
+        'unread_count': unread_count,
+        'sent_requests': sent_requests,
+    }
+    return render(request, 'accounts/landowner_dashboard.html', context)
+
 
 @login_required(login_url='portal_selection')
 def admin_dashboard(request):
@@ -136,8 +155,10 @@ def admin_dashboard(request):
     if request.user.role != User.ADMIN:
         if not request.user.is_superuser:
             raise PermissionDenied("You do not have access to this portal.")
-            
+
     from apps.lands.models import Land
+    from apps.core.models import Notification
+
     # Auto-discard draft lands that never progressed past boundary plotting.
     for land in Land.objects.select_related('owner').all():
         has_boundary = bool(land.boundary_coordinates and len(land.boundary_coordinates) >= 3)
@@ -146,9 +167,14 @@ def admin_dashboard(request):
 
     lands = Land.objects.select_related('owner').all()
     landowners = User.objects.filter(role=User.LAND_OWNER)
-    
+    notifications = Notification.objects.filter(recipient=request.user)
+    unread_count  = notifications.filter(is_read=False).count()
+
     context = {
         'lands': lands,
         'landowners': landowners,
+        'notifications': notifications,
+        'unread_count': unread_count,
     }
     return render(request, 'accounts/admin_dashboard.html', context)
+

@@ -28,6 +28,12 @@
                         <i class="bi bi-people-fill"></i> Land Owners
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkNotifs" onclick="switchTab('notifs');" class="sidebar-link">
+                        <i class="bi bi-bell-fill"></i> Notifications
+                        {% if unread_count %}<span class="admin-notif-badge ms-auto">{{ unread_count }}</span>{% endif %}
+                    </a>
+                </li>
             </ul>
         </nav>
 
@@ -154,6 +160,72 @@
                 </table>
             </div>
         </section>
+
+        <!-- ── NOTIFICATIONS TAB ──────────────────────────────────────────── -->
+        <section id="sectionNotifications" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Notifications</h2>
+                <p class="text-muted-glow fs-14 mb-0">Land owner deletion requests and system alerts requiring your action.</p>
+            </div>
+
+            {% if notifications %}
+                <div class="d-flex flex-column gap-3" id="adminNotifList">
+                    {% for notif in notifications %}
+                        <div class="admin-notif-card rounded-3 border {% if notif.is_read %}border-secondary-glow opacity-65{% else %}border-action-glow{% endif %} bg-dark-glow p-4"
+                             id="admin-notif-{{ notif.id }}">
+                            <div class="d-flex align-items-start gap-3">
+                                <div class="flex-shrink-0">
+                                    {% if notif.notif_type == 'land_delete_request' %}
+                                        <i class="bi bi-building-x fs-4 text-warning"></i>
+                                    {% elif notif.notif_type == 'plot_delete_request' %}
+                                        <i class="bi bi-grid-3x3-gap fs-4 text-warning"></i>
+                                    {% elif notif.notif_type == 'request_approved' %}
+                                        <i class="bi bi-check-circle-fill fs-4 text-success"></i>
+                                    {% else %}
+                                        <i class="bi bi-bell-fill fs-4 text-cyan-glow"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <h6 class="text-white fw-bold mb-0 fs-14">{{ notif.title }}</h6>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="text-white-50 fs-11">{{ notif.created_at|date:"M d, Y H:i" }}</span>
+                                            {% if not notif.is_read %}<span class="admin-unread-dot"></span>{% endif %}
+                                        </div>
+                                    </div>
+                                    <p class="text-muted-glow fs-13 mb-0" style="white-space:pre-line;">{{ notif.message }}</p>
+
+                                    {% if notif.notif_type == 'land_delete_request' or notif.notif_type == 'plot_delete_request' %}
+                                        {% if not notif.is_read %}
+                                        <div class="d-flex gap-2 mt-3">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-approve px-3 py-1 fs-12 fw-bold text-uppercase"
+                                                    onclick="handleNotifAction({{ notif.id }}, 'approve')">
+                                                <i class="bi bi-check-lg me-1"></i> Approve &amp; Delete
+                                            </button>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-reject px-3 py-1 fs-12 fw-bold text-uppercase"
+                                                    onclick="openRejectDialog({{ notif.id }})">
+                                                <i class="bi bi-x-lg me-1"></i> Reject
+                                            </button>
+                                        </div>
+                                        {% else %}
+                                            <span class="badge bg-secondary mt-2 fs-11">Resolved</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-5 text-center">
+                    <i class="bi bi-bell-slash fs-1 text-muted-glow d-block mb-3"></i>
+                    <p class="text-muted-glow fs-15 mb-0">No notifications yet.</p>
+                </div>
+            {% endif %}
+        </section>
+
     </main>
 </div>
 
@@ -264,23 +336,98 @@
 
 <!-- Scripts for Dashboard Tab Switching -->
 <script>
+    // ─── Tab Switching ─────────────────────────────────────────────────────
     function switchTab(tabName) {
-        const sectionLands = document.getElementById('sectionLands');
-        const sectionOwners = document.getElementById('sectionOwners');
-        const linkLands = document.getElementById('tabLinkLands');
-        const linkOwners = document.getElementById('tabLinkOwners');
+        const tabMap = {
+            lands:  { section: 'sectionLands',         link: 'tabLinkLands'   },
+            owners: { section: 'sectionOwners',        link: 'tabLinkOwners'  },
+            notifs: { section: 'sectionNotifications', link: 'tabLinkNotifs'  },
+        };
+        Object.keys(tabMap).forEach(t => {
+            document.getElementById(tabMap[t].section).style.display = (t === tabName) ? 'block' : 'none';
+            document.getElementById(tabMap[t].link).classList.toggle('active', t === tabName);
+        });
+    }
 
-        if (tabName === 'lands') {
-            sectionLands.style.display = 'block';
-            sectionOwners.style.display = 'none';
-            linkLands.classList.add('active');
-            linkOwners.classList.remove('active');
-        } else if (tabName === 'owners') {
-            sectionLands.style.display = 'none';
-            sectionOwners.style.display = 'block';
-            linkLands.classList.remove('active');
-            linkOwners.classList.add('active');
+    // ─── Notification Actions ──────────────────────────────────────────────
+    function getCsrf() {
+        return document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
+    }
+
+    function handleNotifAction(notifId, action, rejectionMessage = '') {
+        if (action === 'approve') {
+            if (!confirm('This will PERMANENTLY DELETE the requested land or plot. Are you sure?')) return;
         }
+        fetch(`/notification/${notifId}/action/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+            body: JSON.stringify({ action, rejection_message: rejectionMessage }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { showAdminToast(data.error, 'danger'); return; }
+            const card = document.getElementById(`admin-notif-${notifId}`);
+            if (card) {
+                // Remove action buttons; mark card as resolved
+                card.querySelectorAll('.btn-approve, .btn-reject').forEach(b => b.parentElement.remove());
+                card.querySelector('.admin-unread-dot')?.remove();
+                card.classList.add('opacity-65');
+                card.classList.remove('border-action-glow');
+                card.classList.add('border-secondary-glow');
+                const badge = card.querySelector('.badge-resolved');
+                if (!badge) {
+                    const span = document.createElement('span');
+                    span.className = 'badge bg-secondary mt-2 fs-11 badge-resolved';
+                    span.innerText = action === 'approve' ? 'Approved & Deleted' : 'Rejected';
+                    card.querySelector('.flex-grow-1')?.appendChild(span);
+                }
+            }
+            // Update sidebar badge
+            const sideBadge = document.querySelector('.admin-notif-badge');
+            if (sideBadge) {
+                const cur = parseInt(sideBadge.innerText, 10) - 1;
+                if (cur <= 0) sideBadge.remove(); else sideBadge.innerText = cur;
+            }
+            showAdminToast(action === 'approve' ? 'Approved — item deleted successfully.' : 'Rejection sent to landowner.', 'success');
+        })
+        .catch(() => showAdminToast('Something went wrong. Please try again.', 'danger'));
+    }
+
+    // ─── Reject Dialog ─────────────────────────────────────────────────────
+    let _rejectNotifId = null;
+    function openRejectDialog(notifId) {
+        _rejectNotifId = notifId;
+        document.getElementById('rejectMsgInput').value = '';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('rejectModal')).show();
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('rejectSubmitBtn').addEventListener('click', function () {
+            const msg = document.getElementById('rejectMsgInput').value.trim();
+            if (!msg) { alert('Please enter a rejection message before submitting.'); return; }
+            bootstrap.Modal.getInstance(document.getElementById('rejectModal')).hide();
+            handleNotifAction(_rejectNotifId, 'reject', msg);
+        });
+    });
+
+    // ─── Toast ─────────────────────────────────────────────────────────────
+    function showAdminToast(msg, type) {
+        let toast = document.getElementById('adminToastEl');
+        if (!toast) {
+            const wrap = document.createElement('div');
+            wrap.className = 'position-fixed bottom-0 end-0 p-3';
+            wrap.style.zIndex = '9999';
+            wrap.innerHTML = `<div id="adminToastEl" class="toast align-items-center text-white border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body fs-13" id="adminToastMsg"></div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>`;
+            document.body.appendChild(wrap);
+            toast = document.getElementById('adminToastEl');
+        }
+        toast.className = `toast align-items-center text-white border-0 bg-${type === 'success' ? 'success' : 'danger'}`;
+        document.getElementById('adminToastMsg').innerText = msg;
+        bootstrap.Toast.getOrCreateInstance(toast, { delay: 4500 }).show();
     }
 
     function openLandActionsModal(rowEl) {
@@ -604,5 +751,70 @@
 .gallery-preview-thumb:hover .gallery-remove-btn {
     opacity: 1;
 }
+/* ── Notifications Tab Styles ─────────────────────────────────── */
+.admin-notif-card { transition: background 0.2s ease; }
+.admin-notif-card:hover { background: rgba(255,255,255,0.02) !important; }
+.border-action-glow { border-color: rgba(251,191,36,0.45) !important; }
+.admin-notif-badge {
+    background: #ef4444; color: #fff;
+    border-radius: 12px; padding: 1px 7px;
+    font-size: 11px; font-weight: 700;
+}
+.admin-unread-dot {
+    display: inline-block; width: 9px; height: 9px;
+    border-radius: 50%; background: #fbbf24; flex-shrink: 0;
+}
+.opacity-65 { opacity: 0.65; }
+.btn-approve {
+    background: rgba(34,197,94,0.12);
+    border: 1px solid rgba(34,197,94,0.35);
+    color: #22c55e;
+    transition: all 0.25s ease;
+}
+.btn-approve:hover {
+    background: #22c55e; color: #fff;
+    box-shadow: 0 0 12px rgba(34,197,94,0.4);
+}
+.btn-reject {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: #ef4444;
+    transition: all 0.25s ease;
+}
+.btn-reject:hover {
+    background: #ef4444; color: #fff;
+    box-shadow: 0 0 12px rgba(239,68,68,0.4);
+}
 </style>
+
+<!-- ═══════════════ REJECT DIALOG MODAL ═══════════════════════════════════ -->
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel border border-secondary-glow shadow-2xl p-2 text-white">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title font-ranade fw-bold text-white fs-17">
+                    <i class="bi bi-x-circle text-danger me-2"></i>Reject Deletion Request
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-3">
+                <p class="text-muted-glow fs-13 mb-3">
+                    Please provide a reason for rejecting this deletion request. This message will be sent to the landowner via in-app notification and email.
+                </p>
+                <label class="form-label fs-12 text-secondary-glow fw-bold text-uppercase">Rejection Message</label>
+                <textarea id="rejectMsgInput"
+                          class="form-control bg-dark border-secondary text-white fs-13"
+                          rows="4"
+                          placeholder="e.g. This land has active plots with reserved status. Please resolve those before requesting deletion."></textarea>
+            </div>
+            <div class="modal-footer border-0 pt-0 gap-2">
+                <button type="button" class="btn btn-secondary border-0 bg-transparent text-white-50 px-4 py-2" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="rejectSubmitBtn" class="btn btn-reject px-4 py-2 text-uppercase fs-12 fw-bold">
+                    Send Rejection <i class="bi bi-send ms-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
+

@@ -771,9 +771,37 @@
         `).join('');
     }
 
-    // AJAX post delete staged plot
+    // AJAX post delete staged plot — role-aware
+    // For LAND_OWNER: sends a soft deletion request to admin.
+    // For ADMIN: performs hard delete immediately.
+    const USER_ROLE = "{{ user_role }}"; // injected from Django view context
+
     function deleteStagedPlot(plotNumber, kind) {
-        if (!confirm(`Are you sure you want to delete Plot ${plotNumber}?`)) return;
+        const isLandOwner = USER_ROLE === 'LAND_OWNER';
+        const itemLabel = `${kind === 'building' ? 'Building' : 'Plot'} ${plotNumber}`;
+
+        if (isLandOwner) {
+            if (!confirm(`Request admin to delete ${itemLabel}?\n\nThe admin will review your request. The ${kind === 'building' ? 'building' : 'plot'} will NOT be deleted until the admin approves.`)) return;
+
+            const url = `/lands/request-delete-plot/{{ land.slug }}/${encodeURIComponent(plotNumber)}/` + (kind ? `?kind=${encodeURIComponent(kind)}` : '');
+            fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'ok') {
+                    alert(`Deletion request for ${itemLabel} has been sent to the admin.`);
+                } else {
+                    alert('Error: ' + (res.error || 'Something went wrong.'));
+                }
+            })
+            .catch(() => alert('Network error sending deletion request.'));
+            return; // Stop here — do NOT hard-delete
+        }
+
+        // ADMIN: original hard-delete behavior
+        if (!confirm(`Are you sure you want to delete ${itemLabel}?`)) return;
 
         const url = `/lands/plots-creator/{{ land.slug }}/delete/${encodeURIComponent(plotNumber)}/` + (kind ? `?kind=${encodeURIComponent(kind)}` : '');
 
@@ -803,22 +831,23 @@
                     }
                 });
 
-                // Redraw remainings
+                // Redraw remaining
                 existingPlots.forEach(plot => {
                     renderPlotOnMap(plot);
                 });
 
                 updatePlotsSidebarList();
-                alert(`${kind === 'building' ? 'Building' : 'Plot'} ${plotNumber} deleted successfully.`);
+                alert(`${itemLabel} deleted successfully.`);
             } else {
-                alert("Error deleting plot: " + res.error);
+                alert("Error deleting: " + res.error);
             }
         })
         .catch(err => {
             console.error("AJAX Error: ", err);
             alert("Error sending delete request.");
         });
-    }    // Submit AJAX call to save or update plot record
+    }
+
     function submitPlotRecord() {
         const plotNum = document.getElementById('plot_number').value.trim();
         const areaStr = document.getElementById('plot_area').value.trim() + " sqft";

@@ -1,8 +1,10 @@
 from django.urls import path
-from .views import LandingPageView
+from . import views
 
 app_name = 'core'
 
 urlpatterns = [
-    path('', LandingPageView.as_view(), name='landing'),
+    path('', views.LandingPageView.as_view(), name='landing'),
+    path('notification/<int:notification_id>/action/', views.handle_notification_action, name='handle_notification_action'),
+    path('notification/<int:notification_id>/read/',   views.mark_notification_read,     name='mark_notification_read'),
 ]

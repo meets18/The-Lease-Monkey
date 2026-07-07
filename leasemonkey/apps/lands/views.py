@@ -243,18 +243,22 @@ def save_land_layout(request):
 @login_required
 def plot_creator(request, slug):
     """Renders the workspace to draw individual plot shapes inside a registered land boundary."""
-    if request.user.role != 'ADMIN' and not request.user.is_superuser:
-        raise PermissionDenied("You do not have permission to access the plot creator.")
-
     land = get_object_or_404(Land, slug=slug)
+
+    is_admin = request.user.role == 'ADMIN' or request.user.is_superuser
+    is_owner = request.user == land.owner
+
+    if not is_admin and not is_owner:
+        raise PermissionDenied("You do not have permission to access this plot workspace.")
+
     plots = [serialize_plot(plot) for plot in land.plots.all()]
     buildings = [serialize_building(building) for building in land.buildings.all()]
     land_items = plots + buildings
-    
+
     # Serialize roads and entry/exit points for creator JS
     roads_list = [{'id': r.id, 'name': r.name, 'width': float(r.width_meters), 'coordinates': r.coordinates} for r in land.roads.all()]
     gates_list = [{'id': g.id, 'name': g.name, 'point_type': g.point_type, 'latitude': g.latitude, 'longitude': g.longitude} for g in land.points.all()]
-    
+
     context = {
         'land': land,
         'plots_json': json.dumps(plots),
@@ -262,8 +266,10 @@ def plot_creator(request, slug):
         'land_items_json': json.dumps(land_items),
         'roads_list_json': json.dumps(roads_list),
         'gates_list_json': json.dumps(gates_list),
+        'user_role': request.user.role if not request.user.is_superuser else 'ADMIN',
     }
     return render(request, 'lands/plots_creator.html', context)
+
 
 @login_required
 def save_plot_layout(request, slug):
@@ -691,3 +697,143 @@ def update_photo_caption(request, slug, photo_id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': "Invalid request method"}, status=400)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Landowner Deletion Request Endpoints
+# ──────────────────────────────────────────────────────────────────────────────
+
+@login_required
+def request_land_deletion(request, slug):
+    """
+    Landowner requests admin to delete a land.
+    Creates Notification for each admin + sends email. Does NOT delete the land.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+
+    land = get_object_or_404(Land, slug=slug)
+
+    # Verify the requester owns this land
+    if request.user != land.owner and not request.user.is_superuser:
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+
+    from apps.core.models import Notification
+    from django.core.mail import send_mail
+    from django.conf import settings as django_settings
+
+    admins = User.objects.filter(role='ADMIN')
+    if not admins.exists():
+        # Fallback: try superusers
+        admins = User.objects.filter(is_superuser=True)
+
+    for admin in admins:
+        Notification.objects.create(
+            recipient=admin,
+            sender=request.user,
+            notif_type='land_delete_request',
+            title=f"Deletion Request: Land \"{land.name}\"",
+            message=(
+                f"Landowner {request.user.username} has requested deletion of land \"{land.name}\" "
+                f"(Location: {land.location}).\n\n"
+                f"Please review and approve or reject this request in your notifications."
+            ),
+            land_slug=land.slug,
+        )
+        # Send email to this admin
+        admin_email = django_settings.ADMIN_EMAIL or admin.email
+        if admin_email:
+            try:
+                send_mail(
+                    subject=f"[Lease Monkey] Deletion Request — Land \"{land.name}\"",
+                    message=(
+                        f"Hello {admin.username},\n\n"
+                        f"Landowner '{request.user.username}' has submitted a deletion request for:\n\n"
+                        f"  Land: {land.name}\n"
+                        f"  Location: {land.location}\n"
+                        f"  Slug: {land.slug}\n\n"
+                        f"Please log in to your dashboard and review the Notifications tab to approve or reject this request.\n\n"
+                        f"— The Lease Monkey System"
+                    ),
+                    from_email=django_settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[admin_email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass
+
+    return JsonResponse({'status': 'ok', 'message': 'Deletion request sent to admin.'})
+
+
+@login_required
+def request_plot_deletion(request, slug, plot_number):
+    """
+    Landowner requests admin to delete a specific plot or building.
+    Creates Notification for each admin + sends email. Does NOT delete the plot.
+    Query param: ?kind=plot|building  (defaults to 'plot')
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+
+    land = get_object_or_404(Land, slug=slug)
+
+    if request.user != land.owner and not request.user.is_superuser:
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+
+    kind = request.GET.get('kind', 'plot').lower()
+    if kind == 'building':
+        obj = land.buildings.filter(building_id=plot_number).first()
+        item_label = f"Building {plot_number}"
+    else:
+        obj = land.plots.filter(plot_number=plot_number).first()
+        item_label = f"Plot {plot_number}"
+        kind = 'plot'
+
+    if not obj:
+        return JsonResponse({'error': f'{item_label} not found in land {land.name}.'}, status=404)
+
+    from apps.core.models import Notification
+    from django.core.mail import send_mail
+    from django.conf import settings as django_settings
+
+    admins = User.objects.filter(role='ADMIN')
+    if not admins.exists():
+        admins = User.objects.filter(is_superuser=True)
+
+    for admin in admins:
+        Notification.objects.create(
+            recipient=admin,
+            sender=request.user,
+            notif_type='plot_delete_request',
+            title=f"Deletion Request: {item_label} in \"{land.name}\"",
+            message=(
+                f"Landowner {request.user.username} has requested deletion of {item_label} "
+                f"in land \"{land.name}\".\n\n"
+                f"Please review and approve or reject this request in your notifications."
+            ),
+            land_slug=land.slug,
+            plot_number=plot_number,
+            plot_kind=kind,
+        )
+        admin_email = django_settings.ADMIN_EMAIL or admin.email
+        if admin_email:
+            try:
+                send_mail(
+                    subject=f"[Lease Monkey] Deletion Request — {item_label} in \"{land.name}\"",
+                    message=(
+                        f"Hello {admin.username},\n\n"
+                        f"Landowner '{request.user.username}' has submitted a deletion request for:\n\n"
+                        f"  {item_label} in Land: {land.name}\n"
+                        f"  Land Slug: {land.slug}\n\n"
+                        f"Please log in to your dashboard and review the Notifications tab to approve or reject this request.\n\n"
+                        f"— The Lease Monkey System"
+                    ),
+                    from_email=django_settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[admin_email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass
+
+    return JsonResponse({'status': 'ok', 'message': f'Deletion request for {item_label} sent to admin.'})
+
