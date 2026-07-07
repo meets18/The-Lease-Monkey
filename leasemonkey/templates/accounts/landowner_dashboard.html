@@ -87,7 +87,6 @@
                             <th class="py-3">Total Area</th>
                             <th class="py-3">Avg Plot Price</th>
                             <th class="py-3">Plots</th>
-                            <th class="py-3 text-end px-3">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="fs-14">
@@ -96,27 +95,23 @@
                         <tr class="border-bottom border-dark-glow land-summary-row"
                             onclick="openLandActionsModal(this);" data-land-name="{{ land.name|escape }}"
                             data-land-location="{{ land.location|escape }}" data-land-area="{{ land.area }}"
-                            data-land-price="{{ land.average_plot_price }}"
+                            data-land-price-label="{{ land.display_plot_price_lakhs }}"
                             data-explore-url="{% url 'lands:plot_viewer' slug=land.slug %}"
                             data-manage-url="{% url 'lands:plot_creator' slug=land.slug %}"
                             data-delete-url="{% url 'lands:request_land_deletion' slug=land.slug %}"
                             data-land-slug="{{ land.slug }}">
                             <td class="py-3 px-3 fw-bold text-white font-ranade fs-15">{{ land.name }}</td>
-                            <td class="py-3 text-muted-glow"><i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i>{{
-                                land.location }}</td>
+                            <td class="py-3 text-muted-glow land-location-cell"><i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i><span class="land-location-text"></span></td>
                             <td class="py-3">{{ land.area }} Acres</td>
-                            <td class="py-3 text-cyan-glow fw-bold">INR {{ land.average_plot_price }}</td>
+                            <td class="py-3 text-cyan-glow fw-bold land-price-cell"></td>
                             <td class="py-3">
                                 <span class="badge bg-success-glow fs-11">{{ land.plots.count }} Plots</span>
-                            </td>
-                            <td class="py-3 text-end px-3">
-                                <span class="land-row-chevron"><i class="bi bi-box-arrow-up-right"></i></span>
                             </td>
                         </tr>
                         {% endfor %}
                         {% else %}
                         <tr>
-                            <td colspan="6" class="py-5 text-center text-muted-glow">
+                            <td colspan="5" class="py-5 text-center text-muted-glow">
                                 <i class="bi bi-folder-x fs-2 d-block mb-2"></i>
                                 No lands are registered under your name yet. Contact the admin to get started.
                             </td>
@@ -324,13 +319,30 @@
         document.getElementById('modalLandName').innerText = get('data-land-name');
         document.getElementById('modalLandLocation').innerText = get('data-land-location');
         document.getElementById('modalLandArea').innerText = get('data-land-area') + ' Acres';
-        document.getElementById('modalLandPrice').innerText = 'INR ' + get('data-land-price');
+        document.getElementById('modalLandPrice').innerText = get('data-land-price-label');
         document.getElementById('modalExploreBtn').href = get('data-explore-url');
         document.getElementById('modalManageBtn').href = get('data-manage-url');
         currentDeleteUrl = get('data-delete-url');
         const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('landActionModal'));
         modal.show();
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.land-summary-row').forEach(row => {
+            const locationText = row.getAttribute('data-land-location') || '-';
+            const priceText = row.getAttribute('data-land-price-label') || '-';
+
+            const locationCell = row.querySelector('.land-location-text');
+            if (locationCell) {
+                locationCell.textContent = locationText;
+            }
+
+            const priceCell = row.querySelector('.land-price-cell');
+            if (priceCell) {
+                priceCell.textContent = priceText;
+            }
+        });
+    });
 
     // ─── Request Deletion (Soft) ───────────────────────────────────────────────
     document.getElementById('modalRequestDeleteBtn').addEventListener('click', function () {

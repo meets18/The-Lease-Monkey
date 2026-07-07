@@ -4,6 +4,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from .models import User
+from decimal import Decimal
+
+
+def _format_price_lakhs(value):
+    try:
+        return f"{Decimal(value or 0) / Decimal('100000'):.2f} Lakhs"
+    except Exception:
+        return "0.00 Lakhs"
 
 def portal_selection(request):
     """Renders the glassmorphic portal picker page."""
@@ -132,7 +140,10 @@ def landowner_dashboard(request):
     from apps.lands.models import Land
     from apps.core.models import Notification
 
-    lands = Land.objects.filter(owner=request.user).prefetch_related('plots', 'images')
+    lands = list(Land.objects.filter(owner=request.user).prefetch_related('plots', 'images'))
+    for land in lands:
+        land.display_location = land.location or '-'
+        land.display_plot_price_lakhs = _format_price_lakhs(land.average_plot_price)
     notifications = Notification.objects.filter(recipient=request.user)
     unread_count  = notifications.filter(is_read=False).count()
     sent_requests = Notification.objects.filter(
@@ -165,7 +176,10 @@ def admin_dashboard(request):
         if not has_boundary and not land.plots.exists() and not land.roads.exists() and not land.points.exists():
             land.delete()
 
-    lands = Land.objects.select_related('owner').all()
+    lands = list(Land.objects.select_related('owner').all())
+    for land in lands:
+        land.display_location = land.location or '-'
+        land.display_plot_price_lakhs = _format_price_lakhs(land.average_plot_price)
     landowners = User.objects.filter(role=User.LAND_OWNER)
     notifications = Notification.objects.filter(recipient=request.user)
     unread_count  = notifications.filter(is_read=False).count()
@@ -177,4 +191,3 @@ def admin_dashboard(request):
         'unread_count': unread_count,
     }
     return render(request, 'accounts/admin_dashboard.html', context)
-

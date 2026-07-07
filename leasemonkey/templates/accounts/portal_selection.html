@@ -4,7 +4,8 @@
 {% block title %}Portal Selection — The Lease Monkey{% endblock %}
 
 {% block content %}
-<div class="container d-flex flex-column align-items-center justify-content-center min-vh-100 py-5" style="position: relative; z-index: 10;">
+<div class="container d-flex flex-column align-items-center justify-content-center min-vh-100 py-5"
+    style="position: relative; z-index: 10;">
     <!-- Section Title -->
     <div class="text-center mb-5 mt-4">
         <h2 class="display-6 text-white font-ranade fw-bold mb-2 text-uppercase tracking-wide">Select Access Portal</h2>
@@ -15,16 +16,18 @@
     <div class="row g-4 justify-content-center w-100 max-w-900">
         <!-- Card 1: Buyer -->
         <div class="col-md-4">
-            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between">
+            <div
+                class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between">
                 <div>
                     <div class="fs-1 text-primary-glow mb-3"><i class="bi bi-wallet2"></i></div>
                     <h3 class="font-ranade text-white fw-bold mb-2 fs-20">Buyer Portal</h3>
                     <p class="text-muted-glow fs-14 mb-4">
-                        Browse available plots, make reservation requests, schedule meeting inspects, and view allotment certificates.
+                        Login as a buyer
                     </p>
                 </div>
                 <div class="mt-auto">
-                    <a href="{% url 'buyer_login' %}" class="btn btn-get-started w-100 text-uppercase fw-bold fs-12 py-2.5">
+                    <a href="{% url 'buyer_login' %}"
+                        class="btn btn-get-started w-100 text-uppercase fw-bold fs-12 py-2.5">
                         Access Portal <i class="bi bi-chevron-right ms-1"></i>
                     </a>
                 </div>
@@ -33,16 +36,18 @@
 
         <!-- Card 2: Land Owner -->
         <div class="col-md-4">
-            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between">
+            <div
+                class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between">
                 <div>
                     <div class="fs-1 text-primary-glow mb-3"><i class="bi bi-houses"></i></div>
                     <h3 class="font-ranade text-white fw-bold mb-2 fs-20">Land Owner</h3>
                     <p class="text-muted-glow fs-14 mb-4">
-                        Register properties, draw customized map outlines, verify lease claims, and coordinate buyer schedules.
+                        Login as a land owner
                     </p>
                 </div>
                 <div class="mt-auto">
-                    <a href="{% url 'landowner_login' %}" class="btn btn-get-started w-100 text-uppercase fw-bold fs-12 py-2.5">
+                    <a href="{% url 'landowner_login' %}"
+                        class="btn btn-get-started w-100 text-uppercase fw-bold fs-12 py-2.5">
                         Access Portal <i class="bi bi-chevron-right ms-1"></i>
                     </a>
                 </div>
@@ -51,16 +56,18 @@
 
         <!-- Card 3: Super Admin -->
         <div class="col-md-4">
-            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between">
+            <div
+                class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between">
                 <div>
                     <div class="fs-1 text-primary-glow mb-3"><i class="bi bi-shield-lock"></i></div>
                     <h3 class="font-ranade text-white fw-bold mb-2 fs-20">Super Admin</h3>
                     <p class="text-muted-glow fs-14 mb-4">
-                        Review submissions, trigger OCR document checks, publish properties, and manage user active/suspended states.
+                        SuperAdmin login
                     </p>
                 </div>
                 <div class="mt-auto">
-                    <a href="{% url 'admin_login' %}" class="btn btn-get-started w-100 text-uppercase fw-bold fs-12 py-2.5">
+                    <a href="{% url 'admin_login' %}"
+                        class="btn btn-get-started w-100 text-uppercase fw-bold fs-12 py-2.5">
                         Access Portal <i class="bi bi-chevron-right ms-1"></i>
                     </a>
                 </div>
@@ -70,17 +77,20 @@
 </div>
 
 <style>
-.max-w-900 {
-    max-width: 900px;
-}
-.opacity-60 {
-    opacity: 0.65;
-}
-.fs-11 {
-    font-size: 0.7rem;
-}
-.rounded-bottom-left-4 {
-    border-bottom-left-radius: 8px;
-}
+    .max-w-900 {
+        max-width: 900px;
+    }
+
+    .opacity-60 {
+        opacity: 0.65;
+    }
+
+    .fs-11 {
+        font-size: 0.7rem;
+    }
+
+    .rounded-bottom-left-4 {
+        border-bottom-left-radius: 8px;
+    }
 </style>
 {% endblock %}
