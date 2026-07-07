@@ -343,19 +343,48 @@ div[style*="z-index: 1000000"],
     visibility: hidden !important;
 }
 
+.satellite-active .btn-dock-button,
+.satellite-active .btn-utility-icon,
+.satellite-active .glass-pill-container,
+.satellite-active .search-field {
+    background: rgba(7, 11, 18, 0.94) !important;
+    border-color: rgba(255, 255, 255, 0.42) !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.72) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.satellite-active .btn-dock-button:hover,
+.satellite-active .btn-utility-icon:hover {
+    background: rgba(0, 255, 196, 0.2) !important;
+    border-color: #00ffd2 !important;
+    color: #00ffd2 !important;
+    box-shadow: 0 0 16px rgba(0, 255, 210, 0.55) !important;
+}
+
+.satellite-active .btn-dock-button span,
+.satellite-active .glass-pill-container span {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
 /* 3D Tilted Map Perspective and Animations */
 #map-container {
     perspective: 1200px !important;
-    perspective-origin: 50% 60% !important;
+    perspective-origin: 50% 42% !important;
     overflow: hidden !important;
 }
 
 #map {
     transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform-origin: 50% 42%;
 }
 
 #map.map-3d-tilted {
-    transform: scale(1.45) rotateX(50deg) rotateZ(-12deg) !important;
+    width: 150% !important;
+    height: 150% !important;
+    left: -25% !important;
+    top: -34% !important;
+    transform: translate3d(0, -8%, 0) scale(1.58) rotateX(54deg) rotateZ(-12deg) !important;
 }
 
 /* 3D Plot Number Tooltip */

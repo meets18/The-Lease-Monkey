@@ -322,6 +322,12 @@ function update3DBuildingsView() {
       }
     });
   }
+
+  if (map) {
+    requestAnimationFrame(() => {
+      map.invalidateSize(true);
+    });
+  }
 }
 let centerCoords = [26.788506, 75.836371];
 let initialZoom = 17;
@@ -670,6 +676,10 @@ function setupToggleControls() {
       // Show road and gate text labels back on vector layout
       activeLabelMarkers.forEach(m => m.addTo(map));
     }
+
+    requestAnimationFrame(() => {
+      map.invalidateSize(true);
+    });
   });
 
   // 3D View Toggler button (OFF/ON)
