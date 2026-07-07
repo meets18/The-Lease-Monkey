@@ -210,6 +210,119 @@ function updateRoadWeights() {
     if (layer.stripe) layer.stripe.setStyle({ weight: calculateRoadStripeWeight(currentZoom) });
   });
 }
+
+let is3DActive = false;
+let building3DLayers = [];
+
+function update3DBuildingsView() {
+  // Clear any existing 3D layers
+  building3DLayers.forEach(layer => map.removeLayer(layer));
+  building3DLayers = [];
+
+  const mapEl = document.getElementById('map');
+  const btn3D = document.getElementById('btn3DToggle');
+
+  if (is3DActive) {
+    if (mapEl) mapEl.classList.add('map-3d-tilted');
+    if (btn3D) {
+      btn3D.innerHTML = '2D';
+      btn3D.classList.add('active-cyan-btn');
+    }
+
+    // Offset in geographic degrees to simulate building height when tilted
+    // We scale it dynamically based on the building height (floors/multiplier)
+    // A default base of 0.000025 dLat and 0.000007 dLng per floor gives a nice scaling look.
+
+    // Find all dedicated building records
+    let activePlotData = plotData;
+    if (typeof landConfig !== 'undefined' && landConfig.slug !== 'demo-land') {
+      activePlotData = landConfig.buildings || [];
+    }
+
+    activePlotData.forEach(plot => {
+      const rawStatus = (plot.status || '').toLowerCase();
+      if (rawStatus === 'building') {
+        const baseCoords = plot.coordinates;
+        // Make sure coordinates are normalized as array of numbers
+        const baseNorm = baseCoords.map(p => Array.isArray(p) ? p : [p.lat, p.lng]);
+        
+        const floors = parseInt(plot.height || 1, 10);
+        const dLat = 0.000025 * floors;
+        const dLng = 0.000007 * floors;
+        const roofCoords = baseNorm.map(pt => [pt[0] + dLat, pt[1] + dLng]);
+
+        // Hide the original flat building polygon
+        const flatPoly = mapPolygons.find(p => p.plotData && p.plotData.number === plot.number);
+        if (flatPoly) {
+          flatPoly.setStyle({ fillOpacity: 0, opacity: 0 });
+          if (flatPoly.labelMarker) flatPoly.labelMarker.setOpacity(0);
+        }
+
+        // 1. Render side walls (connect base edges to roof edges)
+        const numPts = baseNorm.length;
+        for (let i = 0; i < numPts; i++) {
+          const nextIdx = (i + 1) % numPts;
+          const wallCoords = [
+            baseNorm[i],
+            baseNorm[nextIdx],
+            roofCoords[nextIdx],
+            roofCoords[i]
+          ];
+
+          // Alternating wall shading for depth
+          const wallColor = i % 2 === 0 ? '#718096' : '#4a5568';
+          const wall = L.polygon(wallCoords, {
+            color: '#2d3748',
+            weight: 1,
+            opacity: 0.7,
+            fillColor: wallColor,
+            fillOpacity: 0.9,
+            interactive: false
+          }).addTo(map);
+          building3DLayers.push(wall);
+        }
+
+        // 2. Render roof polygon (semi-translucent white/light grey glass look)
+        const roof = L.polygon(roofCoords, {
+          color: '#cbd5e0',
+          weight: 1.5,
+          opacity: 0.9,
+          fillColor: '#edf2f7',
+          fillOpacity: 0.85,
+          interactive: false
+        }).addTo(map);
+        building3DLayers.push(roof);
+
+        // 3. Render floating label marker at the roof centroid
+        const roofCentroid = getPolygonCentroid(roofCoords);
+        const labelIcon = L.divIcon({
+          className: 'plot-number-tooltip-3d',
+          html: `<div style="color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.9); font-weight: 800;">${plot.number}</div>`,
+          iconSize: [30, 16],
+          iconAnchor: [15, 8]
+        });
+        const labelMarker = L.marker(roofCentroid, { icon: labelIcon, interactive: false }).addTo(map);
+        building3DLayers.push(labelMarker);
+      }
+    });
+
+  } else {
+    // 2D View
+    if (mapEl) mapEl.classList.remove('map-3d-tilted');
+    if (btn3D) {
+      btn3D.innerHTML = '3D';
+      btn3D.classList.remove('active-cyan-btn');
+    }
+
+    // Show the original flat polygons
+    mapPolygons.forEach(flatPoly => {
+      if (flatPoly.statusColorKey === 'building') {
+        flatPoly.setStyle({ fillOpacity: 0.95, opacity: 0.8 });
+        if (flatPoly.labelMarker) flatPoly.labelMarker.setOpacity(1);
+      }
+    });
+  }
+}
 let centerCoords = [26.788506, 75.836371];
 let initialZoom = 17;
 let minZoomLimit = 16;
@@ -331,7 +444,9 @@ function initMap() {
   // Draw plot polygons on top of the boundary
   let activePlotData = plotData;
   if (typeof landConfig !== 'undefined' && landConfig.slug !== 'demo-land') {
-    activePlotData = landConfig.plots || []; 
+    const plots = landConfig.plots || [];
+    const buildings = landConfig.buildings || [];
+    activePlotData = [...plots, ...buildings];
   }
 
   activePlotData.forEach(plot => {
@@ -342,11 +457,11 @@ function initMap() {
     const isBuildingPlot = statusColorKey === 'building';
 
     const polygon = L.polygon(plot.coordinates, {
-      color: '#3d4045',
-      weight: 1.5,
+      color: isBuildingPlot ? '#718096' : '#3d4045',
+      weight: isBuildingPlot ? 1.0 : 1.5,
       opacity: 0.8,
-      fillColor: getPlotColor(statusColorKey),
-      fillOpacity: colorCodingActive ? 0.8 : 0.9,
+      fillColor: isBuildingPlot ? '#e2e8f0' : getPlotColor(statusColorKey),
+      fillOpacity: isBuildingPlot ? 0.95 : (colorCodingActive ? 0.8 : 0.9),
       interactive: !isBuildingPlot
     }).addTo(map);
 
@@ -556,6 +671,15 @@ function setupToggleControls() {
       activeLabelMarkers.forEach(m => m.addTo(map));
     }
   });
+
+  // 3D View Toggler button (OFF/ON)
+  const btn3D = document.getElementById('btn3DToggle');
+  if (btn3D) {
+    btn3D.addEventListener('click', () => {
+      is3DActive = !is3DActive;
+      update3DBuildingsView();
+    });
+  }
 }
 
 // Sidebar status tags filters

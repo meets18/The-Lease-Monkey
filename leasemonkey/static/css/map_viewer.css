@@ -342,3 +342,34 @@ div[style*="z-index: 1000000"],
     opacity: 0 !important;
     visibility: hidden !important;
 }
+
+/* 3D Tilted Map Perspective and Animations */
+#map-container {
+    perspective: 1200px !important;
+    perspective-origin: 50% 60% !important;
+    overflow: hidden !important;
+}
+
+#map {
+    transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+#map.map-3d-tilted {
+    transform: scale(1.45) rotateX(50deg) rotateZ(-12deg) !important;
+}
+
+/* 3D Plot Number Tooltip */
+.plot-number-tooltip-3d {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-family: 'Ranade', sans-serif;
+    font-weight: 800;
+    font-size: 11px !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(40deg);
+}

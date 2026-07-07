@@ -84,7 +84,6 @@ class Plot(models.Model):
         ('available', 'Available'),
         ('reserved', 'Reserved'),
         ('sold', 'Sold'),
-        ('building', 'Building'),
     ]
 
     land = models.ForeignKey(
@@ -110,6 +109,32 @@ class Plot(models.Model):
 
     def __str__(self):
         return f"Plot {self.plot_number} - {self.land.name}"
+
+
+class Building(models.Model):
+    land = models.ForeignKey(
+        Land,
+        on_delete=models.CASCADE,
+        related_name='buildings'
+    )
+    building_id = models.CharField(
+        max_length=50,
+        help_text="Unique building identifier, e.g. Block-A, T-Court"
+    )
+    area = models.CharField(max_length=50, help_text="e.g. 0.3450 acres")
+    height = models.IntegerField(default=1, help_text="Number of floors for 3D extrusion")
+    coordinates = models.JSONField(help_text="List of [lat, lng] pairs defining the building footprint")
+    center_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    center_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['building_id']
+        unique_together = ('land', 'building_id')
+
+    def __str__(self):
+        return f"Building {self.building_id} - {self.land.name}"
 
 def get_land_gallery_upload_path(instance, filename):
     """Saves gallery photographs into a subfolder named after the land's slug."""

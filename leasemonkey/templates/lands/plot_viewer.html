@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 
 <!-- Custom Map View Stylesheet -->
-<link rel="stylesheet" href="{% static 'css/map_viewer.css' %}" />
+<link rel="stylesheet" href="{% static 'css/map_viewer.css' %}?v={% now 'U' %}" />
 
 <!-- Fullscreen Map Canvas Container -->
 <div id="map-container" style="width: 100%; height: calc(100vh - 72px); position: absolute; top: 72px; left: 0; z-index: 1; background-color: #0b0e14;">
@@ -137,6 +137,11 @@
         <!-- Satellite toggle circular button -->
         <button id="btnSatelliteToggle" class="btn-utility-icon rounded-circle shadow-lg" style="width: 42px; height: 42px;" title="Toggle Satellite Backdrop">
             <i class="bi bi-layers-fill"></i>
+        </button>
+
+        <!-- 3D View toggle circular button -->
+        <button id="btn3DToggle" class="btn-utility-icon rounded-circle shadow-lg text-uppercase fw-bold fs-10" style="width: 42px; height: 42px; font-family: 'Ranade', sans-serif;" title="Toggle 3D Perspective View">
+            3D
         </button>
 
         <!-- Home Locate circular button -->
@@ -872,18 +877,8 @@
         center: [{{ land.center_lat|default:26.788506 }}, {{ land.center_lng|default:75.836371 }}],
         zoom: {{ land.zoom_level|default:17 }},
         boundary: {{ land.boundary_coordinates|safe|default:"[]" }},
-        plots: [
-            {% for plot in land.plots.all %}
-            {
-                number: "{{ plot.plot_number|escapejs }}",
-                area: "{{ plot.area|escapejs }}",
-                price: "INR {{ plot.price|floatformat:0 }}",
-                facing: "{{ plot.facing|escapejs }}",
-                status: "{{ plot.status|escapejs }}",
-                coordinates: {{ plot.coordinates|safe }}
-            },
-            {% endfor %}
-        ],
+        plots: {{ plots_list_json|safe|default:"[]" }},
+        buildings: {{ buildings_list_json|safe|default:"[]" }},
         images: {{ images_list_json|safe|default:"[]" }},
         roads: {{ roads_list_json|safe|default:"[]" }},
         gates: {{ gates_list_json|safe|default:"[]" }}
@@ -891,7 +886,7 @@
 </script>
 
 <!-- Map script controller hooks -->
-<script src="{% static 'js/map_viewer.js' %}?v={{ land.updated_at|date:'U' }}"></script>
+<script src="{% static 'js/map_viewer.js' %}?v={% now 'U' %}"></script>
 
 <!-- Hidden Admin Gallery Multi-File Input (triggered by gallery panel drop zone) -->
 <input type="file" id="adminGalleryBulkInput" accept="image/*" multiple style="display: none;" onchange="handleAdminBulkPhotoSelect(event)" />

@@ -31,6 +31,7 @@
         </div>        <!-- Segmented Mode Control Tabs -->
         <div class="btn-group btn-group-sm w-100 mb-3" role="group" aria-label="Creator Workspace Modes">
             <button type="button" id="tabPlots" class="btn btn-outline-cyan active" onclick="setWorkspaceMode('plots')">Plots</button>
+            <button type="button" id="tabBuildings" class="btn btn-outline-cyan" onclick="setWorkspaceMode('buildings')">Buildings</button>
             <button type="button" id="tabRoads" class="btn btn-outline-cyan" onclick="setWorkspaceMode('roads')">Roads</button>
             <button type="button" id="tabGates" class="btn btn-outline-cyan" onclick="setWorkspaceMode('gates')">Gates</button>
         </div>
@@ -60,8 +61,7 @@
                     <select class="form-select form-select-sm bg-dark border-secondary text-white fs-13" id="plot_status">
                         <option value="available" selected>Available</option>
                         <option value="reserved">Reserved</option>
-                        <option value="sold">Booked</option>
-                        <option value="building">Building</option>
+                    <option value="sold">Booked</option>
                     </select>
                 </div>
 
@@ -99,6 +99,65 @@
                 <!-- List scroll container -->
                 <div id="stagedPlotsList" class="d-flex flex-column gap-1.5 max-h-180 overflow-y-auto pr-1 text-white-50 fs-12.5" style="max-height: 150px;">
                     <div class="text-center py-2 text-muted-glow fs-12">No plots added yet. Trace one above!</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. BUILDINGS FORM SECTION -->
+        <div id="sectionBuildings" class="workspace-section" style="display: none;">
+            <form id="frmAddBuilding" autocomplete="off" onsubmit="event.preventDefault();">
+                <div class="mb-2">
+                    <label for="building_number" class="form-label fs-12 text-secondary-glow mb-1">Building Identifier / ID</label>
+                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="building_number" placeholder="e.g. B1, Clubhouse">
+                </div>
+
+                <div class="mb-2">
+                    <label for="building_area" class="form-label fs-12 text-secondary-glow mb-1">Footprint Area (sq ft)</label>
+                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="building_area" placeholder="e.g. 2,500">
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <label for="building_height_slider" class="form-label fs-12 text-secondary-glow mb-0">Building Height (Floors)</label>
+                        <span id="buildingHeightLabel" class="fs-11 fw-bold text-cyan-glow">3 Floors</span>
+                    </div>
+                    <input type="range" class="form-range custom-slider" id="building_height_slider" min="1" max="15" step="1" value="3" style="cursor: pointer;" oninput="document.getElementById('buildingHeightLabel').innerText = this.value + ' Floors';">
+                </div>
+
+                <!-- Drawing State Banner -->
+                <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-11 mb-3 py-2 text-center" role="alert">
+                    <i class="bi bi-cursor-fill text-cyan-glow me-1"></i>
+                    <span id="buildingDrawingInstructions">Click corner points directly on the map to trace this building footprint outline.</span>
+                </div>
+
+                <!-- Staging actions -->
+                <div class="d-flex gap-2 mb-3">
+                    <button type="button" onclick="undoBuildingPoint();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
+                        <i class="bi bi-arrow-counterclockwise"></i> Undo
+                    </button>
+                    <button type="button" onclick="clearBuildingPoints();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
+                        <i class="bi-trash"></i> Reset
+                    </button>
+                </div>
+
+                <button type="button" id="btnSaveBuilding" onclick="submitBuildingRecord();" class="btn btn-action-primary w-100 py-2 fs-12 text-uppercase fw-bold mb-2">
+                    Save Building <i class="bi bi-plus-lg ms-1"></i>
+                </button>
+                <button type="button" id="btnCancelBuildingEdit" onclick="cancelBuildingEditingMode();" class="btn btn-action-secondary w-100 py-2 fs-12 text-uppercase fw-bold mb-3" style="display: none;">
+                    Cancel Edit <i class="bi bi-x-circle ms-1"></i>
+                </button>
+            </form>
+
+            <!-- Dynamic Saved Buildings Count -->
+            <div class="border-top border-secondary-glow pt-3 mt-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="fs-13 text-secondary-glow fw-bold mb-0">Mapped Buildings</h5>
+                    <span class="badge bg-admin-glow fs-11" id="lblBuildingsCount">Total: 0</span>
+                </div>
+                
+                <!-- List scroll container -->
+                <div id="savedBuildingsList" class="d-flex flex-column gap-1.5 max-h-180 overflow-y-auto pr-1 text-white-50 fs-12.5" style="max-height: 150px;">
+                    <div class="text-center py-2 text-muted-glow fs-12">No buildings mapped yet. Trace one above!</div>
                 </div>
             </div>
         </div>
@@ -212,18 +271,7 @@
     const centerCoords = [{{ land.center_lat|default:26.788506 }}, {{ land.center_lng|default:75.836371 }}];
 
     // Load initial database records for this land to display on map load
-    const existingPlots = [
-        {% for plot in plots %}
-        {
-            number: "{{ plot.plot_number|escapejs }}",
-            area: "{{ plot.area|escapejs }}",
-            price: "{{ plot.price|escapejs }}",
-            facing: "{{ plot.facing|escapejs }}",
-            status: "{{ plot.status|escapejs }}",
-            coordinates: {{ plot.coordinates|safe }}
-        },
-        {% endfor %}
-    ];
+    const existingPlots = {{ land_items_json|safe|default:"[]" }};
 
     // Load initial roads and entry/exit gates from context
     let existingRoads = {{ roads_list_json|safe|default:"[]" }};
@@ -336,6 +384,7 @@
             renderPlotOnMap(plot);
         });
         updatePlotsSidebarList();
+        updateBuildingsSidebarList();
 
         // Render all existing roads in the database
         existingRoads.forEach(road => {
@@ -353,6 +402,8 @@
         map.on('click', function(e) {
             if (activeMode === 'plots') {
                 addPlotPoint(e.latlng);
+            } else if (activeMode === 'buildings') {
+                addBuildingPoint(e.latlng);
             } else if (activeMode === 'roads') {
                 addRoadPoint(e.latlng);
             } else if (activeMode === 'gates') {
@@ -372,12 +423,7 @@
         const priceFieldWrap = document.getElementById('plotPriceField');
         const priceInput = document.getElementById('plot_price');
 
-        if (statusVal === 'building') {
-            priceFieldWrap.style.display = 'none';
-            priceInput.value = '';
-        } else {
-            priceFieldWrap.style.display = 'block';
-        }
+        priceFieldWrap.style.display = 'block';
     }
 
     // Helper: Draw solid plot polygon on map with tooltip number label
@@ -700,14 +746,15 @@
     // Update sidebar plots listing
     function updatePlotsSidebarList() {
         const listEl = document.getElementById('stagedPlotsList');
-        document.getElementById('lblStagedCount').innerText = `Total: ${existingPlots.length}`;
+        const plotsOnly = existingPlots.filter(p => p.type !== 'building' && p.status !== 'building');
+        document.getElementById('lblStagedCount').innerText = `Total: ${plotsOnly.length}`;
         
-        if (existingPlots.length === 0) {
+        if (plotsOnly.length === 0) {
             listEl.innerHTML = '<div class="text-center py-2 text-muted-glow fs-12">No plots added yet. Trace one above!</div>';
             return;
         }
 
-        listEl.innerHTML = existingPlots.map(plot => `
+        listEl.innerHTML = plotsOnly.map(plot => `
             <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-glow bg-dark-glow mb-1.5" style="cursor: pointer;" onclick="selectPlotForEditing('${plot.number}');" title="Click to Edit Plot">
                 <div>
                     <strong class="text-white">Plot ${plot.number}</strong>
@@ -716,7 +763,7 @@
                 <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation();">
                     <span class="fs-11 fw-bold" style="color: ${STATUS_COLORS[plot.status]}">${plot.status.toUpperCase()}</span>
                     <span class="text-cyan-glow fw-bold fs-11">INR ${(Number(plot.price)/100000).toFixed(1)}L</span>
-                    <button type="button" onclick="deleteStagedPlot('${plot.number}');" class="btn btn-sm btn-outline-danger border-0 p-1 lh-1" title="Delete Plot">
+                    <button type="button" onclick="deleteStagedPlot('${plot.number}', 'plot');" class="btn btn-sm btn-outline-danger border-0 p-1 lh-1" title="Delete Plot">
                         <i class="bi bi-trash-fill fs-12"></i>
                     </button>
                 </div>
@@ -725,10 +772,12 @@
     }
 
     // AJAX post delete staged plot
-    function deleteStagedPlot(plotNumber) {
+    function deleteStagedPlot(plotNumber, kind) {
         if (!confirm(`Are you sure you want to delete Plot ${plotNumber}?`)) return;
 
-        fetch(`/lands/plots-creator/{{ land.slug }}/delete/${encodeURIComponent(plotNumber)}/`, {
+        const url = `/lands/plots-creator/{{ land.slug }}/delete/${encodeURIComponent(plotNumber)}/` + (kind ? `?kind=${encodeURIComponent(kind)}` : '');
+
+        fetch(url, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': getCookie('csrftoken')
@@ -737,8 +786,8 @@
         .then(response => response.json())
         .then(res => {
             if (res.success) {
-                // Find and remove plot from existingPlots array
-                const index = existingPlots.findIndex(p => p.number === plotNumber);
+                // Find and remove the matching record from the combined array
+                const index = existingPlots.findIndex(p => p.number === plotNumber && (kind === 'building' ? (p.type === 'building' || p.status === 'building') : p.type !== 'building'));
                 if (index > -1) {
                     existingPlots.splice(index, 1);
                 }
@@ -760,7 +809,7 @@
                 });
 
                 updatePlotsSidebarList();
-                alert(`Plot ${plotNumber} deleted successfully.`);
+                alert(`${kind === 'building' ? 'Building' : 'Plot'} ${plotNumber} deleted successfully.`);
             } else {
                 alert("Error deleting plot: " + res.error);
             }
@@ -775,14 +824,13 @@
         const areaStr = document.getElementById('plot_area').value.trim() + " sqft";
         const facingVal = 'North';
         const statusVal = document.getElementById('plot_status').value;
-        const priceInputVal = document.getElementById('plot_price').value.trim();
-        const priceVal = statusVal === 'building' ? '0' : priceInputVal;
+        const priceVal = document.getElementById('plot_price').value.trim();
 
         if (!plotNum || document.getElementById('plot_area').value.trim() === '') {
             alert("Please fill in all plot details before saving.");
             return;
         }
-        if (statusVal !== 'building' && !priceVal) {
+        if (!priceVal) {
             alert("Please fill in all plot details before saving.");
             return;
         }
@@ -793,7 +841,7 @@
         }
 
         const url = editingPlotNumber
-            ? `/lands/plots-creator/{{ land.slug }}/update/${encodeURIComponent(editingPlotNumber)}/`
+            ? `/lands/plots-creator/{{ land.slug }}/update/${encodeURIComponent(editingPlotNumber)}/?kind=plot`
             : "{% url 'lands:save_plot_layout' slug=land.slug %}";
 
         const boundaryCoords = currentPlotPoints.map(p => [p.lat, p.lng]);
@@ -839,7 +887,7 @@
         .then(res => {
             if (res.success) {
                 if (editingPlotNumber) {
-                    const index = existingPlots.findIndex(p => p.number === editingPlotNumber);
+                    const index = existingPlots.findIndex(p => p.number === editingPlotNumber && p.type !== 'building' && p.status !== 'building');
                     if (index > -1) {
                         existingPlots[index] = res.plot;
                     }
@@ -885,18 +933,14 @@
 
     function selectPlotForEditing(plotNumber) {
         editingPlotNumber = plotNumber;
-        const plot = existingPlots.find(p => p.number === plotNumber);
+        const plot = existingPlots.find(p => p.number === plotNumber && p.type !== 'building' && p.status !== 'building');
         if (!plot) return;
 
         document.getElementById('plot_number').value = plot.number;
         document.getElementById('plot_number').disabled = true;
         document.getElementById('plot_area').value = plot.area.replace(' sqft', '');
         document.getElementById('plot_status').value = plot.status;
-        if (plot.status === 'building') {
-            document.getElementById('plot_price').value = '';
-        } else {
-            document.getElementById('plot_price').value = Math.round(Number(plot.price));
-        }
+        document.getElementById('plot_price').value = Math.round(Number(plot.price));
         handlePlotStatusChange();
 
         const btnSave = document.getElementById('btnSavePlot');
@@ -928,22 +972,264 @@
         clearPlotPoints();
     }
 
+    // ==========================================
+    // BUILDINGS DRAWING AND STAGING ACTIONS
+    // ==========================================
+    let currentBuildingPoints = [];
+    let currentBuildingMarkers = [];
+    let currentBuildingPolygon = null;
+    let editingBuildingNumber = null;
+
+    function addBuildingPoint(latlng) {
+        if (landBoundaryCoords && landBoundaryCoords.length >= 3) {
+            const pt = [latlng.lat, latlng.lng];
+            if (!isPointInPolygon(pt, landBoundaryCoords)) {
+                alert("Invalid Position: All building corner coordinates must lie strictly inside the marked land boundary outline.");
+                return;
+            }
+        }
+
+        currentBuildingPoints.push(latlng);
+
+        const marker = L.circleMarker(latlng, {
+            radius: 5,
+            color: '#ffffff',
+            fillColor: '#0b0f19',
+            fillOpacity: 1,
+            weight: 2
+        }).addTo(map);
+
+        currentBuildingMarkers.push(marker);
+        updateBuildingPolygon();
+    }
+
+    function updateBuildingPolygon() {
+        if (currentBuildingPolygon) {
+            map.removeLayer(currentBuildingPolygon);
+            currentBuildingPolygon = null;
+        }
+
+        if (currentBuildingPoints.length >= 3) {
+            currentBuildingPolygon = L.polygon(currentBuildingPoints, {
+                color: '#ffffff',
+                weight: 1.5,
+                fillColor: '#ffffff',
+                fillOpacity: 0.25
+            }).addTo(map);
+
+            const areaM2 = calculatePolygonArea(currentBuildingPoints);
+            const areaSqFt = Math.round(areaM2 * 10.7639104);
+            document.getElementById('building_area').value = areaSqFt;
+        } else {
+            if (!editingBuildingNumber) {
+                document.getElementById('building_area').value = '';
+            }
+        }
+
+        document.getElementById('buildingDrawingInstructions').innerText = 
+            `Building corners marked: ${currentBuildingPoints.length} (Min 3 required)`;
+    }
+
+    function undoBuildingPoint() {
+        if (currentBuildingPoints.length === 0) return;
+        currentBuildingPoints.pop();
+        const marker = currentBuildingMarkers.pop();
+        if (marker) map.removeLayer(marker);
+        updateBuildingPolygon();
+    }
+
+    function clearBuildingPoints() {
+        currentBuildingPoints = [];
+        currentBuildingMarkers.forEach(m => map.removeLayer(m));
+        currentBuildingMarkers = [];
+        updateBuildingPolygon();
+    }
+
+    function submitBuildingRecord() {
+        const bldgNum = document.getElementById('building_number').value.trim();
+        const areaStr = document.getElementById('building_area').value.trim() + " sqft";
+        const heightVal = parseInt(document.getElementById('building_height_slider').value, 10) || 3;
+
+        if (!bldgNum || document.getElementById('building_area').value.trim() === '') {
+            alert("Please fill in all building details before saving.");
+            return;
+        }
+
+        if (!editingBuildingNumber && currentBuildingPoints.length < 3) {
+            alert("Please click at least 3 points inside the map boundary to trace this building footprint.");
+            return;
+        }
+
+        const url = editingBuildingNumber
+            ? `/lands/plots-creator/{{ land.slug }}/update/${encodeURIComponent(editingBuildingNumber)}/?kind=building`
+            : "{% url 'lands:save_plot_layout' slug=land.slug %}";
+
+        const boundaryCoords = currentBuildingPoints.map(p => [p.lat, p.lng]);
+
+        if (!editingBuildingNumber && existingRoads && existingRoads.length > 0) {
+            for (const road of existingRoads) {
+                const roadWidthM = road.width || road.width_meters || 9.0;
+                if (checkRoadPlotIntersection(boundaryCoords, road.coordinates, roadWidthM)) {
+                    alert(`Invalid Building: The proposed footprint crosses, overlaps, or sits too close to access road "${road.name}".`);
+                    return;
+                }
+            }
+        }
+
+        const data = {
+            plot_number: bldgNum,
+            area: areaStr,
+            price: 0,
+            facing: 'North',
+            status: 'building',
+            height: heightVal
+        };
+        if (!editingBuildingNumber) {
+            data.coordinates = boundaryCoords;
+        }
+
+        const btnSave = document.getElementById('btnSaveBuilding');
+        btnSave.disabled = true;
+        btnSave.innerHTML = editingBuildingNumber 
+            ? 'Updating...' 
+            : 'Saving...';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(res => {
+            btnSave.disabled = false;
+            btnSave.innerHTML = editingBuildingNumber
+                ? 'Update Building <i class="bi bi-save ms-1"></i>'
+                : 'Save Building <i class="bi bi-plus-lg ms-1"></i>';
+
+            if (res.success) {
+                if (editingBuildingNumber) {
+                    const index = existingPlots.findIndex(p => p.number === editingBuildingNumber && (p.type === 'building' || p.status === 'building'));
+                    if (index > -1) {
+                        existingPlots[index] = res.plot;
+                    }
+                    alert(`Building "${res.plot.number}" successfully updated!`);
+                } else {
+                    existingPlots.push(res.plot);
+                    alert(`Building "${res.plot.number}" successfully saved!`);
+                }
+
+                registeredPlotLayers.forEach(layer => map.removeLayer(layer));
+                registeredPlotLayers = [];
+
+                map.eachLayer(layer => {
+                    if (layer instanceof L.Marker && layer.options.icon && layer.options.icon.options.className === 'plot-number-tooltip') {
+                        map.removeLayer(layer);
+                    }
+                });
+
+                existingPlots.forEach(plot => {
+                    renderPlotOnMap(plot);
+                });
+
+                cancelBuildingEditingMode();
+                updatePlotsSidebarList();
+                updateBuildingsSidebarList();
+            } else {
+                alert("Error saving building: " + res.error);
+            }
+        })
+        .catch(err => {
+            console.error("AJAX Error: ", err);
+            alert("Error sending request.");
+            btnSave.disabled = false;
+        });
+    }
+
+    function selectBuildingForEditing(bldgNumber) {
+        editingBuildingNumber = bldgNumber;
+        const bldg = existingPlots.find(p => p.number === bldgNumber && (p.type === 'building' || p.status === 'building'));
+        if (!bldg) return;
+
+        document.getElementById('building_number').value = bldg.number;
+        document.getElementById('building_number').disabled = true;
+        document.getElementById('building_area').value = bldg.area.replace(' sqft', '');
+        document.getElementById('building_height_slider').value = bldg.height || 3;
+        document.getElementById('buildingHeightLabel').innerText = (bldg.height || 3) + " Floors";
+
+        const btnSave = document.getElementById('btnSaveBuilding');
+        btnSave.innerHTML = 'Update Building <i class="bi bi-save ms-1"></i>';
+        document.getElementById('btnCancelBuildingEdit').style.display = 'block';
+
+        document.getElementById('buildingDrawingInstructions').innerHTML = 
+            `<i class="bi bi-pencil-fill text-warning me-1"></i> Editing Building <strong>${bldgNumber}</strong>. You can change details. (Boundary locked)`;
+    }
+
+    function cancelBuildingEditingMode() {
+        editingBuildingNumber = null;
+        document.getElementById('building_number').value = '';
+        document.getElementById('building_number').disabled = false;
+        document.getElementById('building_area').value = '';
+        document.getElementById('building_height_slider').value = 3;
+        document.getElementById('buildingHeightLabel').innerText = "3 Floors";
+
+        const btnSave = document.getElementById('btnSaveBuilding');
+        btnSave.disabled = false;
+        btnSave.innerHTML = 'Save Building <i class="bi bi-plus-lg ms-1"></i>';
+        document.getElementById('btnCancelBuildingEdit').style.display = 'none';
+
+        document.getElementById('buildingDrawingInstructions').innerText = 
+            "Click corner points directly on the map to trace this building footprint outline.";
+        clearBuildingPoints();
+    }
+
+    function updateBuildingsSidebarList() {
+        const listDiv = document.getElementById('savedBuildingsList');
+        const buildings = existingPlots.filter(p => p.type === 'building' || p.status === 'building');
+        document.getElementById('lblBuildingsCount').innerText = `Total: ${buildings.length}`;
+
+        if (buildings.length === 0) {
+            listDiv.innerHTML = '<div class="text-center py-2 text-muted-glow fs-12">No buildings mapped yet. Trace one above!</div>';
+            return;
+        }
+
+        listDiv.innerHTML = buildings.map(b => `
+            <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-glow bg-dark-glow mb-1.5" style="cursor: pointer;" onclick="selectBuildingForEditing('${b.number}');" title="Click to Edit Building">
+                <div>
+                    <strong class="text-white">${b.number}</strong>
+                    <span class="text-muted-glow fs-11 ms-2">(${b.area})</span>
+                </div>
+                <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation();">
+                    <span class="fs-11 fw-bold text-cyan-glow">${b.height || 1} Floors</span>
+                    <button type="button" onclick="deleteStagedPlot('${b.number}', 'building');" class="btn btn-sm btn-outline-danger border-0 p-1 lh-1" title="Delete Building">
+                        <i class="bi bi-trash-fill fs-12"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
     // Segmented Mode Switcher
     function setWorkspaceMode(mode) {
         activeMode = mode;
 
         // Toggle active button style class
         document.getElementById('tabPlots').classList.toggle('active', mode === 'plots');
+        document.getElementById('tabBuildings').classList.toggle('active', mode === 'buildings');
         document.getElementById('tabRoads').classList.toggle('active', mode === 'roads');
         document.getElementById('tabGates').classList.toggle('active', mode === 'gates');
 
         // Toggle form sections display
         document.getElementById('sectionPlots').style.display = mode === 'plots' ? 'block' : 'none';
+        document.getElementById('sectionBuildings').style.display = mode === 'buildings' ? 'block' : 'none';
         document.getElementById('sectionRoads').style.display = mode === 'roads' ? 'block' : 'none';
         document.getElementById('sectionGates').style.display = mode === 'gates' ? 'block' : 'none';
 
         // Clear active staging draws on transition
         clearPlotPoints();
+        clearBuildingPoints();
         clearRoadPoints();
         clearGatePoint();
     }

@@ -6,9 +6,34 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
-from .models import Land, Plot, LandImage, Road, EntryExitPoint
+from .models import Land, Plot, Building, LandImage, Road, EntryExitPoint
 
 User = get_user_model()
+
+
+def serialize_plot(plot):
+    return {
+        'type': 'plot',
+        'number': plot.plot_number,
+        'area': plot.area,
+        'price': float(plot.price),
+        'facing': plot.facing,
+        'status': plot.status,
+        'coordinates': plot.coordinates,
+    }
+
+
+def serialize_building(building):
+    return {
+        'type': 'building',
+        'number': building.building_id,
+        'area': building.area,
+        'price': 0,
+        'facing': 'North',
+        'status': 'building',
+        'coordinates': building.coordinates,
+        'height': building.height,
+    }
 
 def lands_directory(request):
     """Renders the catalog list of available land properties."""
@@ -19,10 +44,13 @@ def plot_viewer(request, slug):
     """Renders the fullscreen dynamic plot viewer for the specific land site."""
     land = get_object_or_404(Land, slug=slug)
     
-    # Serialize images, roads, and entry/exit points to pass directly to JavaScript
+    # Serialize images, roads, buildings, and entry/exit points to pass directly to JavaScript
     images_list = [{'id': img.id, 'url': img.image.url, 'caption': img.caption} for img in land.images.all()]
     roads_list = [{'id': r.id, 'name': r.name, 'width': float(r.width_meters), 'coordinates': r.coordinates} for r in land.roads.all()]
     gates_list = [{'id': g.id, 'name': g.name, 'point_type': g.point_type, 'latitude': g.latitude, 'longitude': g.longitude} for g in land.points.all()]
+    plots_list = [serialize_plot(plot) for plot in land.plots.all()]
+    buildings_list = [serialize_building(building) for building in land.buildings.all()]
+    land_items_list = plots_list + buildings_list
 
     is_admin = request.user.is_authenticated and (request.user.role == 'ADMIN' or request.user.is_superuser or request.user == land.owner)
 
@@ -31,6 +59,9 @@ def plot_viewer(request, slug):
         'images_list_json': json.dumps(images_list),
         'roads_list_json': json.dumps(roads_list),
         'gates_list_json': json.dumps(gates_list),
+        'land_items_json': json.dumps(land_items_list),
+        'plots_list_json': json.dumps(plots_list),
+        'buildings_list_json': json.dumps(buildings_list),
         'google_maps_api_key': os.getenv('GOOGLE_MAPS_API_KEY', ''),
         'is_admin': is_admin,
     }
@@ -147,7 +178,7 @@ def discard_land_draft(request, slug):
         messages.info(request, f"Land '{land.name}' already has a saved boundary and was kept.")
         return redirect('admin_dashboard')
 
-    if land.plots.exists() or land.roads.exists() or land.points.exists():
+    if land.plots.exists() or land.buildings.exists() or land.roads.exists() or land.points.exists():
         messages.info(request, f"Land '{land.name}' already has mapped data and was kept.")
         return redirect('admin_dashboard')
 
@@ -216,7 +247,9 @@ def plot_creator(request, slug):
         raise PermissionDenied("You do not have permission to access the plot creator.")
 
     land = get_object_or_404(Land, slug=slug)
-    plots = land.plots.all()
+    plots = [serialize_plot(plot) for plot in land.plots.all()]
+    buildings = [serialize_building(building) for building in land.buildings.all()]
+    land_items = plots + buildings
     
     # Serialize roads and entry/exit points for creator JS
     roads_list = [{'id': r.id, 'name': r.name, 'width': float(r.width_meters), 'coordinates': r.coordinates} for r in land.roads.all()]
@@ -224,7 +257,9 @@ def plot_creator(request, slug):
     
     context = {
         'land': land,
-        'plots': plots,
+        'plots_json': json.dumps(plots),
+        'buildings_json': json.dumps(buildings),
+        'land_items_json': json.dumps(land_items),
         'roads_list_json': json.dumps(roads_list),
         'gates_list_json': json.dumps(gates_list),
     }
@@ -247,19 +282,40 @@ def save_plot_layout(request, slug):
             facing = data.get('facing', 'North')
             status = data.get('status', 'available')
             coordinates = data.get('coordinates')
+            is_building = status == 'building'
 
-            if not plot_number or not area or not price or not coordinates:
+            if not plot_number or not area or (not price and not is_building) or not coordinates:
                 return JsonResponse({'error': 'Plot number, area, price, and boundary coordinates are required.'}, status=400)
-
-            # Check if plot number already exists for this land
-            if land.plots.filter(plot_number=plot_number).exists():
-                return JsonResponse({'error': f"Plot {plot_number} has already been registered for this land."}, status=400)
 
             # Compute centroid of plot coordinates
             lats = [pt[0] for pt in coordinates]
             lngs = [pt[1] for pt in coordinates]
             center_lat = sum(lats) / len(lats)
             center_lng = sum(lngs) / len(lngs)
+
+            if is_building:
+                if land.buildings.filter(building_id=plot_number).exists():
+                    return JsonResponse({'error': f"Building {plot_number} has already been registered for this land."}, status=400)
+
+                building = Building.objects.create(
+                    land=land,
+                    building_id=plot_number,
+                    area=area,
+                    height=int(data.get('height', 1)),
+                    coordinates=coordinates,
+                    center_lat=center_lat,
+                    center_lng=center_lng
+                )
+
+                return JsonResponse({
+                    'success': True,
+                    'plot': serialize_building(building) | {
+                        'center': {'lat': float(building.center_lat), 'lng': float(building.center_lng)},
+                    }
+                })
+
+            if land.plots.filter(plot_number=plot_number).exists():
+                return JsonResponse({'error': f"Plot {plot_number} has already been registered for this land."}, status=400)
 
             plot = Plot.objects.create(
                 land=land,
@@ -275,14 +331,8 @@ def save_plot_layout(request, slug):
 
             return JsonResponse({
                 'success': True,
-                'plot': {
-                    'number': plot.plot_number,
-                    'status': plot.status,
-                    'price': float(plot.price),
-                    'area': plot.area,
-                    'facing': plot.facing,
+                'plot': serialize_plot(plot) | {
                     'center': {'lat': float(plot.center_lat), 'lng': float(plot.center_lng)},
-                    'coordinates': plot.coordinates
                 }
             })
         except Exception as e:
@@ -299,7 +349,7 @@ def delete_land(request, slug):
     land = get_object_or_404(Land, slug=slug)
     name = land.name
     land.delete()
-    messages.success(request, f"Land '{name}' and all its plots have been deleted successfully.")
+    messages.success(request, f"Land '{name}' and all its plots and buildings have been deleted successfully.")
     return redirect('admin_dashboard')
 
 @login_required
@@ -310,8 +360,26 @@ def delete_plot(request, slug, plot_number):
         
     land = get_object_or_404(Land, slug=slug)
     try:
-        plot = land.plots.get(plot_number=plot_number)
-        plot.delete()
+        kind = request.GET.get('kind', '').lower()
+        if kind == 'building':
+            building = land.buildings.filter(building_id=plot_number).first()
+            if not building:
+                return JsonResponse({'error': 'Building not found.'}, status=404)
+            building.delete()
+        elif kind == 'plot':
+            plot = land.plots.filter(plot_number=plot_number).first()
+            if not plot:
+                return JsonResponse({'error': 'Plot not found.'}, status=404)
+            plot.delete()
+        else:
+            plot = land.plots.filter(plot_number=plot_number).first()
+            if plot:
+                plot.delete()
+            else:
+                building = land.buildings.filter(building_id=plot_number).first()
+                if not building:
+                    return JsonResponse({'error': 'Plot not found.'}, status=404)
+                building.delete()
         return JsonResponse({'success': True})
     except Plot.DoesNotExist:
         return JsonResponse({'error': 'Plot not found.'}, status=404)
@@ -324,34 +392,93 @@ def update_plot(request, slug, plot_number):
         
     land = get_object_or_404(Land, slug=slug)
     try:
-        plot = land.plots.get(plot_number=plot_number)
         if request.method == 'POST':
             data = json.loads(request.body)
-            plot.price = data.get('price')
-            
-            # extract clean area text
-            area_val = data.get('area', '').strip()
-            if area_val and not area_val.endswith('sqft'):
-                area_val = f"{area_val} sqft"
-            plot.area = area_val
-            
-            plot.facing = data.get('facing', plot.facing)
-            plot.status = data.get('status', plot.status)
-            plot.save()
-            
-            return JsonResponse({
-                'success': True,
-                'plot': {
-                    'number': plot.plot_number,
-                    'status': plot.status,
-                    'price': float(plot.price),
-                    'area': plot.area,
-                    'facing': plot.facing,
-                    'coordinates': plot.coordinates
-                }
-            })
-    except Plot.DoesNotExist:
-        return JsonResponse({'error': 'Plot not found.'}, status=404)
+            kind = request.GET.get('kind', '').lower()
+
+            if kind == 'plot':
+                plot = land.plots.filter(plot_number=plot_number).first()
+                if not plot:
+                    return JsonResponse({'error': 'Plot not found.'}, status=404)
+
+                plot.price = data.get('price')
+
+                # extract clean area text
+                area_val = data.get('area', '').strip()
+                if area_val and not area_val.endswith('sqft'):
+                    area_val = f"{area_val} sqft"
+                plot.area = area_val
+
+                plot.facing = data.get('facing', plot.facing)
+                plot.status = data.get('status', plot.status)
+                plot.save()
+
+                return JsonResponse({
+                    'success': True,
+                    'plot': serialize_plot(plot) | {
+                        'coordinates': plot.coordinates
+                    }
+                })
+
+            if kind == 'building':
+                building = land.buildings.filter(building_id=plot_number).first()
+                if not building:
+                    return JsonResponse({'error': 'Building not found.'}, status=404)
+
+                area_val = data.get('area', '').strip()
+                if area_val and not area_val.endswith('sqft'):
+                    area_val = f"{area_val} sqft"
+                building.area = area_val or building.area
+                building.height = int(data.get('height', building.height))
+                building.save()
+
+                return JsonResponse({
+                    'success': True,
+                    'plot': serialize_building(building) | {
+                        'coordinates': building.coordinates,
+                        'center': {'lat': float(building.center_lat), 'lng': float(building.center_lng)},
+                    }
+                })
+
+            plot = land.plots.filter(plot_number=plot_number).first()
+            if plot:
+                plot.price = data.get('price')
+
+                # extract clean area text
+                area_val = data.get('area', '').strip()
+                if area_val and not area_val.endswith('sqft'):
+                    area_val = f"{area_val} sqft"
+                plot.area = area_val
+
+                plot.facing = data.get('facing', plot.facing)
+                plot.status = data.get('status', plot.status)
+                plot.save()
+
+                return JsonResponse({
+                    'success': True,
+                    'plot': serialize_plot(plot) | {
+                        'coordinates': plot.coordinates
+                    }
+                })
+
+            building = land.buildings.filter(building_id=plot_number).first()
+            if building:
+                area_val = data.get('area', '').strip()
+                if area_val and not area_val.endswith('sqft'):
+                    area_val = f"{area_val} sqft"
+                building.area = area_val or building.area
+                building.height = int(data.get('height', building.height))
+                building.save()
+
+                return JsonResponse({
+                    'success': True,
+                    'plot': serialize_building(building) | {
+                        'coordinates': building.coordinates,
+                        'center': {'lat': float(building.center_lat), 'lng': float(building.center_lng)},
+                    }
+                })
+
+            return JsonResponse({'error': 'Plot not found.'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
         
