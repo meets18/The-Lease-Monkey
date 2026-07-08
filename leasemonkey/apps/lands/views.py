@@ -837,3 +837,320 @@ def request_plot_deletion(request, slug, plot_number):
 
     return JsonResponse({'status': 'ok', 'message': f'Deletion request for {item_label} sent to admin.'})
 
+# ── Purchase Requests ─────────────────────────────────────────────────────
+
+import random
+from django.utils import timezone
+from apps.core.models import EmailOTP, PurchaseRequest, Notification
+from django.core.mail import send_mail
+from django.conf import settings
+
+@login_required
+def send_otp(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+    try:
+        data = json.loads(request.body)
+        email = data.get('email', '').strip()
+        if not email:
+            return JsonResponse({'error': 'Email is required.'}, status=400)
+        
+        # Enforce 1-minute wait before resending
+        last_otp = EmailOTP.objects.filter(email=email).order_by('-created_at').first()
+        if last_otp:
+            time_diff = (timezone.now() - last_otp.created_at).total_seconds()
+            if time_diff < 60:
+                wait_time = int(60 - time_diff)
+                return JsonResponse({'error': f'Please wait {wait_time} seconds before requesting another OTP.'}, status=400)
+        
+        # Generate and save new OTP
+        otp = f"{random.randint(100000, 999999)}"
+        EmailOTP.objects.create(email=email, otp_code=otp)
+        
+        # Send OTP via email using EMAIL_HOST_USER
+        send_mail(
+            subject='[Lease Monkey] Your OTP for Purchase Request',
+            message=f'Hello,\n\nYour randomly generated OTP for verifying your email for the purchase request is: {otp}\n\nThis OTP is valid for 5 minutes and will be automatically deleted afterwards.\n\n— The Lease Monkey Team',
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+            
+        return JsonResponse({'status': 'sent', 'message': 'OTP sent successfully.'})
+    except Exception as e:
+        return JsonResponse({'error': f'Failed to send email. Error: {str(e)}'}, status=500)
+
+
+@login_required
+def verify_otp(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+    try:
+        data = json.loads(request.body)
+        email = data.get('email', '').strip()
+        otp = data.get('otp', '').strip()
+        
+        if not email or not otp:
+            return JsonResponse({'error': 'Email and OTP are required.'}, status=400)
+            
+        otp_record = EmailOTP.objects.filter(email=email, otp_code=otp, is_used=False).first()
+        if not otp_record:
+            return JsonResponse({'error': 'Incorrect OTP or email.'}, status=400)
+            
+        if otp_record.is_expired():
+            return JsonResponse({'error': 'OTP expired. Please request a new one.'}, status=400)
+            
+        otp_record.is_used = True
+        otp_record.save()
+        return JsonResponse({'status': 'verified', 'message': 'Email verified successfully.'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def purchase_request_form(request, slug, plot_number):
+    if request.user.role != 'BUYER':
+        messages.error(request, 'Only buyers can raise purchase requests.')
+        return redirect('lands:plot_viewer', slug=slug)
+        
+    land = get_object_or_404(Land, slug=slug)
+    plot = land.plots.filter(plot_number=plot_number).first()
+    if not plot:
+        plot = land.buildings.filter(building_id=plot_number).first()
+        
+    if not plot or getattr(plot, 'status', 'available') != 'available':
+        messages.error(request, 'This plot is not available for purchase requests.')
+        return redirect('lands:plot_viewer', slug=slug)
+        
+    context = {
+        'land': land,
+        'plot': plot,
+        'plot_number': plot_number,
+        'land_slug': slug,
+    }
+    return render(request, 'lands/purchase_request_form.html', context)
+
+@login_required
+def submit_purchase_request(request, slug, plot_number):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+        
+    if request.user.role != 'BUYER':
+        return JsonResponse({'error': 'Only buyers can raise purchase requests.'}, status=403)
+        
+    try:
+        data = json.loads(request.body)
+        full_name = data.get('full_name', '').strip()
+        aadhaar_number = data.get('aadhaar_number', '').strip()
+        pan_number = data.get('pan_number', '').strip().upper()
+        email = data.get('email', '').strip()
+        phone_number = data.get('phone_number', '').strip()
+        proposed_amount = data.get('proposed_amount')
+        
+        if not (full_name and aadhaar_number and pan_number and email and phone_number and proposed_amount):
+            return JsonResponse({'error': 'All fields are required.'}, status=400)
+            
+        # Verify OTP was used
+        recent_otp = EmailOTP.objects.filter(email=email, is_used=True).order_by('-created_at').first()
+        if not recent_otp or (timezone.now() - recent_otp.created_at).total_seconds() > 1800:
+            return JsonResponse({'error': 'Email not verified or verification expired.'}, status=400)
+            
+        land = get_object_or_404(Land, slug=slug)
+        
+        # Check for existing pending request
+        if PurchaseRequest.objects.filter(buyer=request.user, land=land, plot_number=plot_number, status__in=['pending', 'meeting_scheduled']).exists():
+            return JsonResponse({'error': 'You already have an active request for this plot.'}, status=400)
+            
+        # Create request
+        pr = PurchaseRequest.objects.create(
+            buyer=request.user,
+            land=land,
+            plot_number=plot_number,
+            full_name=full_name,
+            aadhaar_number=aadhaar_number,
+            pan_number=pan_number,
+            email=email,
+            phone_number=phone_number,
+            proposed_amount=proposed_amount,
+            status='pending'
+        )
+        
+        # Notify landowner
+        Notification.objects.create(
+            recipient=land.owner,
+            sender=request.user,
+            notif_type='purchase_request',
+            title=f"New Purchase Request for Plot {plot_number}",
+            message=f"Buyer {full_name} ({request.user.username}) has requested to purchase Plot {plot_number} in {land.name} for {proposed_amount}.",
+            land_slug=land.slug,
+            plot_number=plot_number
+        )
+        
+        # Send emails
+        try:
+            # Landowner email
+            send_mail(
+                subject=f'[Lease Monkey] New Purchase Request — Plot {plot_number} in {land.name}',
+                message=f'Hello {land.owner.username},\n\nYou have a new purchase request from {full_name} for Plot {plot_number}.\nProposed Amount: {proposed_amount}\n\nPlease check your dashboard.\n\n— The Lease Monkey Team',
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[land.owner.email],
+                fail_silently=False,
+            )
+            # Buyer email
+            send_mail(
+                subject=f'[Lease Monkey] Your Purchase Request has been submitted',
+                message=f'Hello {full_name},\n\nYour purchase request for Plot {plot_number} in {land.name} has been successfully submitted to the landowner. You will be notified when they respond.\n\n— The Lease Monkey Team',
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            pass
+            
+        return JsonResponse({'status': 'ok', 'message': 'Purchase request submitted successfully.'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def purchase_request_action(request, request_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+        
+    if request.user.role != 'LAND_OWNER':
+        return JsonResponse({'error': 'Only landowners can manage purchase requests.'}, status=403)
+        
+    pr = get_object_or_404(PurchaseRequest, id=request_id, land__owner=request.user)
+    
+    try:
+        data = json.loads(request.body)
+        action = data.get('action')
+        reason = data.get('reason', '').strip()
+        
+        if action == 'fix_meeting' and pr.status == 'pending':
+            pr.status = 'meeting_scheduled'
+            pr.save()
+            
+            # Update plot status to reserved
+            plot = pr.land.plots.filter(plot_number=pr.plot_number).first()
+            if plot:
+                plot.status = 'reserved'
+                plot.save()
+                
+            Notification.objects.create(
+                recipient=pr.buyer,
+                sender=request.user,
+                notif_type='purchase_request_meeting',
+                title=f"Meeting Scheduled for Plot {pr.plot_number}",
+                message=f"Landowner {request.user.username} has scheduled a meeting with you for Plot {pr.plot_number} in {pr.land.name}.",
+                land_slug=pr.land.slug,
+                plot_number=pr.plot_number
+            )
+            
+            try:
+                send_mail(
+                    subject=f'[Lease Monkey] Meeting Scheduled — Plot {pr.plot_number}',
+                    message=f'Hello {pr.full_name},\n\nThe landowner has scheduled a meeting for your purchase request on Plot {pr.plot_number} in {pr.land.name}.\n\n— The Lease Monkey Team',
+                    from_email=settings.EMAIL_HOST_USER,
+                    recipient_list=[pr.email],
+                    fail_silently=False,
+                )
+            except Exception:
+                pass
+                
+            return JsonResponse({'success': True, 'message': 'Meeting scheduled successfully.'})
+            
+        elif action == 'approve' and pr.status == 'meeting_scheduled':
+            pr.status = 'approved'
+            pr.save()
+            
+            # Update plot status to sold
+            plot = pr.land.plots.filter(plot_number=pr.plot_number).first()
+            if plot:
+                plot.status = 'sold'
+                plot.save()
+                
+            # Reject all other pending/meeting_scheduled requests for this plot
+            other_requests = PurchaseRequest.objects.filter(
+                land=pr.land, plot_number=pr.plot_number, status__in=['pending', 'meeting_scheduled']
+            ).exclude(id=pr.id)
+            
+            for other_pr in other_requests:
+                other_pr.status = 'rejected'
+                other_pr.rejection_reason = 'Plot sold to another buyer.'
+                other_pr.save()
+                Notification.objects.create(
+                    recipient=other_pr.buyer,
+                    sender=request.user,
+                    notif_type='purchase_request_rejected',
+                    title=f"Purchase Request Rejected for Plot {pr.plot_number}",
+                    message=f"Your purchase request for Plot {pr.plot_number} in {pr.land.name} has been rejected. Reason: Plot sold to another buyer.",
+                    land_slug=pr.land.slug,
+                    plot_number=pr.plot_number
+                )
+                
+            Notification.objects.create(
+                recipient=pr.buyer,
+                sender=request.user,
+                notif_type='purchase_request_approved',
+                title=f"Purchase Request Approved for Plot {pr.plot_number}",
+                message=f"Congratulations! Your purchase request for Plot {pr.plot_number} in {pr.land.name} has been approved.",
+                land_slug=pr.land.slug,
+                plot_number=pr.plot_number
+            )
+            
+            try:
+                send_mail(
+                    subject=f'[Lease Monkey] Purchase Request Approved! — Plot {pr.plot_number}',
+                    message=f'Hello {pr.full_name},\n\nCongratulations! The landowner has approved your purchase request for Plot {pr.plot_number} in {pr.land.name}.\n\n— The Lease Monkey Team',
+                    from_email=settings.EMAIL_HOST_USER,
+                    recipient_list=[pr.email],
+                    fail_silently=False,
+                )
+            except Exception:
+                pass
+                
+            return JsonResponse({'success': True, 'message': 'Purchase approved successfully.'})
+            
+        elif action == 'reject' and pr.status in ['pending', 'meeting_scheduled']:
+            if not reason:
+                return JsonResponse({'error': 'Rejection reason is required.'}, status=400)
+                
+            was_meeting_scheduled = (pr.status == 'meeting_scheduled')
+            pr.status = 'rejected'
+            pr.rejection_reason = reason
+            pr.save()
+            
+            # Revert plot status to available if it was reserved
+            if was_meeting_scheduled:
+                plot = pr.land.plots.filter(plot_number=pr.plot_number).first()
+                if plot and plot.status == 'reserved':
+                    plot.status = 'available'
+                    plot.save()
+                    
+            Notification.objects.create(
+                recipient=pr.buyer,
+                sender=request.user,
+                notif_type='purchase_request_rejected',
+                title=f"Purchase Request Rejected for Plot {pr.plot_number}",
+                message=f"Your purchase request for Plot {pr.plot_number} in {pr.land.name} has been rejected. Reason: {reason}",
+                land_slug=pr.land.slug,
+                plot_number=pr.plot_number
+            )
+            
+            try:
+                send_mail(
+                    subject=f'[Lease Monkey] Purchase Request Rejected — Plot {pr.plot_number}',
+                    message=f'Hello {pr.full_name},\n\nYour purchase request for Plot {pr.plot_number} in {pr.land.name} has been rejected.\nReason: {reason}\n\n— The Lease Monkey Team',
+                    from_email=settings.EMAIL_HOST_USER,
+                    recipient_list=[pr.email],
+                    fail_silently=False,
+                )
+            except Exception:
+                pass
+                
+            return JsonResponse({'success': True, 'message': 'Request rejected successfully.'})
+            
+        else:
+            return JsonResponse({'error': 'Invalid action or request state.'}, status=400)
+            
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

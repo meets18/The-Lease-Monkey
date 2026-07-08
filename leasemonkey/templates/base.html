@@ -35,10 +35,10 @@
         .btn-browse-nav:hover {
             background: rgba(0, 255, 196, 0.1) !important;
             border-color: var(--primary-cyan, #00ffc4) !important;
-            color: var(--primary-cyan, #00ffc4) !important;
             box-shadow: 0 0 10px rgba(0, 255, 196, 0.25);
         }
     </style>
+    {% block extra_css %}{% endblock %}
 </head>
 
 <body>
@@ -150,6 +150,7 @@
             });
         });
     </script>
+    {% block extra_js %}{% endblock %}
 </body>
 
 </html>

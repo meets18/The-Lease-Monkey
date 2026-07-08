@@ -1,0 +1,695 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Purchase Request - {{ plot_number }} | The Lease Monkey{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        font-family: 'Open Sans', sans-serif;
+    }
+
+    /* Container adjustments to not be hidden by navbar */
+    .page-container {
+        padding-top: 120px;
+        padding-bottom: 60px;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .form-container {
+        width: 100%;
+        max-width: 850px;
+        background: rgba(11, 15, 25, 0.4);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 3rem 4rem;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        margin-bottom: 3rem;
+    }
+
+    .wizard-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .wizard-header h2 {
+        font-family: 'Ranade', sans-serif;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 0.5rem;
+    }
+    
+    .wizard-header p {
+        color: #9ca3af;
+        font-size: 0.95rem;
+    }
+
+    /* Stepper Styling */
+    .stepper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 3rem;
+        position: relative;
+    }
+
+    .stepper::before {
+        content: '';
+        position: absolute;
+        top: 15px;
+        left: 50px;
+        right: 50px;
+        height: 2px;
+        background: rgba(255,255,255,0.1);
+        z-index: 1;
+    }
+
+    .step-indicator {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        position: relative;
+        z-index: 2;
+        background: transparent;
+        padding: 0 10px;
+    }
+
+    .step-number {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(11, 15, 25, 0.8);
+        border: 2px solid rgba(255,255,255,0.2);
+        color: #9ca3af;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+    .step-text {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #9ca3af;
+        transition: all 0.3s ease;
+    }
+
+    .step-indicator.active .step-number {
+        border-color: #00B2FF;
+        color: #00B2FF;
+        box-shadow: 0 0 10px rgba(0, 178, 255, 0.3);
+    }
+
+    .step-indicator.active .step-text {
+        color: #00B2FF;
+    }
+
+    .step-indicator.completed .step-number {
+        background: #00B2FF;
+        border-color: #00B2FF;
+        color: #fff;
+    }
+
+    .step-indicator.completed .step-text {
+        color: #00B2FF;
+    }
+
+    /* Form Fields Styling */
+    .form-step {
+        display: none;
+        animation: fadeIn 0.4s ease forwards;
+    }
+
+    .form-step.active {
+        display: block;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .form-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: rgba(255,255,255,0.7);
+        margin-bottom: 0.4rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .form-control {
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 6px;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        color: #ffffff !important;
+        background-color: rgba(255,255,255,0.05) !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+        background-color: rgba(17, 24, 39, 0.8) !important;
+        border-color: #00B2FF !important;
+        box-shadow: 0 0 10px rgba(0, 178, 255, 0.3) !important;
+    }
+
+    .form-control.is-invalid {
+        border-color: #ff4a4a !important;
+        box-shadow: 0 0 0 3px rgba(255, 74, 74, 0.1) !important;
+    }
+
+    .invalid-feedback {
+        font-size: 0.8rem;
+        color: #ff4a4a;
+        margin-top: 4px;
+    }
+
+    /* Buttons */
+    .btn-primary {
+        background: linear-gradient(135deg, #00B2FF 0%, #0066FF 100%);
+        border: none;
+        color: #fff;
+        padding: 0.75rem 2rem;
+        font-weight: 700;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 178, 255, 0.4);
+        color: #fff;
+    }
+    
+    .btn-primary:disabled {
+        background: rgba(255,255,255,0.1);
+        color: rgba(255,255,255,0.5);
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    .btn-secondary-outline {
+        background: transparent;
+        color: #9ca3af;
+        border: 1px solid rgba(255,255,255,0.2);
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .btn-secondary-outline:hover {
+        background: rgba(255,255,255,0.1);
+        color: #fff;
+        border-color: rgba(255,255,255,0.4);
+    }
+
+    /* Proposal Info Box */
+    .proposal-box {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .proposal-title {
+        font-family: 'Ranade', sans-serif;
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #fff;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        padding-bottom: 0.5rem;
+    }
+
+    .proposal-detail {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .proposal-detail span:first-child {
+        color: #9ca3af;
+        font-weight: 500;
+    }
+
+    .proposal-detail span:last-child {
+        color: #fff;
+        font-weight: 600;
+    }
+
+    /* OTP input layout */
+    .otp-layout {
+        display: flex;
+        gap: 10px;
+        margin-top: 0.5rem;
+    }
+
+    .terms-label {
+        font-size: 0.9rem;
+        color: #475569;
+    }
+
+    .terms-link {
+        color: #4f46e5;
+        text-decoration: none;
+    }
+
+    .terms-link:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="form-container">
+        
+        <div class="wizard-header">
+            <h2>Let's get you started</h2>
+            <p>Enter the details to raise your purchase request</p>
+        </div>
+
+        <div id="alertBox" class="alert" style="display: none;"></div>
+
+        <!-- Stepper Navigation -->
+        <div class="stepper">
+            <div class="step-indicator active" id="indicator1">
+                <div class="step-number">1</div>
+                <div class="step-text">Personal Details</div>
+            </div>
+            <div class="step-indicator" id="indicator2">
+                <div class="step-number">2</div>
+                <div class="step-text">Contact & Verification</div>
+            </div>
+            <div class="step-indicator" id="indicator3">
+                <div class="step-number">3</div>
+                <div class="step-text">Pricing and Submit</div>
+            </div>
+        </div>
+
+        <form id="purchaseRequestForm" novalidate>
+            {% csrf_token %}
+
+            <!-- ================= STEP 1: Personal Details ================= -->
+            <div class="form-step active" id="step1">
+                <div class="row mb-4">
+                    <div class="col-md-12 mb-3">
+                        <label class="form-label">Full Name*</label>
+                        <input type="text" class="form-control" id="fullName" placeholder="Enter your full name" required>
+                        <div class="invalid-feedback">Please enter your full name.</div>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <label class="form-label">Aadhaar Number (12 digits)*</label>
+                        <input type="text" class="form-control" id="aadhaarNumber" maxlength="12" placeholder="e.g. 123456789012" required>
+                        <div class="invalid-feedback">Aadhaar must be exactly 12 numeric digits.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">PAN Number*</label>
+                        <input type="text" class="form-control text-uppercase" id="panNumber" maxlength="10" placeholder="e.g. ABCDE1234F" required>
+                        <div class="invalid-feedback">Please enter a valid 10-character PAN number.</div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-center mt-5">
+                    <button type="button" class="btn btn-primary" onclick="nextStep(1)">Next</button>
+                </div>
+            </div>
+
+            <!-- ================= STEP 2: Contact & Verification ================= -->
+            <div class="form-step" id="step2">
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <label class="form-label">Email Address*</label>
+                        <input type="email" class="form-control" id="emailAddress" placeholder="Enter your email" required>
+                        <div class="invalid-feedback">Please enter a valid email address.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Phone Number*</label>
+                        <input type="tel" class="form-control" id="phoneNumber" placeholder="+91 9876543210" required>
+                        <div class="invalid-feedback">Please enter your phone number.</div>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Email Verification</label>
+                        <div id="emailVerifyContainer">
+                            <button class="btn btn-secondary-outline w-100" type="button" id="btnSendOtp" onclick="sendOtp()">Send OTP to Email</button>
+                        </div>
+                        
+                        <div id="otpSection" style="display: none; margin-top: 15px;">
+                            <label class="form-label">Enter 6-digit OTP*</label>
+                            <div class="otp-layout">
+                                <input type="text" class="form-control" id="otpCode" maxlength="6" placeholder="XXXXXX">
+                                <button class="btn btn-primary" type="button" id="btnVerifyOtp" onclick="verifyOtp()">Verify</button>
+                            </div>
+                            <div class="invalid-feedback d-none" id="otpErrorMsg">Invalid OTP.</div>
+                        </div>
+
+                        <div id="emailVerifiedBadge" class="text-success mt-3" style="display: none; font-weight: 600;">
+                            <i class="bi bi-check-circle-fill"></i> Email Successfully Verified
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between mt-5">
+                    <button type="button" class="btn btn-secondary-outline" onclick="prevStep(2)">Back</button>
+                    <button type="button" class="btn btn-primary" id="btnNext2" onclick="nextStep(2)">Next</button>
+                </div>
+            </div>
+
+            <!-- ================= STEP 3: Pricing and Submit ================= -->
+            <div class="form-step" id="step3">
+                <div class="proposal-box">
+                    <div class="proposal-title">Property Details</div>
+                    <div class="proposal-detail">
+                        <span>Plot Number</span>
+                        <span>{{ plot_number }}</span>
+                    </div>
+                    <div class="proposal-detail">
+                        <span>Land Name</span>
+                        <span>{{ land.name }}</span>
+                    </div>
+                    <div class="proposal-detail">
+                        <span>Area</span>
+                        <span>{{ plot.area|default:"N/A" }}</span>
+                    </div>
+                    <div class="proposal-detail">
+                        <span>Listed Price</span>
+                        <span>₹{{ plot.price|default:"N/A" }}</span>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6 offset-md-3">
+                        <label class="form-label text-center d-block">Your Proposed Amount (₹)*</label>
+                        <input type="number" class="form-control form-control-lg text-center fw-bold" style="font-size: 1.25rem; color: #4f46e5;" id="proposedAmount" value="{{ plot.price }}" required>
+                        <div class="invalid-feedback text-center">Please enter a valid amount.</div>
+                    </div>
+                </div>
+                
+                <div class="row mb-4 mt-5">
+                    <div class="col-12 d-flex align-items-center justify-content-center">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="termsCheck" onchange="checkSubmitCondition()">
+                            <label class="form-check-label terms-label" for="termsCheck">
+                                I verify that the details provided are accurate and agree to the <a href="#" class="terms-link">terms and conditions</a>.
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="btn btn-secondary-outline" onclick="prevStep(3)">Back</button>
+                    <button type="button" class="btn btn-primary px-5" id="btnSubmit" onclick="submitRequest()" disabled>Submit Request</button>
+                </div>
+            </div>
+
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let isEmailVerified = false;
+
+    function showAlert(msg, isError = true) {
+        const box = document.getElementById('alertBox');
+        box.className = isError ? 'alert alert-danger mb-4' : 'alert alert-success mb-4';
+        box.innerText = msg;
+        box.style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => box.style.display = 'none', 5000);
+    }
+
+    function checkSubmitCondition() {
+        const termsChecked = document.getElementById('termsCheck').checked;
+        const btnSubmit = document.getElementById('btnSubmit');
+        
+        if (termsChecked && isEmailVerified) {
+            btnSubmit.disabled = false;
+        } else {
+            btnSubmit.disabled = true;
+        }
+    }
+
+    function validateStep1() {
+        let isValid = true;
+        const fullName = document.getElementById('fullName');
+        const aadhaar = document.getElementById('aadhaarNumber');
+        const pan = document.getElementById('panNumber');
+
+        if (!fullName.value.trim()) {
+            fullName.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            fullName.classList.remove('is-invalid');
+        }
+
+        if (!/^\d{12}$/.test(aadhaar.value.trim())) {
+            aadhaar.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            aadhaar.classList.remove('is-invalid');
+        }
+
+        if (!/^[A-Z0-9]{10}$/i.test(pan.value.trim())) {
+            pan.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            pan.classList.remove('is-invalid');
+        }
+
+        return isValid;
+    }
+
+    function validateStep2() {
+        let isValid = true;
+        const email = document.getElementById('emailAddress');
+        const phone = document.getElementById('phoneNumber');
+
+        if (!email.value.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
+            email.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            email.classList.remove('is-invalid');
+        }
+
+        if (!phone.value.trim()) {
+            phone.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            phone.classList.remove('is-invalid');
+        }
+
+        if (!isEmailVerified) {
+            showAlert("Please verify your email address to proceed.", true);
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    function nextStep(currentStep) {
+        if (currentStep === 1) {
+            if (!validateStep1()) return;
+            
+            document.getElementById('step1').classList.remove('active');
+            document.getElementById('step2').classList.add('active');
+            document.getElementById('indicator1').classList.add('completed');
+            document.getElementById('indicator2').classList.add('active');
+            
+        } else if (currentStep === 2) {
+            if (!validateStep2()) return;
+            
+            document.getElementById('step2').classList.remove('active');
+            document.getElementById('step3').classList.add('active');
+            document.getElementById('indicator2').classList.add('completed');
+            document.getElementById('indicator3').classList.add('active');
+            checkSubmitCondition();
+        }
+    }
+
+    function prevStep(currentStep) {
+        document.getElementById(`step${currentStep}`).classList.remove('active');
+        document.getElementById(`step${currentStep-1}`).classList.add('active');
+        
+        document.getElementById(`indicator${currentStep}`).classList.remove('active');
+        document.getElementById(`indicator${currentStep-1}`).classList.remove('completed');
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function sendOtp() {
+        const email = document.getElementById('emailAddress');
+        if (!email.value.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
+            email.classList.add('is-invalid');
+            return;
+        }
+        email.classList.remove('is-invalid');
+        
+        const btn = document.getElementById('btnSendOtp');
+        btn.innerText = "Sending...";
+        btn.disabled = true;
+
+        fetch("{% url 'lands:send_otp' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({email: email.value.trim()})
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                showAlert(data.error);
+                btn.innerText = "Send OTP to Email";
+                btn.disabled = false;
+            } else {
+                showAlert(data.message, false);
+                document.getElementById('otpSection').style.display = 'block';
+                btn.innerText = "Resend OTP";
+                btn.disabled = false;
+            }
+        })
+        .catch(err => {
+            showAlert("Error sending OTP.");
+            btn.innerText = "Send OTP to Email";
+            btn.disabled = false;
+        });
+    }
+
+    function verifyOtp() {
+        const email = document.getElementById('emailAddress').value;
+        const otpInput = document.getElementById('otpCode');
+        const otpErrorMsg = document.getElementById('otpErrorMsg');
+        
+        if (!otpInput.value.trim()) {
+            otpInput.classList.add('is-invalid');
+            otpErrorMsg.classList.remove('d-none');
+            return;
+        }
+
+        const btn = document.getElementById('btnVerifyOtp');
+        btn.innerText = "Verifying...";
+        btn.disabled = true;
+
+        fetch("{% url 'lands:verify_otp' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({email: email.trim(), otp: otpInput.value.trim()})
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                otpInput.classList.add('is-invalid');
+                otpErrorMsg.innerText = data.error;
+                otpErrorMsg.classList.remove('d-none');
+                btn.innerText = "Verify";
+                btn.disabled = false;
+            } else {
+                isEmailVerified = true;
+                otpInput.classList.remove('is-invalid');
+                otpErrorMsg.classList.add('d-none');
+                
+                document.getElementById('emailVerifiedBadge').style.display = 'block';
+                document.getElementById('otpSection').style.display = 'none';
+                document.getElementById('emailAddress').readOnly = true;
+                document.getElementById('btnSendOtp').style.display = 'none';
+                
+                checkSubmitCondition();
+            }
+        })
+        .catch(err => {
+            showAlert("Error verifying OTP.");
+            btn.innerText = "Verify";
+            btn.disabled = false;
+        });
+    }
+
+    function submitRequest() {
+        if (!document.getElementById('termsCheck').checked || !isEmailVerified) {
+            return;
+        }
+        
+        const proposedAmount = document.getElementById('proposedAmount');
+        if (!proposedAmount.value) {
+            proposedAmount.classList.add('is-invalid');
+            return;
+        }
+
+        const data = {
+            full_name: document.getElementById('fullName').value.trim(),
+            aadhaar_number: document.getElementById('aadhaarNumber').value.trim(),
+            pan_number: document.getElementById('panNumber').value.trim().toUpperCase(),
+            email: document.getElementById('emailAddress').value.trim(),
+            phone_number: document.getElementById('phoneNumber').value.trim(),
+            proposed_amount: proposedAmount.value,
+        };
+
+        const btn = document.getElementById('btnSubmit');
+        btn.innerText = "Submitting Request...";
+        btn.disabled = true;
+
+        fetch("{% url 'lands:submit_purchase_request' slug=land_slug plot_number=plot_number %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                showAlert(data.error);
+                btn.innerText = "Submit Request";
+                btn.disabled = false;
+            } else {
+                window.location.href = "{% url 'buyer_dashboard' %}#requests";
+            }
+        })
+        .catch(err => {
+            showAlert("An error occurred during submission.");
+            btn.innerText = "Submit Request";
+            btn.disabled = false;
+        });
+    }
+</script>
+{% endblock %}

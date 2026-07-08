@@ -163,18 +163,30 @@
 <!-- Check authentication and handle request actions -->
 <script>
     const isAuthenticated = {% if user.is_authenticated %}true{% else %}false{% endif %};
-    const loginUrl = "/accounts/login/?next=" + encodeURIComponent(window.location.pathname);
-
-
+    const loginUrl = "/accounts/login/buyer/?next=" + encodeURIComponent(window.location.pathname);
+    const landSlug = "{{ land.slug }}";
+    const isBuyer  = {% if user.is_authenticated and user.role == 'BUYER' %}true{% else %}false{% endif %};
+    const userRole = "{{ user.role|default:'' }}";
     
     function handleRequestClick() {
-        if (isAuthenticated) {
-            alert("Not yet");
-        } else {
-            if (confirm("You need to be logged in to raise a request. Redirect to login page?")) {
+        const plotNum = document.getElementById('detailNum').innerText.trim();
+        const plotStatusText = document.getElementById('detailStatus').innerText.trim().toLowerCase(); 
+
+        if (plotStatusText !== 'available') {
+            alert('This plot is not available for purchase requests.');
+            return;
+        }
+        if (!isAuthenticated) {
+            if (confirm("You need to log in to raise a purchase request. Redirect to login page?")) {
                 window.location.href = loginUrl;
             }
+            return;
         }
+        if (!isBuyer) {
+            alert('Only registered buyers can raise a purchase request.');
+            return;
+        }
+        window.location.href = `/lands/plots/${landSlug}/request/${encodeURIComponent(plotNum)}/`;
     }
 
     function getCookie(name) {

@@ -33,6 +33,13 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkPurchaseRequests" onclick="switchTab('purchaseRequests');"
+                        class="sidebar-link">
+                        <i class="bi bi-cart-fill"></i> Purchase Requests
+                        {% if pending_purchase_count %}<span class="notif-badge ms-auto">{{ pending_purchase_count }}</span>{% endif %}
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="javascript:void(0);" id="tabLinkRequests" onclick="switchTab('requests');"
                         class="sidebar-link">
                         <i class="bi bi-clock-history"></i>My Requests
@@ -128,12 +135,103 @@
                 <h2 class="h3 font-ranade text-white fw-bold mb-1">Buyers</h2>
                 <p class="text-muted-glow fs-14 mb-0">Interested buyers and their plot lease requests.</p>
             </div>
+            
+            {% if active_buyers %}
+            <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
+                <table class="table table-dark table-hover align-middle mb-0 font-opensans">
+                    <thead>
+                        <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
+                            <th class="py-3 px-3">Buyer Username</th>
+                            <th class="py-3">Full Name</th>
+                            <th class="py-3">Plot Details</th>
+                            <th class="py-3">Proposed Amount</th>
+                            <th class="py-3">Approval Date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="fs-14">
+                        {% for req in active_buyers %}
+                        <tr class="border-bottom border-dark-glow">
+                            <td class="py-3 px-3 fw-bold text-white">{{ req.buyer.username }}</td>
+                            <td class="py-3 text-muted-glow">{{ req.full_name }}</td>
+                            <td class="py-3 text-muted-glow">Plot {{ req.plot_number }} (Land: {{ req.land.name }})</td>
+                            <td class="py-3 text-cyan-glow fw-bold">₹{{ req.proposed_amount }}</td>
+                            <td class="py-3 text-muted-glow">{{ req.updated_at|date:"M d, Y" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
             <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-5 text-center">
                 <i class="bi bi-people fs-1 text-muted-glow d-block mb-3"></i>
-                <p class="text-muted-glow fs-15 mb-1">No active requests for lease of plots yet.</p>
-                <p class="text-white-50 fs-13">Once buyers submit purchase requests for your plots, they will appear
-                    here.</p>
+                <p class="text-muted-glow fs-15 mb-1">Active buyers are shown here.</p>
+                <p class="text-white-50 fs-13">Once you approve a purchase request, the buyer will appear here.</p>
             </div>
+            {% endif %}
+        </section>
+
+        <!-- ── PURCHASE REQUESTS TAB ────────────────────────────────────────── -->
+        <section id="sectionPurchaseRequests" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Purchase Requests</h2>
+                <p class="text-muted-glow fs-14 mb-0">Incoming purchase requests from buyers.</p>
+            </div>
+            
+            {% if purchase_requests %}
+            <div class="row g-4">
+                {% for req in purchase_requests %}
+                <div class="col-12 col-xl-6">
+                    <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4 h-100 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-3 border-bottom border-secondary-glow pb-3">
+                            <div>
+                                <h5 class="text-white font-ranade fw-bold mb-1">{{ req.buyer.username }}</h5>
+                                <span class="fs-14 text-muted-glow">Plot {{ req.plot_number }} · {{ req.land.name }}</span>
+                            </div>
+                            <div>
+                                {% if req.status == 'pending' %}
+                                <span class="badge bg-warning text-dark">Pending</span>
+                                {% elif req.status == 'meeting_scheduled' %}
+                                <span class="badge" style="background-color: #fd7e14; color: white;">Meeting Scheduled</span>
+                                {% elif req.status == 'approved' %}
+                                <span class="badge bg-success">Approved</span>
+                                {% elif req.status == 'rejected' %}
+                                <span class="badge bg-danger">Rejected</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="mb-4 fs-14 text-muted-glow flex-grow-1">
+                            <p class="mb-1"><strong>Full Name:</strong> <span class="text-white">{{ req.full_name }}</span></p>
+                            <p class="mb-1"><strong>Aadhaar:</strong> <span class="text-white">{{ req.aadhaar_number }}</span></p>
+                            <p class="mb-1"><strong>PAN:</strong> <span class="text-white">{{ req.pan_number }}</span></p>
+                            <p class="mb-1"><strong>Email:</strong> <span class="text-white">{{ req.email }}</span></p>
+                            <p class="mb-1"><strong>Phone:</strong> <span class="text-white">{{ req.phone_number }}</span></p>
+                            <p class="mb-1"><strong>Proposed Amt:</strong> <span class="text-cyan-glow fw-bold">₹{{ req.proposed_amount }}</span></p>
+                            <p class="mb-0"><strong>Submitted:</strong> <span class="text-white">{{ req.created_at|date:"M d, Y H:i" }}</span></p>
+                            {% if req.rejection_reason %}
+                            <p class="mb-0 mt-2 text-danger"><strong>Rejection Reason:</strong> {{ req.rejection_reason }}</p>
+                            {% endif %}
+                        </div>
+                        {% if req.status == 'pending' %}
+                        <div class="d-flex gap-2 mt-auto">
+                            <button class="btn btn-action flex-grow-1 fs-12 fw-bold" onclick="openActionModal('{{ req.id }}', 'fix_meeting')">Fix Meeting</button>
+                            <button class="btn btn-outline-danger flex-grow-1 fs-12 fw-bold" onclick="openActionModal('{{ req.id }}', 'reject')">Reject Request</button>
+                        </div>
+                        {% elif req.status == 'meeting_scheduled' %}
+                        <div class="d-flex gap-2 mt-auto">
+                            <button class="btn btn-action flex-grow-1 fs-12 fw-bold" onclick="openActionModal('{{ req.id }}', 'approve')">Approve Purchase</button>
+                            <button class="btn btn-outline-danger flex-grow-1 fs-12 fw-bold" onclick="openActionModal('{{ req.id }}', 'reject')">Reject</button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-5 text-center">
+                <i class="bi bi-inbox fs-1 text-muted-glow d-block mb-3"></i>
+                <p class="text-muted-glow fs-15 mb-0">No purchase requests received yet.</p>
+            </div>
+            {% endif %}
         </section>
 
         <!-- ── REQUESTS TAB ─────────────────────────────────────────────────── -->
@@ -238,6 +336,12 @@
                             </div>
                             <p class="text-muted-glow fs-13 mb-0" style="white-space: pre-line;">{{ notif.message }}</p>
                         </div>
+                        <div class="d-flex flex-column gap-2 ms-2">
+                            <button class="btn btn-sm btn-outline-danger fs-11 py-1"
+                                    onclick="event.stopPropagation(); deleteNotif('{{ notif.id }}', this.closest('.notif-card'));">
+                                Delete <i class="bi bi-trash ms-1"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
@@ -291,6 +395,35 @@
     </div>
 </div>
 
+<!-- ═══════════════════ PURCHASE ACTION MODAL ═══════════════════════════════ -->
+<div class="modal fade" id="purchaseActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel border border-secondary-glow shadow-2xl p-2 text-white">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title font-ranade fw-bold text-white fs-18">
+                    <i class="bi bi-shield-check text-cyan-glow me-2"></i> <span id="purchaseActionTitle">Action</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-3">
+                <p class="text-muted-glow fs-14 mb-3">Please confirm if you want to proceed with this action on the purchase request.</p>
+                <div id="purchaseActionReasonContainer" class="mb-3" style="display: none;">
+                    <label class="form-label text-white-50 fs-13">Reason for Rejection <span class="text-danger">*</span></label>
+                    <textarea id="purchaseActionReason" class="form-control bg-dark-glow border-secondary-glow text-white fs-14" rows="3" placeholder="Enter reason here..."></textarea>
+                </div>
+                <div class="d-grid gap-2">
+                    <button id="purchaseActionConfirmBtn" onclick="confirmPurchaseAction()" class="btn btn-action btn-lg py-2 fs-12 text-uppercase fw-bold w-100">
+                        Confirm Action
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary py-2 fs-12 text-uppercase fw-bold" data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Rejection Confirmation Toast -->
 <div id="ownerToast" class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
     <div id="ownerToastEl" class="toast align-items-center text-white border-0" role="alert">
@@ -304,11 +437,80 @@
 <script>
     // ─── Tab Switching ─────────────────────────────────────────────────────────
     function switchTab(tabName) {
-        const tabs = { lands: 'sectionLands', buyers: 'sectionBuyers', requests: 'sectionRequests', notifs: 'sectionNotifs' };
-        const links = { lands: 'tabLinkLands', buyers: 'tabLinkBuyers', requests: 'tabLinkRequests', notifs: 'tabLinkNotifs' };
+        const tabs = { lands: 'sectionLands', buyers: 'sectionBuyers', purchaseRequests: 'sectionPurchaseRequests', requests: 'sectionRequests', notifs: 'sectionNotifs' };
+        const links = { lands: 'tabLinkLands', buyers: 'tabLinkBuyers', purchaseRequests: 'tabLinkPurchaseRequests', requests: 'tabLinkRequests', notifs: 'tabLinkNotifs' };
         Object.keys(tabs).forEach(t => {
             document.getElementById(tabs[t]).style.display = (t === tabName) ? 'block' : 'none';
-            document.getElementById(links[t]).classList.toggle('active', t === tabName);
+            const linkEl = document.getElementById(links[t]);
+            if (linkEl) {
+                linkEl.classList.toggle('active', t === tabName);
+            }
+        });
+    }
+
+    // ─── Purchase Request Actions ──────────────────────────────────────────────
+    let currentPurchaseRequestId = null;
+    let currentPurchaseAction = null;
+
+    function openActionModal(requestId, action) {
+        currentPurchaseRequestId = requestId;
+        currentPurchaseAction = action;
+
+        const actionLabels = {
+            'fix_meeting': 'Fix a Meeting',
+            'approve': 'Approve Purchase',
+            'reject': 'Reject Request'
+        };
+        const requiresReason = action === 'reject';
+        
+        document.getElementById('purchaseActionTitle').innerText = actionLabels[action];
+        document.getElementById('purchaseActionReasonContainer').style.display = requiresReason ? 'block' : 'none';
+        document.getElementById('purchaseActionReason').value = '';
+        
+        const btn = document.getElementById('purchaseActionConfirmBtn');
+        btn.innerText = actionLabels[action];
+        
+        if (action === 'reject') {
+            btn.className = 'btn btn-danger btn-lg py-2 fs-12 text-uppercase fw-bold w-100';
+        } else {
+            btn.className = 'btn btn-success btn-lg py-2 fs-12 text-uppercase fw-bold w-100';
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById('purchaseActionModal'));
+        modal.show();
+    }
+
+    function confirmPurchaseAction() {
+        const reason = document.getElementById('purchaseActionReason').value.trim();
+        if (currentPurchaseAction === 'reject' && !reason) {
+            showToast("A reason is required to reject.", "danger");
+            return;
+        }
+        submitPurchaseRequestAction(currentPurchaseRequestId, currentPurchaseAction, reason);
+        bootstrap.Modal.getInstance(document.getElementById('purchaseActionModal')).hide();
+    }
+    
+    function submitPurchaseRequestAction(requestId, action, reason) {
+        fetch(`/lands/purchase-request/${requestId}/action/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf()
+            },
+            body: JSON.stringify({ action: action, reason: reason })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showToast(data.error || 'Action failed.', 'danger');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('Something went wrong.', 'danger');
         });
     }
 
@@ -372,7 +574,8 @@
                 method: 'POST',
                 headers: { 'X-CSRFToken': getCsrf() },
             }).then(() => {
-                cardEl.querySelector('.unread-dot')?.remove();
+                const dot = cardEl.querySelector('.unread-dot');
+                if (dot) dot.remove();
                 cardEl.classList.add('opacity-65');
                 cardEl.classList.remove('border-cyan-glow');
                 cardEl.classList.add('border-secondary-glow');
@@ -384,6 +587,23 @@
                 }
             });
         }
+    }
+
+    function deleteNotif(notifId, cardEl) {
+        fetch(`/notification/${notifId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() },
+        }).then(() => {
+            // Update unread count if we are deleting an unread notification
+            if (cardEl.querySelector('.unread-dot')) {
+                const badge = document.querySelector('.notif-badge');
+                if (badge) {
+                    const cur = parseInt(badge.innerText, 10) - 1;
+                    if (cur <= 0) badge.remove(); else badge.innerText = cur;
+                }
+            }
+            cardEl.remove();
+        });
     }
 
     // ─── Toast ─────────────────────────────────────────────────────────────────

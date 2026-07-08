@@ -62,7 +62,25 @@ def buyer_dashboard(request):
         # If user is superuser admin, we let them view it for debugging, otherwise deny
         if not request.user.is_superuser:
             raise PermissionDenied("You do not have access to this portal.")
-    return render(request, 'accounts/buyer_dashboard.html')
+            
+    from apps.core.models import Notification, PurchaseRequest
+    
+    notifications = Notification.objects.filter(recipient=request.user).order_by('-created_at')
+    unread_count = notifications.filter(is_read=False).count()
+    
+    purchase_requests = PurchaseRequest.objects.filter(buyer=request.user).select_related('land', 'land__owner').order_by('-created_at')
+    purchased_plots = purchase_requests.filter(status='approved')
+    purchased_count = purchased_plots.count()
+    
+    context = {
+        'notifications': notifications,
+        'unread_count': unread_count,
+        'purchase_requests': purchase_requests,
+        'purchased_plots': purchased_plots,
+        'purchased_count': purchased_count,
+    }
+            
+    return render(request, 'accounts/buyer_dashboard.html', context)
 
 def logout_view(request):
     """Logs out the user and redirects to the landing selection portal."""
@@ -138,7 +156,7 @@ def landowner_dashboard(request):
             raise PermissionDenied("You do not have access to this portal.")
 
     from apps.lands.models import Land
-    from apps.core.models import Notification
+    from apps.core.models import Notification, PurchaseRequest
 
     lands = list(Land.objects.filter(owner=request.user).prefetch_related('plots', 'images'))
     for land in lands:
@@ -150,12 +168,25 @@ def landowner_dashboard(request):
         sender=request.user,
         notif_type__in=['land_delete_request', 'plot_delete_request']
     ).order_by('-created_at')
+    
+    purchase_requests = PurchaseRequest.objects.filter(
+        land__owner=request.user
+    ).select_related('buyer', 'land').order_by('-created_at')
+
+    pending_purchase_count = purchase_requests.filter(
+        status__in=['pending', 'meeting_scheduled']
+    ).count()
+
+    active_buyers = purchase_requests.filter(status='approved')
 
     context = {
         'lands': lands,
         'notifications': notifications,
         'unread_count': unread_count,
         'sent_requests': sent_requests,
+        'purchase_requests': purchase_requests,
+        'pending_purchase_count': pending_purchase_count,
+        'active_buyers': active_buyers,
     }
     return render(request, 'accounts/landowner_dashboard.html', context)
 

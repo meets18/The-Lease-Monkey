@@ -186,3 +186,15 @@ def mark_notification_read(request, notification_id):
         return JsonResponse({'status': 'ok'})
     except Notification.DoesNotExist:
         return JsonResponse({'error': 'Not found.'}, status=404)
+
+@login_required
+def delete_notification(request, notification_id):
+    """Deletes a notification for the current user."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+    try:
+        notif = Notification.objects.get(id=notification_id, recipient=request.user)
+        notif.delete()
+        return JsonResponse({'status': 'ok'})
+    except Notification.DoesNotExist:
+        return JsonResponse({'error': 'Not found.'}, status=404)
