@@ -25,6 +25,7 @@ class Notification(models.Model):
     title       = models.CharField(max_length=200)
     message     = models.TextField()
     is_read     = models.BooleanField(default=False)
+    is_resolved = models.BooleanField(default=False)
 
     # Context so admin can act on the request
     land_slug   = models.SlugField(null=True, blank=True)

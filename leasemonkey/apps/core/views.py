@@ -8,6 +8,29 @@ from django.views.generic import TemplateView
 from .models import Notification
 
 
+def _get_notification_item_label(notif):
+    """Build a user-facing notification target label without exposing slugs."""
+    from apps.lands.models import Land
+
+    land_name = None
+    if notif.land_slug:
+        try:
+            land_name = Land.objects.only('name').get(slug=notif.land_slug).name
+        except Land.DoesNotExist:
+            pass
+
+    if notif.notif_type == 'land_delete_request':
+        return f"Land {land_name}" if land_name else "the selected land"
+
+    if notif.notif_type == 'plot_delete_request':
+        kind = "Building" if notif.plot_kind == 'building' else "Plot"
+        if land_name:
+            return f"{kind} {notif.plot_number} in {land_name}"
+        return f"{kind} {notif.plot_number}"
+
+    return "your deletion request"
+
+
 class LandingPageView(TemplateView):
     template_name = "landing.html"
 
@@ -83,8 +106,9 @@ def _handle_approve(request, notif):
     except Land.DoesNotExist:
         return JsonResponse({'error': 'Land not found. It may have already been deleted.'}, status=404)
 
-    # Mark original notification as read
+    # Mark original notification as resolved
     notif.is_read = True
+    notif.is_resolved = True
     notif.save()
 
     # Create in-app notification for the landowner
@@ -127,16 +151,11 @@ def _handle_approve(request, notif):
 def _handle_reject(request, notif, rejection_message):
     """Send a rejection message back to the landowner via in-app + email."""
     landowner = notif.sender
+    item_label = _get_notification_item_label(notif)
 
-    if notif.notif_type == 'land_delete_request':
-        item_label = f"Land deletion request (slug: {notif.land_slug})"
-    elif notif.notif_type == 'plot_delete_request':
-        item_label = f"Plot {notif.plot_number} deletion request"
-    else:
-        item_label = "Your deletion request"
-
-    # Mark original notification as read
+    # Mark original notification as resolved
     notif.is_read = True
+    notif.is_resolved = True
     notif.save()
 
     # Create in-app notification for the landowner
@@ -184,5 +203,18 @@ def mark_notification_read(request, notification_id):
         notif.is_read = True
         notif.save()
         return JsonResponse({'status': 'ok'})
+    except Notification.DoesNotExist:
+        return JsonResponse({'error': 'Not found.'}, status=404)
+
+
+@login_required
+def delete_notification(request, notification_id):
+    """Deletes a notification only from the current user's notification tab."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+    try:
+        notif = Notification.objects.get(id=notification_id, recipient=request.user)
+        notif.delete()
+        return JsonResponse({'status': 'deleted'})
     except Notification.DoesNotExist:
         return JsonResponse({'error': 'Not found.'}, status=404)

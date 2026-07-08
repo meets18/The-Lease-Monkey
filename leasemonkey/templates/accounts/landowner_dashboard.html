@@ -159,12 +159,7 @@
                         {% for req in sent_requests %}
                         <tr class="border-bottom border-dark-glow">
                             <td class="py-3 px-3 fw-bold text-white">
-                                {% if req.notif_type == 'land_delete_request' %}
-                                Land: {{ req.land_slug }}
-                                {% else %}
-                                {% if req.plot_kind == 'building' %}Building{% else %}Plot{% endif %}: {{
-                                req.plot_number }} (Land: {{ req.land_slug }})
-                                {% endif %}
+                                {{ req.display_request_item }}
                             </td>
                             <td class="py-3">
                                 {% if req.notif_type == 'land_delete_request' %}
@@ -217,7 +212,7 @@
             <div class="d-flex flex-column gap-3">
                 {% for notif in notifications %}
                 <div class="notif-card rounded-3 border {% if notif.is_read %}border-secondary-glow opacity-65{% else %}border-cyan-glow{% endif %} bg-dark-glow p-4"
-                    id="notif-card-{{ notif.id }}" onclick="markRead({{ notif.id }}, this);" style="cursor:pointer;">
+                    id="notif-card-{{ notif.id }}">
                     <div class="d-flex align-items-start gap-3">
                         <div class="notif-icon-wrap flex-shrink-0">
                             {% if notif.notif_type == 'request_approved' %}
@@ -237,6 +232,20 @@
                                 </div>
                             </div>
                             <p class="text-muted-glow fs-13 mb-0" style="white-space: pre-line;">{{ notif.message }}</p>
+                            <div class="d-flex flex-wrap gap-2 mt-3">
+                                {% if not notif.is_read %}
+                                <button type="button"
+                                        class="btn btn-sm btn-mark-read px-3 py-1 fs-12 fw-bold text-uppercase"
+                                        onclick="markRead({{ notif.id }})">
+                                    <i class="bi bi-check2-circle me-1"></i> Mark as Read
+                                </button>
+                                {% endif %}
+                                <button type="button"
+                                        class="btn btn-sm btn-delete-notif px-3 py-1 fs-12 fw-bold text-uppercase"
+                                        onclick="deleteNotification({{ notif.id }})">
+                                    <i class="bi bi-trash3 me-1"></i> Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -366,24 +375,56 @@
     });
 
     // ─── Mark Notification Read ────────────────────────────────────────────────
-    function markRead(notifId, cardEl) {
-        if (cardEl.querySelector('.unread-dot')) {
-            fetch(`/notification/${notifId}/read/`, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCsrf() },
-            }).then(() => {
-                cardEl.querySelector('.unread-dot')?.remove();
-                cardEl.classList.add('opacity-65');
-                cardEl.classList.remove('border-cyan-glow');
-                cardEl.classList.add('border-secondary-glow');
-                // Update badge
-                const badge = document.querySelector('.notif-badge');
-                if (badge) {
-                    const cur = parseInt(badge.innerText, 10) - 1;
-                    if (cur <= 0) badge.remove(); else badge.innerText = cur;
-                }
-            });
+    function updateNotificationBadge(delta) {
+        const badge = document.querySelector('.notif-badge');
+        if (!badge) return;
+        const next = parseInt(badge.innerText, 10) + delta;
+        if (next <= 0) badge.remove(); else badge.innerText = next;
+    }
+
+    function markOwnerCardRead(cardEl) {
+        const hadUnreadDot = Boolean(cardEl?.querySelector('.unread-dot'));
+        cardEl?.querySelector('.unread-dot')?.remove();
+        cardEl?.querySelector('.btn-mark-read')?.remove();
+        cardEl?.classList.add('opacity-65', 'border-secondary-glow');
+        cardEl?.classList.remove('border-cyan-glow');
+        if (hadUnreadDot) {
+            updateNotificationBadge(-1);
         }
+    }
+
+    function markRead(notifId) {
+        const cardEl = document.getElementById(`notif-card-${notifId}`);
+        fetch(`/notification/${notifId}/read/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() },
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { showToast(data.error, 'danger'); return; }
+                markOwnerCardRead(cardEl);
+                showToast('Notification marked as read.', 'success');
+            })
+            .catch(() => showToast('Something went wrong. Please try again.', 'danger'));
+    }
+
+    function deleteNotification(notifId) {
+        if (!confirm('Delete this notification from your notifications tab?')) return;
+        const cardEl = document.getElementById(`notif-card-${notifId}`);
+        const wasUnread = Boolean(cardEl?.querySelector('.unread-dot'));
+
+        fetch(`/notification/${notifId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() },
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { showToast(data.error, 'danger'); return; }
+                if (wasUnread) updateNotificationBadge(-1);
+                cardEl?.remove();
+                showToast('Notification deleted.', 'success');
+            })
+            .catch(() => showToast('Something went wrong. Please try again.', 'danger'));
     }
 
     // ─── Toast ─────────────────────────────────────────────────────────────────
@@ -561,6 +602,32 @@
     }
 
     /* ── Misc ────────────────────────────────────────────────── */
+    .btn-mark-read {
+        background: rgba(0, 255, 196, 0.1);
+        border: 1px solid rgba(0, 255, 196, 0.3);
+        color: #00ffd2;
+        transition: all 0.25s ease;
+    }
+
+    .btn-mark-read:hover {
+        background: #00ffd2;
+        color: #0b0f19;
+        box-shadow: 0 0 12px rgba(0, 255, 196, 0.35);
+    }
+
+    .btn-delete-notif {
+        background: rgba(148, 163, 184, 0.08);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        color: #cbd5e1;
+        transition: all 0.25s ease;
+    }
+
+    .btn-delete-notif:hover {
+        background: #475569;
+        color: #ffffff;
+        box-shadow: 0 0 12px rgba(148, 163, 184, 0.25);
+    }
+
     .bg-success-glow {
         background-color: rgba(0, 255, 196, 0.1) !important;
         color: #00ffd2 !important;
