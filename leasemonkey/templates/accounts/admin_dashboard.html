@@ -191,38 +191,24 @@
                                     </div>
                                     <p class="text-muted-glow fs-13 mb-0" style="white-space:pre-line;">{{ notif.message }}</p>
 
-                                    <div class="d-flex flex-wrap gap-2 mt-3 notif-control-row">
-                                        {% if notif.notif_type == 'land_delete_request' or notif.notif_type == 'plot_delete_request' %}
-                                            {% if not notif.is_resolved %}
-                                                <div class="d-flex flex-wrap gap-2 admin-request-actions">
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-approve px-3 py-1 fs-12 fw-bold text-uppercase"
-                                                            onclick="handleNotifAction({{ notif.id }}, 'approve')">
-                                                        <i class="bi bi-check-lg me-1"></i> Approve &amp; Delete
-                                                    </button>
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-reject px-3 py-1 fs-12 fw-bold text-uppercase"
-                                                            onclick="openRejectDialog({{ notif.id }})">
-                                                        <i class="bi bi-x-lg me-1"></i> Reject
-                                                    </button>
-                                                </div>
-                                            {% else %}
-                                                <span class="badge bg-secondary fs-11 badge-resolved">Resolved</span>
-                                            {% endif %}
-                                        {% endif %}
+                                    {% if notif.notif_type == 'land_delete_request' or notif.notif_type == 'plot_delete_request' %}
                                         {% if not notif.is_read %}
+                                        <div class="d-flex gap-2 mt-3">
                                             <button type="button"
-                                                    class="btn btn-sm btn-mark-read px-3 py-1 fs-12 fw-bold text-uppercase"
-                                                    onclick="markAdminNotificationRead({{ notif.id }})">
-                                                <i class="bi bi-check2-circle me-1"></i> Mark as Read
+                                                    class="btn btn-sm btn-approve px-3 py-1 fs-12 fw-bold text-uppercase"
+                                                    onclick="handleNotifAction({{ notif.id }}, 'approve')">
+                                                <i class="bi bi-check-lg me-1"></i> Approve &amp; Delete
                                             </button>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-reject px-3 py-1 fs-12 fw-bold text-uppercase"
+                                                    onclick="openRejectDialog({{ notif.id }})">
+                                                <i class="bi bi-x-lg me-1"></i> Reject
+                                            </button>
+                                        </div>
+                                        {% else %}
+                                            <span class="badge bg-secondary mt-2 fs-11">Resolved</span>
                                         {% endif %}
-                                        <button type="button"
-                                                class="btn btn-sm btn-delete-notif px-3 py-1 fs-12 fw-bold text-uppercase"
-                                                onclick="deleteAdminNotification({{ notif.id }})">
-                                            <i class="bi bi-trash3 me-1"></i> Delete
-                                        </button>
-                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -364,58 +350,6 @@
         return document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
     }
 
-    function updateNotificationBadge(selector, delta) {
-        const badge = document.querySelector(selector);
-        if (!badge) return;
-        const next = parseInt(badge.innerText, 10) + delta;
-        if (next <= 0) badge.remove(); else badge.innerText = next;
-    }
-
-    function markAdminCardRead(card) {
-        const hadUnreadDot = Boolean(card?.querySelector('.admin-unread-dot'));
-        card?.querySelector('.admin-unread-dot')?.remove();
-        card?.querySelector('.btn-mark-read')?.remove();
-        card?.classList.add('opacity-65', 'border-secondary-glow');
-        card?.classList.remove('border-action-glow');
-        if (hadUnreadDot) {
-            updateNotificationBadge('.admin-notif-badge', -1);
-        }
-    }
-
-    function markAdminNotificationRead(notifId) {
-        fetch(`/notification/${notifId}/read/`, {
-            method: 'POST',
-            headers: { 'X-CSRFToken': getCsrf() },
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.error) { showAdminToast(data.error, 'danger'); return; }
-            const card = document.getElementById(`admin-notif-${notifId}`);
-            if (card) markAdminCardRead(card);
-            showAdminToast('Notification marked as read.', 'success');
-        })
-        .catch(() => showAdminToast('Something went wrong. Please try again.', 'danger'));
-    }
-
-    function deleteAdminNotification(notifId) {
-        if (!confirm('Delete this notification from your notifications tab?')) return;
-        const card = document.getElementById(`admin-notif-${notifId}`);
-        const wasUnread = Boolean(card?.querySelector('.admin-unread-dot'));
-
-        fetch(`/notification/${notifId}/delete/`, {
-            method: 'POST',
-            headers: { 'X-CSRFToken': getCsrf() },
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.error) { showAdminToast(data.error, 'danger'); return; }
-            if (wasUnread) updateNotificationBadge('.admin-notif-badge', -1);
-            card?.remove();
-            showAdminToast('Notification deleted.', 'success');
-        })
-        .catch(() => showAdminToast('Something went wrong. Please try again.', 'danger'));
-    }
-
     function handleNotifAction(notifId, action, rejectionMessage = '') {
         if (action === 'approve') {
             if (!confirm('This will PERMANENTLY DELETE the requested land or plot. Are you sure?')) return;
@@ -430,15 +364,25 @@
             if (data.error) { showAdminToast(data.error, 'danger'); return; }
             const card = document.getElementById(`admin-notif-${notifId}`);
             if (card) {
-                markAdminCardRead(card);
-                card.querySelector('.admin-request-actions')?.remove();
+                // Remove action buttons; mark card as resolved
+                card.querySelectorAll('.btn-approve, .btn-reject').forEach(b => b.parentElement.remove());
+                card.querySelector('.admin-unread-dot')?.remove();
+                card.classList.add('opacity-65');
+                card.classList.remove('border-action-glow');
+                card.classList.add('border-secondary-glow');
                 const badge = card.querySelector('.badge-resolved');
                 if (!badge) {
                     const span = document.createElement('span');
-                    span.className = 'badge bg-secondary fs-11 badge-resolved';
+                    span.className = 'badge bg-secondary mt-2 fs-11 badge-resolved';
                     span.innerText = action === 'approve' ? 'Approved & Deleted' : 'Rejected';
-                    card.querySelector('.notif-control-row')?.prepend(span);
+                    card.querySelector('.flex-grow-1')?.appendChild(span);
                 }
+            }
+            // Update sidebar badge
+            const sideBadge = document.querySelector('.admin-notif-badge');
+            if (sideBadge) {
+                const cur = parseInt(sideBadge.innerText, 10) - 1;
+                if (cur <= 0) sideBadge.remove(); else sideBadge.innerText = cur;
             }
             showAdminToast(action === 'approve' ? 'Approved — item deleted successfully.' : 'Rejection sent to landowner.', 'success');
         })
@@ -853,28 +797,6 @@
 .btn-reject:hover {
     background: #ef4444; color: #fff;
     box-shadow: 0 0 12px rgba(239,68,68,0.4);
-}
-.btn-mark-read {
-    background: rgba(0, 255, 196, 0.1);
-    border: 1px solid rgba(0, 255, 196, 0.3);
-    color: #00ffd2;
-    transition: all 0.25s ease;
-}
-.btn-mark-read:hover {
-    background: #00ffd2;
-    color: #0b0f19;
-    box-shadow: 0 0 12px rgba(0, 255, 196, 0.35);
-}
-.btn-delete-notif {
-    background: rgba(148, 163, 184, 0.08);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    color: #cbd5e1;
-    transition: all 0.25s ease;
-}
-.btn-delete-notif:hover {
-    background: #475569;
-    color: #ffffff;
-    box-shadow: 0 0 12px rgba(148, 163, 184, 0.25);
 }
 </style>
 

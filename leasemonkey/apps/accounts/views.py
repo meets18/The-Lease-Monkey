@@ -146,18 +146,10 @@ def landowner_dashboard(request):
         land.display_plot_price_lakhs = _format_price_lakhs(land.average_plot_price)
     notifications = Notification.objects.filter(recipient=request.user)
     unread_count  = notifications.filter(is_read=False).count()
-    sent_requests = list(Notification.objects.filter(
+    sent_requests = Notification.objects.filter(
         sender=request.user,
         notif_type__in=['land_delete_request', 'plot_delete_request']
-    ).order_by('-created_at'))
-    for req in sent_requests:
-        land = Land.objects.filter(slug=req.land_slug).only('name').first()
-        req.display_land_name = land.name if land else 'Deleted land'
-        if req.notif_type == 'land_delete_request':
-            req.display_request_item = f"Land: {req.display_land_name}"
-        else:
-            item_type = "Building" if req.plot_kind == 'building' else "Plot"
-            req.display_request_item = f"{item_type}: {req.plot_number} (Land: {req.display_land_name})"
+    ).order_by('-created_at')
 
     context = {
         'lands': lands,

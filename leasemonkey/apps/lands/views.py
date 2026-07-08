@@ -751,6 +751,7 @@ def request_land_deletion(request, slug):
                         f"Landowner '{request.user.username}' has submitted a deletion request for:\n\n"
                         f"  Land: {land.name}\n"
                         f"  Location: {land.location}\n"
+                        f"  Slug: {land.slug}\n\n"
                         f"Please log in to your dashboard and review the Notifications tab to approve or reject this request.\n\n"
                         f"— The Lease Monkey System"
                     ),
@@ -823,7 +824,7 @@ def request_plot_deletion(request, slug, plot_number):
                         f"Hello {admin.username},\n\n"
                         f"Landowner '{request.user.username}' has submitted a deletion request for:\n\n"
                         f"  {item_label} in Land: {land.name}\n"
-                        f"  Location: {land.location}\n\n"
+                        f"  Land Slug: {land.slug}\n\n"
                         f"Please log in to your dashboard and review the Notifications tab to approve or reject this request.\n\n"
                         f"— The Lease Monkey System"
                     ),
@@ -835,3 +836,4 @@ def request_plot_deletion(request, slug, plot_number):
                 pass
 
     return JsonResponse({'status': 'ok', 'message': f'Deletion request for {item_label} sent to admin.'})
+
