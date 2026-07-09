@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Preferences — The Lease Monkey{% endblock %}
+
+{% block extra_css %}
+<style>
+.preferences-page-wrapper {
+    display: flex;
+    min-height: calc(100vh - 56px);
+    padding-top: 56px;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 28px;
+    padding-left: 40px;
+    padding-right: 40px;
+    padding-bottom: 40px;
+}
+
+.pref-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    padding-top: 28px;
+}
+
+.pref-sidebar-nav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.pref-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    color: #94A3B8;
+    text-decoration: none;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.pref-sidebar-item i {
+    font-size: 1.05rem;
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.pref-sidebar-item:hover {
+    background: rgba(255, 94, 0, 0.06);
+    color: #FF5E00;
+}
+
+.pref-sidebar-item.active {
+    background: #FF5E00;
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(255, 94, 0, 0.25);
+}
+
+.pref-sidebar-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 6px 14px;
+}
+
+.pref-content {
+    flex: 1;
+    min-width: 0;
+    padding-top: 28px;
+}
+
+.pref-header {
+    margin-bottom: 20px;
+}
+
+.pref-header h1 {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+    margin-bottom: 2px;
+}
+
+.pref-header p {
+    color: #94A3B8;
+    font-size: 0.85rem;
+    margin-bottom: 0;
+}
+
+.pref-card {
+    background: #1E293B;
+    border: 1px solid rgba(255, 94, 0, 0.08);
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.pref-card h2 {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 16px;
+}
+
+.pref-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.pref-placeholder i {
+    font-size: 2.5rem;
+    color: #94A3B8;
+    margin-bottom: 14px;
+}
+
+.pref-placeholder h3 {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #E2E8F0;
+    margin-bottom: 6px;
+}
+
+.pref-placeholder p {
+    font-size: 0.85rem;
+    color: #64748B;
+    margin-bottom: 0;
+}
+
+/* Light Mode */
+[data-theme="light"] .pref-card {
+    background: #FFFFFF;
+    border-color: #E5E7EB;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+[data-theme="light"] .pref-header p {
+    color: #64748B;
+}
+[data-theme="light"] .pref-sidebar-item {
+    color: #64748B;
+}
+[data-theme="light"] .pref-sidebar-item:hover {
+    background: rgba(245, 158, 11, 0.05);
+    color: #F59E0B;
+}
+[data-theme="light"] .pref-sidebar-item.active {
+    background: #F59E0B;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
+}
+[data-theme="light"] .pref-sidebar-divider {
+    background: #E5E7EB;
+}
+[data-theme="light"] .pref-placeholder h3 {
+    color: #64748B;
+}
+[data-theme="light"] .pref-placeholder p {
+    color: #94A3B8;
+}
+
+@media (max-width: 991px) {
+    .preferences-page-wrapper {
+        flex-direction: column;
+        padding-left: 20px;
+        padding-right: 20px;
+        gap: 0;
+    }
+    .pref-sidebar {
+        width: 100%;
+        padding-top: 20px;
+        padding-bottom: 10px;
+        overflow-x: auto;
+    }
+    .pref-sidebar-nav {
+        flex-direction: row;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+    .pref-sidebar-item {
+        white-space: nowrap;
+        padding: 8px 14px;
+        font-size: 0.78rem;
+    }
+    .pref-sidebar-divider {
+        display: none;
+    }
+    .pref-content {
+        padding-top: 0;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="preferences-page-wrapper">
+    <!-- ═══ SIDEBAR ═══ -->
+    <aside class="pref-sidebar">
+        <ul class="pref-sidebar-nav">
+            <li>
+                <a href="{% if user.role == 'LAND_OWNER' %}{% url 'landowner_profile' %}{% else %}{% url 'profile' %}{% endif %}" class="pref-sidebar-item">
+                    <i class="bi bi-person"></i> <span>Personal Information</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="pref-sidebar-item active">
+                    <i class="bi bi-sliders2"></i> <span>Preferences</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% if user.role == 'LAND_OWNER' %}{% url 'landowner_profile' %}{% else %}{% url 'profile' %}{% endif %}?section=security" class="pref-sidebar-item">
+                    <i class="bi bi-shield-lock"></i> <span>Security</span>
+                </a>
+            </li>
+            <li class="pref-sidebar-divider"></li>
+            <li>
+                <a href="{% if user.role == 'BUYER' %}{% url 'buyer_dashboard' %}{% elif user.role == 'LAND_OWNER' %}{% url 'landowner_dashboard' %}{% elif user.role == 'ADMIN' or user.is_superuser %}{% url 'admin_dashboard' %}{% else %}#{% endif %}" class="pref-sidebar-item">
+                    <i class="bi bi-grid-1x2-fill"></i> <span>Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'logout' %}" class="pref-sidebar-item">
+                    <i class="bi bi-box-arrow-right"></i> <span>Log Out</span>
+                </a>
+            </li>
+        </ul>
+    </aside>
+
+    <!-- ═══ CONTENT ═══ -->
+    <main class="pref-content">
+        <div class="pref-header">
+            <h1>Preferences</h1>
+            <p>Customize your experience.</p>
+        </div>
+
+        <div class="pref-card">
+            <div class="pref-placeholder">
+                <i class="bi bi-gear"></i>
+                <h3>Coming Soon</h3>
+                <p>User preferences and notifications settings will be available in a future update.</p>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}

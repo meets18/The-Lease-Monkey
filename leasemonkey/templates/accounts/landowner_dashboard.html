@@ -53,6 +53,14 @@
                     </a>
                 </li>
             </ul>
+            <hr class="border-secondary-glow my-2">
+            <ul class="nav flex-column gap-2">
+                <li class="nav-item">
+                    <a href="{% url 'landowner_profile' %}" class="sidebar-link">
+                        <i class="bi bi-person-circle"></i> Profile
+                    </a>
+                </li>
+            </ul>
         </nav>
 
         <div class="mt-auto pt-3 border-top border-secondary-glow">
@@ -86,20 +94,20 @@
             </div>
 
             <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
-                <table class="table table-dark table-hover align-middle mb-0 font-opensans">
+                <table class="table table-dark align-middle mb-0 font-opensans table-modern">
                     <thead>
-                        <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
-                            <th class="py-3 px-3">Land Name</th>
-                            <th class="py-3">Location</th>
-                            <th class="py-3">Total Area</th>
-                            <th class="py-3">Avg Plot Price</th>
-                            <th class="py-3">Plots</th>
+                        <tr>
+                            <th class="px-3">Land Name</th>
+                            <th>Location</th>
+                            <th>Total Area</th>
+                            <th>Avg Plot Price</th>
+                            <th>Plots</th>
                         </tr>
                     </thead>
-                    <tbody class="fs-14">
+                    <tbody>
                         {% if lands %}
                         {% for land in lands %}
-                        <tr class="border-bottom border-dark-glow land-summary-row"
+                        <tr class="land-summary-row"
                             onclick="openLandActionsModal(this);" data-land-name="{{ land.name|escape }}"
                             data-land-location="{{ land.location|escape }}" data-land-area="{{ land.area }}"
                             data-land-price-label="{{ land.display_plot_price_lakhs }}"
@@ -107,12 +115,12 @@
                             data-manage-url="{% url 'lands:plot_creator' slug=land.slug %}"
                             data-delete-url="{% url 'lands:request_land_deletion' slug=land.slug %}"
                             data-land-slug="{{ land.slug }}">
-                            <td class="py-3 px-3 fw-bold text-white font-ranade fs-15">{{ land.name }}</td>
-                            <td class="py-3 text-muted-glow land-location-cell"><i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i><span class="land-location-text"></span></td>
-                            <td class="py-3">{{ land.area }} Acres</td>
-                            <td class="py-3 text-cyan-glow fw-bold land-price-cell"></td>
-                            <td class="py-3">
-                                <span class="badge bg-success-glow fs-11">{{ land.plots.count }} Plots</span>
+                            <td class="fw-bold text-white font-ranade fs-15">{{ land.name }}</td>
+                            <td class="land-location-cell text-muted-glow"><i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i><span class="land-location-text"></span></td>
+                            <td class="text-muted-glow">{{ land.area }} Acres</td>
+                            <td class="text-cyan-glow fw-bold land-price-cell"></td>
+                            <td>
+                                <span class="badge badge-success-glow">{{ land.plots.count }} Plots</span>
                             </td>
                         </tr>
                         {% endfor %}
@@ -138,24 +146,24 @@
             
             {% if active_buyers %}
             <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
-                <table class="table table-dark table-hover align-middle mb-0 font-opensans">
+                <table class="table table-dark align-middle mb-0 font-opensans table-modern">
                     <thead>
-                        <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
-                            <th class="py-3 px-3">Buyer Username</th>
-                            <th class="py-3">Full Name</th>
-                            <th class="py-3">Plot Details</th>
-                            <th class="py-3">Proposed Amount</th>
-                            <th class="py-3">Approval Date</th>
+                        <tr>
+                            <th class="px-3">Buyer Username</th>
+                            <th>Full Name</th>
+                            <th>Plot Details</th>
+                            <th>Proposed Amount</th>
+                            <th>Approval Date</th>
                         </tr>
                     </thead>
-                    <tbody class="fs-14">
+                    <tbody>
                         {% for req in active_buyers %}
-                        <tr class="border-bottom border-dark-glow">
-                            <td class="py-3 px-3 fw-bold text-white">{{ req.buyer.username }}</td>
-                            <td class="py-3 text-muted-glow">{{ req.full_name }}</td>
-                            <td class="py-3 text-muted-glow">Plot {{ req.plot_number }} (Land: {{ req.land.name }})</td>
-                            <td class="py-3 text-cyan-glow fw-bold">₹{{ req.proposed_amount }}</td>
-                            <td class="py-3 text-muted-glow">{{ req.updated_at|date:"M d, Y" }}</td>
+                        <tr>
+                            <td class="fw-bold text-white">{{ req.buyer.username }}</td>
+                            <td class="text-muted-glow">{{ req.full_name }}</td>
+                            <td class="text-muted-glow">Plot {{ req.plot_number }} (Land: {{ req.land.name }})</td>
+                            <td class="text-cyan-glow fw-bold">₹{{ req.proposed_amount }}</td>
+                            <td class="text-muted-glow">{{ req.updated_at|date:"M d, Y" }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -178,50 +186,111 @@
             </div>
             
             {% if purchase_requests %}
-            <div class="row g-4">
+            <div class="pr-grid">
                 {% for req in purchase_requests %}
-                <div class="col-12 col-xl-6">
-                    <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4 h-100 d-flex flex-column">
-                        <div class="d-flex justify-content-between align-items-start mb-3 border-bottom border-secondary-glow pb-3">
-                            <div>
-                                <h5 class="text-white font-ranade fw-bold mb-1">{{ req.buyer.username }}</h5>
-                                <span class="fs-14 text-muted-glow">Plot {{ req.plot_number }} · {{ req.land.name }}</span>
+                <div class="pr-card-wrapper">
+                    <div class="pr-card" id="pr-card-{{ req.id }}" onclick="togglePrequest({{ req.id }})" tabindex="0" role="button">
+                        <div class="pr-card-body">
+                            <div class="pr-top-row">
+                                <div class="pr-buyer">{{ req.buyer.username }}</div>
+                                <div class="pr-expand-icon">
+                                    <i class="bi bi-chevron-down" id="pr-icon-{{ req.id }}"></i>
+                                </div>
                             </div>
-                            <div>
+                            <div class="pr-plot">Requested Plot {{ req.plot_number }}</div>
+                            <div class="pr-meta">{{ req.land.name }}</div>
+                            <div class="pr-meta pr-meta-loc"><i class="bi bi-geo-alt"></i> {{ req.land.location }}</div>
+                            <div class="pr-divider"></div>
+                            <div class="pr-bottom-row">
+                                <div class="pr-amount">₹{{ req.proposed_amount }}</div>
+                                <div>
+                                    {% if req.status == 'pending' %}
+                                    <span class="pr-badge status-pending">Pending</span>
+                                    {% elif req.status == 'meeting_scheduled' %}
+                                    <span class="pr-badge status-meeting">Meeting Scheduled</span>
+                                    {% elif req.status == 'approved' %}
+                                    <span class="pr-badge status-approved">Approved</span>
+                                    {% elif req.status == 'rejected' %}
+                                    <span class="pr-badge status-rejected">Rejected</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pr-expanded" id="pr-body-{{ req.id }}">
+                            <div class="pr-expanded-inner">
+                                <div class="pr-col">
+                                    <div class="pr-col-title">Buyer Details</div>
+                                    <div class="pr-field">
+                                        <span class="pr-field-label">Full Name</span>
+                                        <span class="pr-field-value">{{ req.full_name }}</span>
+                                    </div>
+                                    <div class="pr-field">
+                                        <span class="pr-field-label">Email</span>
+                                        <span class="pr-field-value">{{ req.email }}</span>
+                                    </div>
+                                    <div class="pr-field">
+                                        <span class="pr-field-label">Phone Number</span>
+                                        <span class="pr-field-value">{{ req.phone_number }}</span>
+                                    </div>
+                                    <div class="pr-field">
+                                        <span class="pr-field-label">Aadhaar Number</span>
+                                        <span class="pr-field-value">{{ req.aadhaar_number }}</span>
+                                    </div>
+                                    <div class="pr-field">
+                                        <span class="pr-field-label">PAN Number</span>
+                                        <span class="pr-field-value">{{ req.pan_number }}</span>
+                                    </div>
+                                </div>
+                                <div class="pr-col">
+                                    <div class="pr-col-title">Request Details</div>
+                                    <div class="pr-field">
+                                        <span class="pr-field-label">Plot Name</span>
+                                        <span class="pr-field-value">Plot {{ req.plot_number }}</span>
+                                    </div>
+                                    <div class="pr-field">
+                                        <span class="pr-field-label">Land Name</span>
+                                        <span class="pr-field-value">{{ req.land.name }}</span>
+                                    </div>
+                                    <div class="pr-field">
+                                        <span class="pr-field-label">Proposed Amount</span>
+                                        <span class="pr-field-value pr-field-amount">₹{{ req.proposed_amount }}</span>
+                                    </div>
+                                    <div class="pr-field">
+                                        <span class="pr-field-label">Submission Date</span>
+                                        <span class="pr-field-value">{{ req.created_at|date:"M d, Y H:i" }}</span>
+                                    </div>
+                                    <div class="pr-field">
+                                        <span class="pr-field-label">Current Status</span>
+                                        <span class="pr-field-value">
+                                            {% if req.status == 'pending' %}
+                                            <span class="pr-badge status-pending">Pending</span>
+                                            {% elif req.status == 'meeting_scheduled' %}
+                                            <span class="pr-badge status-meeting">Meeting Scheduled</span>
+                                            {% elif req.status == 'approved' %}
+                                            <span class="pr-badge status-approved">Approved</span>
+                                            {% elif req.status == 'rejected' %}
+                                            <span class="pr-badge status-rejected">Rejected</span>
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    {% if req.rejection_reason %}
+                                    <div class="pr-field">
+                                        <span class="pr-field-label">Rejection Reason</span>
+                                        <span class="pr-field-value pr-field-danger">{{ req.rejection_reason }}</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="pr-actions">
                                 {% if req.status == 'pending' %}
-                                <span class="badge bg-warning text-dark">Pending</span>
+                                <button class="pr-btn pr-btn-primary" onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'fix_meeting')">Fix Meeting</button>
+                                <button class="pr-btn pr-btn-danger" onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'reject')">Reject Request</button>
                                 {% elif req.status == 'meeting_scheduled' %}
-                                <span class="badge" style="background-color: #fd7e14; color: white;">Meeting Scheduled</span>
-                                {% elif req.status == 'approved' %}
-                                <span class="badge bg-success">Approved</span>
-                                {% elif req.status == 'rejected' %}
-                                <span class="badge bg-danger">Rejected</span>
+                                <button class="pr-btn pr-btn-primary" onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'approve')">Approve Purchase</button>
+                                <button class="pr-btn pr-btn-danger" onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'reject')">Reject</button>
                                 {% endif %}
                             </div>
                         </div>
-                        <div class="mb-4 fs-14 text-muted-glow flex-grow-1">
-                            <p class="mb-1"><strong>Full Name:</strong> <span class="text-white">{{ req.full_name }}</span></p>
-                            <p class="mb-1"><strong>Aadhaar:</strong> <span class="text-white">{{ req.aadhaar_number }}</span></p>
-                            <p class="mb-1"><strong>PAN:</strong> <span class="text-white">{{ req.pan_number }}</span></p>
-                            <p class="mb-1"><strong>Email:</strong> <span class="text-white">{{ req.email }}</span></p>
-                            <p class="mb-1"><strong>Phone:</strong> <span class="text-white">{{ req.phone_number }}</span></p>
-                            <p class="mb-1"><strong>Proposed Amt:</strong> <span class="text-cyan-glow fw-bold">₹{{ req.proposed_amount }}</span></p>
-                            <p class="mb-0"><strong>Submitted:</strong> <span class="text-white">{{ req.created_at|date:"M d, Y H:i" }}</span></p>
-                            {% if req.rejection_reason %}
-                            <p class="mb-0 mt-2 text-danger"><strong>Rejection Reason:</strong> {{ req.rejection_reason }}</p>
-                            {% endif %}
-                        </div>
-                        {% if req.status == 'pending' %}
-                        <div class="d-flex gap-2 mt-auto">
-                            <button class="btn btn-action flex-grow-1 fs-12 fw-bold" onclick="openActionModal('{{ req.id }}', 'fix_meeting')">Fix Meeting</button>
-                            <button class="btn btn-outline-danger flex-grow-1 fs-12 fw-bold" onclick="openActionModal('{{ req.id }}', 'reject')">Reject Request</button>
-                        </div>
-                        {% elif req.status == 'meeting_scheduled' %}
-                        <div class="d-flex gap-2 mt-auto">
-                            <button class="btn btn-action flex-grow-1 fs-12 fw-bold" onclick="openActionModal('{{ req.id }}', 'approve')">Approve Purchase</button>
-                            <button class="btn btn-outline-danger flex-grow-1 fs-12 fw-bold" onclick="openActionModal('{{ req.id }}', 'reject')">Reject</button>
-                        </div>
-                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
@@ -242,21 +311,21 @@
             </div>
 
             <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
-                <table class="table table-dark table-hover align-middle mb-0 font-opensans">
+                <table class="table table-dark align-middle mb-0 font-opensans table-modern">
                     <thead>
-                        <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
-                            <th class="py-3 px-3">Request Details</th>
-                            <th class="py-3">Type</th>
-                            <th class="py-3">Status</th>
-                            <th class="py-3">Requested On</th>
-                            <th class="py-3 px-3">Resolved On</th>
+                        <tr>
+                            <th class="px-3">Request Details</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Requested On</th>
+                            <th class="px-3">Resolved On</th>
                         </tr>
                     </thead>
-                    <tbody class="fs-14">
+                    <tbody>
                         {% if sent_requests %}
                         {% for req in sent_requests %}
-                        <tr class="border-bottom border-dark-glow">
-                            <td class="py-3 px-3 fw-bold text-white">
+                        <tr>
+                            <td class="fw-bold text-white">
                                 {% if req.notif_type == 'land_delete_request' %}
                                 Land: {{ req.land_slug }}
                                 {% else %}
@@ -264,24 +333,24 @@
                                 req.plot_number }} (Land: {{ req.land_slug }})
                                 {% endif %}
                             </td>
-                            <td class="py-3">
+                            <td>
                                 {% if req.notif_type == 'land_delete_request' %}
-                                <span class="badge bg-warning-glow fs-11 text-uppercase">Land Deletion</span>
+                                <span class="badge badge-warning-glow text-uppercase">Land Deletion</span>
                                 {% else %}
-                                <span class="badge bg-cyan-glow fs-11 text-uppercase">Plot/Building Deletion</span>
+                                <span class="badge badge-cyan-glow text-uppercase">Plot/Building Deletion</span>
                                 {% endif %}
                             </td>
-                            <td class="py-3">
+                            <td>
                                 {% if not req.is_read %}
-                                <span class="badge bg-warning fs-11 text-dark fw-bold text-uppercase"><i
+                                <span class="badge bg-warning text-dark fw-bold text-uppercase"><i
                                         class="bi bi-hourglass-split me-1"></i>Pending</span>
                                 {% else %}
-                                <span class="badge bg-success fs-11 text-white fw-bold text-uppercase"><i
+                                <span class="badge bg-success text-white fw-bold text-uppercase"><i
                                         class="bi bi-check-circle-fill me-1"></i>Completed</span>
                                 {% endif %}
                             </td>
-                            <td class="py-3 text-muted-glow">{{ req.created_at|date:"M d, Y H:i" }}</td>
-                            <td class="py-3 px-3 text-muted-glow">
+                            <td class="text-muted-glow">{{ req.created_at|date:"M d, Y H:i" }}</td>
+                            <td class="px-3 text-muted-glow">
                                 {% if req.is_read %}
                                 {{ req.updated_at|date:"M d, Y H:i" }}
                                 {% else %}
@@ -617,6 +686,21 @@
     function getCsrf() {
         return document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
     }
+
+    // ─── Expand/Collapse Purchase Request Cards ────────────────────────────
+    function togglePrequest(id) {
+        const body = document.getElementById('pr-body-' + id);
+        const icon = document.getElementById('pr-icon-' + id);
+        if (body.classList.contains('expanded')) {
+            body.classList.remove('expanded');
+            body.style.maxHeight = '0';
+            icon.style.transform = 'rotate(0deg)';
+        } else {
+            body.classList.add('expanded');
+            body.style.maxHeight = body.scrollHeight + 'px';
+            icon.style.transform = 'rotate(180deg)';
+        }
+    }
 </script>
 
 <style>
@@ -628,7 +712,7 @@
     }
 
     .user-profile-badge {
-        background: rgba(11, 15, 25, 0.4);
+        background: rgba(30, 41, 59, 0.4);
     }
 
     .profile-avatar {
@@ -703,18 +787,420 @@
         box-shadow: 0 0 15px rgba(255, 74, 74, 0.4);
     }
 
-    /* ── Table ───────────────────────────────────────────────── */
+    /* ── Tables ──────────────────────────────────────────────── */
     .land-summary-row {
         cursor: pointer;
         transition: background 0.2s ease;
     }
 
     .land-summary-row:hover {
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .table-modern thead th {
+        font-family: 'Open Sans', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        padding: 14px 16px;
+        background: rgba(15, 23, 42, 0.3);
+        border-bottom: 1px solid rgba(251, 191, 36, 0.12);
+        color: #94a3b8;
+    }
+
+    .table-modern tbody tr {
+        transition: background 0.2s ease;
+    }
+
+    .table-modern tbody tr:nth-child(even) {
+        background: rgba(255, 255, 255, 0.015);
+    }
+
+    .table-modern tbody tr:hover {
+        background: rgba(251, 191, 36, 0.04);
+    }
+
+    .table-modern tbody td {
+        padding: 14px 16px;
+        font-size: 0.88rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        vertical-align: middle;
+    }
+
+    .table-modern .badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 20px;
+        letter-spacing: 0.02em;
+    }
+
+    .table-modern .badge-success-glow {
+        background: rgba(0, 255, 196, 0.1) !important;
+        color: #00ffd2 !important;
+        border: 1px solid rgba(0, 255, 196, 0.2);
+    }
+
+    .table-modern .badge-warning-glow {
+        background: rgba(251, 191, 36, 0.1) !important;
+        color: #fbbf24 !important;
+        border: 1px solid rgba(251, 191, 36, 0.2);
+    }
+
+    .table-modern .badge-cyan-glow {
+        background: rgba(0, 255, 196, 0.1) !important;
+        color: #00ffd2 !important;
+        border: 1px solid rgba(0, 255, 196, 0.2);
     }
 
     .land-row-chevron {
         color: #00ffd2;
+    }
+
+    /* ── Purchase Request Cards ─────────────────────────────── */
+    .pr-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+    }
+
+    .pr-card-wrapper {
+        width: 100%;
+    }
+
+    .pr-card {
+        position: relative;
+        border-radius: 18px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: transform 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                    box-shadow 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    .pr-card:hover {
+        transform: translateY(-6px);
+    }
+
+    .pr-card-body {
+        padding: 20px 22px 18px;
+    }
+
+    .pr-top-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 4px;
+    }
+
+    .pr-buyer {
+        font-family: 'Ranade', sans-serif;
+        font-weight: 700;
+        font-size: 1.2rem;
+        line-height: 1.3;
+    }
+
+    .pr-expand-icon {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+    }
+
+    .pr-expand-icon i {
+        font-size: 1.15rem;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease;
+    }
+
+    .pr-plot {
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+    }
+
+    .pr-meta {
+        font-size: 0.88rem;
+        margin-bottom: 2px;
+    }
+
+    .pr-meta-loc {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .pr-meta-loc i {
+        font-size: 0.8rem;
+    }
+
+    .pr-divider {
+        height: 1px;
+        margin: 14px 0 12px;
+    }
+
+    .pr-bottom-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .pr-amount {
+        font-family: 'Open Sans', sans-serif;
+        font-weight: 700;
+        font-size: 1.05rem;
+        white-space: nowrap;
+    }
+
+    .pr-badge {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 4px 12px;
+        border-radius: 20px;
+    }
+
+    .pr-badge.status-pending {
+        background: rgba(245, 158, 11, 0.12);
+        color: #fbbf24;
+        border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+
+    .pr-badge.status-meeting {
+        background: rgba(253, 126, 20, 0.12);
+        color: #fd7e14;
+        border: 1px solid rgba(253, 126, 20, 0.25);
+    }
+
+    .pr-badge.status-approved {
+        background: rgba(0, 255, 196, 0.1);
+        color: #00ffd2;
+        border: 1px solid rgba(0, 255, 196, 0.2);
+    }
+
+    .pr-badge.status-rejected {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .pr-expanded {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .pr-expanded.expanded {
+        max-height: 600px;
+    }
+
+    .pr-expanded-inner {
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 18px 22px 14px;
+        display: flex;
+        gap: 32px;
+    }
+
+    .pr-col {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .pr-col-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        margin-bottom: 12px;
+    }
+
+    .pr-field {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 7px;
+    }
+
+    .pr-field-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #64748b;
+        min-width: 100px;
+        flex-shrink: 0;
+    }
+
+    .pr-field-value {
+        font-size: 0.85rem;
+        color: #e2e8f0;
+        font-weight: 500;
+    }
+
+    .pr-field-amount {
+        color: #00ffd2;
+        font-weight: 700;
+    }
+
+    .pr-field-danger {
+        color: #ef4444;
+    }
+
+    .pr-actions {
+        display: flex;
+        gap: 12px;
+        padding: 4px 22px 20px;
+    }
+
+    .pr-btn {
+        flex: 1;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        border: none;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        font-family: 'Open Sans', sans-serif;
+    }
+
+    .pr-btn-primary {
+        background: linear-gradient(135deg, rgba(0, 178, 255, 0.15), rgba(0, 255, 196, 0.15));
+        border: 1px solid rgba(0, 255, 196, 0.3);
+        color: #00ffd2;
+    }
+
+    .pr-btn-primary:hover {
+        background: linear-gradient(135deg, #00b2ff, #00ffc4);
+        color: #1E293B !important;
+        box-shadow: 0 0 15px rgba(0, 255, 196, 0.4);
+    }
+
+    .pr-btn-danger {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+        color: #ef4444;
+    }
+
+    .pr-btn-danger:hover {
+        background: #ef4444;
+        color: #ffffff !important;
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+    }
+
+    /* ── Dark theme (default) ────────────────────────────────── */
+    [data-theme="dark"] .pr-card {
+        background: #1E293B;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    [data-theme="dark"] .pr-card:hover {
+        box-shadow:
+            0 16px 40px rgba(0, 0, 0, 0.4),
+            0 0 0 1px rgba(0, 178, 255, 0.15);
+    }
+
+    [data-theme="dark"] .pr-buyer { color: #ffffff; }
+    [data-theme="dark"] .pr-plot { color: #e2e8f0; }
+    [data-theme="dark"] .pr-meta { color: #94a3b8; }
+
+    [data-theme="dark"] .pr-amount { color: #00ffd2; }
+    [data-theme="dark"] .pr-divider { background: rgba(255, 255, 255, 0.06); }
+    [data-theme="dark"] .pr-expand-icon i { color: #64748b; }
+
+    /* ── Light theme ─────────────────────────────────────────── */
+    [data-theme="light"] .pr-card {
+        background: #FFFFFF;
+        border: 1px solid #E8ECF2;
+        box-shadow:
+            0 8px 20px rgba(15, 23, 42, 0.06),
+            0 16px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    [data-theme="light"] .pr-card:hover {
+        transform: translateY(-6px);
+        box-shadow:
+            0 12px 28px rgba(15, 23, 42, 0.08),
+            0 24px 48px rgba(15, 23, 42, 0.1);
+    }
+
+    [data-theme="light"] .pr-buyer { color: #1F2937; }
+    [data-theme="light"] .pr-plot { color: #374151; }
+    [data-theme="light"] .pr-meta { color: #64748B; }
+
+    [data-theme="light"] .pr-amount { color: #D97706; }
+    [data-theme="light"] .pr-divider { background: #F1F5F9; }
+    [data-theme="light"] .pr-expand-icon i { color: #9CA3AF; }
+
+    [data-theme="light"] .pr-badge.status-pending {
+        background: #FFF8EB;
+        color: #D97706;
+        border-color: rgba(245, 158, 11, 0.2);
+    }
+
+    [data-theme="light"] .pr-badge.status-meeting {
+        background: #FFF4E6;
+        color: #EA580C;
+        border-color: rgba(253, 126, 20, 0.2);
+    }
+
+    [data-theme="light"] .pr-badge.status-approved {
+        background: #F0FDF9;
+        color: #059669;
+        border-color: rgba(0, 255, 196, 0.2);
+    }
+
+    [data-theme="light"] .pr-badge.status-rejected {
+        background: #FEF2F2;
+        color: #DC2626;
+        border-color: rgba(239, 68, 68, 0.2);
+    }
+
+    [data-theme="light"] .pr-expanded-inner {
+        border-top-color: #F1F5F9;
+    }
+
+    [data-theme="light"] .pr-col-title { color: #94A3B8; }
+    [data-theme="light"] .pr-field-label { color: #94A3B8; }
+    [data-theme="light"] .pr-field-value { color: #374151; }
+    [data-theme="light"] .pr-field-amount { color: #D97706; }
+
+    [data-theme="light"] .pr-btn-primary {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(217, 119, 6, 0.08));
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        color: #D97706;
+    }
+
+    [data-theme="light"] .pr-btn-primary:hover {
+        background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
+    }
+
+    [data-theme="light"] .pr-btn-danger {
+        background: rgba(239, 68, 68, 0.06);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        color: #DC2626;
+    }
+
+    [data-theme="light"] .pr-btn-danger:hover {
+        background: #DC2626 !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25) !important;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 992px) {
+        .pr-grid { gap: 24px; }
+    }
+
+    @media (max-width: 768px) {
+        .pr-grid { grid-template-columns: 1fr; gap: 20px; }
+        .pr-expanded-inner { flex-direction: column; gap: 20px; }
+        .pr-actions { flex-direction: column; }
     }
 
     /* ── Modal ───────────────────────────────────────────────── */
@@ -725,7 +1211,7 @@
     }
 
     .land-modal-info-panel {
-        background: rgba(11, 15, 25, 0.55);
+        background: rgba(30, 41, 59, 0.55);
         border: 1px solid rgba(251, 191, 36, 0.2);
         border-radius: 10px;
         padding: 10px 12px;
@@ -750,7 +1236,7 @@
 
     .btn-action:hover {
         background: linear-gradient(135deg, #00b2ff, #00ffc4);
-        color: #0b0f19 !important;
+        color: #1E293B !important;
         box-shadow: 0 0 15px rgba(0, 255, 196, 0.4);
     }
 
@@ -785,6 +1271,43 @@
         background-color: rgba(0, 255, 196, 0.1) !important;
         color: #00ffd2 !important;
         border: 1px solid rgba(0, 255, 196, 0.2);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       LIGHT MODE OVERRIDES
+       ═══════════════════════════════════════════════════════════════ */
+    [data-theme="light"] .table-modern thead th {
+        background: #F8FAFC;
+        color: #64748B;
+        border-bottom-color: #E5E7EB;
+    }
+
+    [data-theme="light"] .table-modern tbody tr {
+        border-bottom-color: #F1F5F9;
+    }
+
+    [data-theme="light"] .table-modern tbody tr:nth-child(even) {
+        background: #FAFBFC;
+    }
+
+    [data-theme="light"] .table-modern tbody tr:hover {
+        background: #FEF9E7;
+    }
+
+    [data-theme="light"] .table-modern tbody td {
+        border-bottom-color: #F1F5F9;
+    }
+
+    [data-theme="light"] .btn-action {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(217, 119, 6, 0.08));
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        color: #D97706;
+    }
+
+    [data-theme="light"] .btn-action:hover {
+        background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
     }
 </style>
 {% endblock %}

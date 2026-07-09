@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 
 <head>
     <meta charset="UTF-8">
@@ -22,7 +22,7 @@
         .btn-browse-nav {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.15) !important;
-            color: #e5e7eb !important;
+            color: var(--text-primary) !important;
             padding: 8px 18px;
             font-size: 0.78rem;
             font-weight: 700;
@@ -30,8 +30,9 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
             transition: all 0.25s ease;
+            text-align: center;
+            min-width: 140px;
         }
-
         .btn-browse-nav:hover {
             background: rgba(0, 255, 196, 0.1) !important;
             border-color: var(--primary-cyan, #00ffc4) !important;
@@ -66,40 +67,63 @@
 
             <!-- Navigation Links -->
             <ul class="nav-links" id="navLinks">
-                {% if user.is_authenticated %}
-                <li><a href="/" class="nav-link nav-item-link text-white-50">HOME</a></li>
-                <li><a href="/lands/" class="nav-link nav-item-link text-white-50">VIEW LANDS</a></li>
-                {% if user.role == 'BUYER' %}
-                <li><a href="{% url 'buyer_dashboard' %}" class="nav-link nav-item-link text-white-50">DASHBOARD</a></li>
-                {% elif user.role == 'LAND_OWNER' %}
-                <li><a href="{% url 'landowner_dashboard' %}" class="nav-link nav-item-link text-white-50">DASHBOARD</a></li>
-                {% elif user.role == 'ADMIN' or user.is_superuser %}
-                <li><a href="{% url 'admin_dashboard' %}" class="nav-link nav-item-link text-white-50">DASHBOARD</a></li>
-                {% endif %}
-                {% else %}
                 <li><a href="/" class="nav-link nav-item-link text-white-50">HOME</a></li>
                 <li><a href="/#features" class="nav-link nav-item-link text-white-50">FEATURES</a></li>
                 <li><a href="/#vision" class="nav-link nav-item-link text-white-50">VISION</a></li>
                 <li><a href="/#about" class="nav-link nav-item-link text-white-50">ABOUT</a></li>
                 <li><a href="/#contact" class="nav-link nav-item-link text-white-50">CONTACT</a></li>
-                {% endif %}
-                <!-- Login/Logout inside drawer (mobile only) -->
+                <!-- Auth items inside mobile drawer only -->
                 {% if user.is_authenticated %}
-                <li class="d-lg-none mt-3"><a href="{% url 'logout' %}" class="btn-logout-nav">Log Out</a></li>
+                <li class="d-lg-none"><hr class="text-white-50 my-3"></li>
+                <li class="d-lg-none"><a href="{% url 'profile' %}" class="mobile-profile-item"><i class="bi bi-person"></i> My Profile</a></li>
+                <li class="d-lg-none"><a href="{% url 'logout' %}" class="mobile-profile-item"><i class="bi bi-box-arrow-right"></i> Log Out</a></li>
                 {% else %}
                 <li class="d-lg-none mt-3"><a href="/accounts/login/" class="btn-login-nav">Login / Register</a></li>
                 {% endif %}
             </ul>
 
-            <!-- Navigation Right (Desktop Login & Mobile Menu Toggle) -->
+            <!-- Navigation Right (Desktop Login, Theme Toggle & Mobile Menu) -->
             <div class="nav-right">
-                <a href="/lands/" class="btn-browse-nav d-none d-lg-inline-block me-3 text-decoration-none">Browse
-                    Lands</a>
+                <a href="/lands/" class="btn-browse-nav d-none d-lg-inline-block text-decoration-none">Browse Lands</a>
                 {% if user.is_authenticated %}
-                <a href="{% url 'logout' %}" class="btn-logout-nav d-none d-lg-inline-block">Log Out</a>
+                <div class="profile-dropdown-wrapper d-none d-lg-inline-block">
+                    <button class="profile-avatar" id="profileAvatar" aria-label="Profile menu">
+                        {% if user.profile_picture %}
+                        <img src="{{ user.profile_picture.url }}" alt="Profile" class="profile-avatar-img">
+                        {% else %}
+                        <span class="profile-avatar-text">{{ user.get_full_name|first|default:user.username|first }}</span>
+                        {% endif %}
+                    </button>
+                    <div class="profile-dropdown-menu" id="profileDropdown">
+                        <a href="{% url 'profile' %}" class="dropdown-item-profile">
+                            <i class="bi bi-person"></i> My Profile
+                        </a>
+                        {% if user.role == 'BUYER' %}
+                        <a href="{% url 'buyer_dashboard' %}" class="dropdown-item-profile">
+                            <i class="bi bi-grid-1x2-fill"></i> Dashboard
+                        </a>
+                        {% elif user.role == 'LAND_OWNER' %}
+                        <a href="{% url 'landowner_dashboard' %}" class="dropdown-item-profile">
+                            <i class="bi bi-grid-1x2-fill"></i> Dashboard
+                        </a>
+                        {% elif user.role == 'ADMIN' or user.is_superuser %}
+                        <a href="{% url 'admin_dashboard' %}" class="dropdown-item-profile">
+                            <i class="bi bi-grid-1x2-fill"></i> Dashboard
+                        </a>
+                        {% endif %}
+                        <div class="dropdown-divider-profile"></div>
+                        <a href="{% url 'logout' %}" class="dropdown-item-profile">
+                            <i class="bi bi-box-arrow-right"></i> Log Out
+                        </a>
+                    </div>
+                </div>
                 {% else %}
                 <a href="/accounts/login/" class="btn-login-nav d-none d-lg-inline-block">Login / Register</a>
                 {% endif %}
+                <button id="themeToggle" class="btn btn-sm btn-theme-toggle d-none d-lg-inline-flex align-items-center justify-content-center" title="Toggle theme" aria-label="Toggle light/dark mode">
+                    <i class="bi bi-sun-fill theme-icon-light"></i>
+                    <i class="bi bi-moon-fill theme-icon-dark"></i>
+                </button>
                 <div class="menu-toggle" id="menuToggle">
                     <span></span>
                     <span></span>
@@ -148,6 +172,62 @@
                     }
                 }
             });
+
+            // ─── Profile Dropdown ──────────────────────────────────────────
+            const profileAvatar = document.getElementById('profileAvatar');
+            const profileDropdown = document.getElementById('profileDropdown');
+
+            function closeDropdown() {
+                if (profileDropdown) profileDropdown.classList.remove('open');
+            }
+
+            function toggleDropdown(e) {
+                e.stopPropagation();
+                if (profileDropdown) profileDropdown.classList.toggle('open');
+            }
+
+            if (profileAvatar && profileDropdown) {
+                profileAvatar.addEventListener('click', toggleDropdown);
+
+                // Close on item click
+                profileDropdown.querySelectorAll('.dropdown-item-profile').forEach(function(item) {
+                    item.addEventListener('click', closeDropdown);
+                });
+
+                // Close on outside click
+                document.addEventListener('click', function(e) {
+                    if (!profileAvatar.contains(e.target) && !profileDropdown.contains(e.target)) {
+                        closeDropdown();
+                    }
+                });
+
+                // Close on ESC
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') closeDropdown();
+                });
+            }
+
+            // ─── Theme Toggle ─────────────────────────────────────────────
+            const themeToggle = document.getElementById('themeToggle');
+            const htmlEl = document.documentElement;
+
+            function setTheme(theme) {
+                htmlEl.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+            }
+
+            // Load saved theme
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                setTheme(savedTheme);
+            }
+
+            if (themeToggle) {
+                themeToggle.addEventListener('click', () => {
+                    const current = htmlEl.getAttribute('data-theme');
+                    setTheme(current === 'dark' ? 'light' : 'dark');
+                });
+            }
         });
     </script>
     {% block extra_js %}{% endblock %}

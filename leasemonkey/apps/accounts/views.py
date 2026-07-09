@@ -1,10 +1,18 @@
+import json
+import random
+from decimal import Decimal
+
 from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
+from django.utils import timezone
+from django.core.mail import send_mail
+from django.conf import settings
 from .models import User
-from decimal import Decimal
+from apps.core.models import EmailOTP
 
 
 def _format_price_lakhs(value):
@@ -222,3 +230,163 @@ def admin_dashboard(request):
         'unread_count': unread_count,
     }
     return render(request, 'accounts/admin_dashboard.html', context)
+
+
+def _process_profile_post(request, user, section):
+    """Shared POST handler for buyer and landowner profiles."""
+    action = request.POST.get('action', 'update_profile')
+
+    if action == 'update_profile':
+        user.first_name = request.POST.get('first_name', '').strip()
+        user.last_name = request.POST.get('last_name', '').strip()
+        user.phone_number = request.POST.get('phone_number', '').strip()
+        user.address = request.POST.get('address', '').strip() or None
+        user.city = request.POST.get('city', '').strip() or None
+        user.state = request.POST.get('state', '').strip() or None
+        user.country = request.POST.get('country', '').strip() or None
+
+        photo_updated = False
+        if 'profile_picture' in request.FILES:
+            user.profile_picture = request.FILES['profile_picture']
+            photo_updated = True
+
+        user.save()
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            if photo_updated and user.profile_picture:
+                return JsonResponse({'status': 'done', 'profile_picture_url': user.profile_picture.url})
+            return JsonResponse({'status': 'done'})
+
+        messages.success(request, 'Profile updated successfully.')
+        return redirect(request.path + f'?section={section}')
+
+    elif action == 'remove_photo':
+        if user.profile_picture:
+            user.profile_picture.delete(save=False)
+            user.profile_picture = None
+            user.save()
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'status': 'done', 'message': 'Profile photo removed.'})
+
+        messages.success(request, 'Profile photo removed.')
+        return redirect(request.path + f'?section={section}')
+
+    return None
+
+
+@login_required
+def profile(request):
+    user = request.user
+    section = request.GET.get('section', 'personal')
+    if request.method == 'POST':
+        result = _process_profile_post(request, user, section)
+        if result:
+            return result
+    return render(request, 'accounts/profile.html', {
+        'active_section': section,
+    })
+
+
+@login_required
+def landowner_profile(request):
+    user = request.user
+    section = request.GET.get('section', 'personal')
+    if request.method == 'POST':
+        result = _process_profile_post(request, user, section)
+        if result:
+            return result
+    return render(request, 'accounts/landowner_profile.html', {
+        'active_section': section,
+    })
+
+
+@login_required
+def preferences(request):
+    return render(request, 'accounts/preferences.html')
+
+
+@login_required
+def send_profile_otp(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+    try:
+        data = json.loads(request.body)
+        email = data.get('email', '').strip()
+        purpose = data.get('purpose', '')  # 'change_email' or 'change_password'
+
+        if not email:
+            return JsonResponse({'error': 'Email is required.'}, status=400)
+
+        # Enforce 1-minute wait
+        last_otp = EmailOTP.objects.filter(email=email).order_by('-created_at').first()
+        if last_otp:
+            time_diff = (timezone.now() - last_otp.created_at).total_seconds()
+            if time_diff < 60:
+                wait_time = int(60 - time_diff)
+                return JsonResponse({'error': f'Please wait {wait_time} seconds before requesting another OTP.'}, status=400)
+
+        otp = f"{random.randint(100000, 999999)}"
+        EmailOTP.objects.create(email=email, otp_code=otp)
+
+        subject = '[Lease Monkey] OTP for Account Update'
+        message = (
+            f'Hello,\n\n'
+            f'Your OTP for {"email change" if purpose == "change_email" else "password change"} is: {otp}\n\n'
+            f'This OTP is valid for 5 minutes.\n\n'
+            f'— The Lease Monkey Team'
+        )
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+
+        return JsonResponse({'status': 'sent', 'message': 'OTP sent successfully.'})
+    except Exception as e:
+        return JsonResponse({'error': f'Failed to send OTP. {str(e)}'}, status=500)
+
+
+@login_required
+def verify_profile_otp(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+    try:
+        data = json.loads(request.body)
+        email = data.get('email', '').strip()
+        otp = data.get('otp', '').strip()
+        purpose = data.get('purpose', '')
+
+        if not email or not otp:
+            return JsonResponse({'error': 'Email and OTP are required.'}, status=400)
+
+        otp_record = EmailOTP.objects.filter(email=email, otp_code=otp, is_used=False).first()
+        if not otp_record:
+            return JsonResponse({'error': 'Incorrect OTP.'}, status=400)
+        if otp_record.is_expired():
+            return JsonResponse({'error': 'OTP expired. Please request a new one.'}, status=400)
+
+        otp_record.is_used = True
+        otp_record.save()
+
+        user = request.user
+
+        if purpose == 'change_email':
+            user.email = email
+            user.save()
+            return JsonResponse({'status': 'done', 'message': 'Email updated successfully.'})
+
+        elif purpose == 'change_password':
+            new_password = data.get('new_password', '')
+            if len(new_password) < 8:
+                return JsonResponse({'error': 'Password must be at least 8 characters.'}, status=400)
+            user.set_password(new_password)
+            user.save()
+            update_session_auth_hash(request, user)
+            return JsonResponse({'status': 'done', 'message': 'Password updated successfully.'})
+
+        return JsonResponse({'status': 'verified', 'message': 'OTP verified successfully.'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

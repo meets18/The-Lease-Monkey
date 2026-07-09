@@ -206,7 +206,7 @@
         </div>
         <div class="col-lg-5 d-flex justify-content-center align-items-center">
             <div class="about-image-wrapper border-cyan-glow">
-                <img src="{% static 'images/placeholder.png' %}" class="img-fluid about-image-placeholder" alt="Pioneering Graphic">
+                <img src="{% static 'images/about-pioneering.png' %}" class="about-image-placeholder" alt="Pioneering Graphic">
             </div>
         </div>
     </div>
@@ -229,7 +229,7 @@
         </div>
         <div class="col-lg-5 d-flex justify-content-center align-items-center">
             <div class="about-image-wrapper border-orange-glow">
-                <img src="{% static 'images/placeholder.png' %}" class="img-fluid about-image-placeholder" alt="Innovation Graphic">
+                <img src="{% static 'images/about-innovation.png' %}" class="about-image-placeholder" alt="Innovation Graphic">
             </div>
         </div>
     </div>
@@ -322,9 +322,8 @@
     <div class="container">
         <div class="row mb-4">
             <div class="col-12 d-flex justify-content-center gap-4">
-                <a href="#privacy" class="text-white-50 text-decoration-none fs-13 hover-white">Privacy Policy</a>
-                <a href="#terms" class="text-white-50 text-decoration-none fs-13 hover-white">Terms of Service</a>
-                <a href="#careers" class="text-white-50 text-decoration-none fs-13 hover-white">Careers</a>
+                <a href="{% url 'core:privacy' %}" class="text-white-50 text-decoration-none fs-13 hover-white">Privacy Policy</a>
+                <a href="{% url 'core:terms' %}" class="text-white-50 text-decoration-none fs-13 hover-white">Terms of Service</a>
             </div>
         </div>
         <p class="text-muted-glow fs-12 mb-0">

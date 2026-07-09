@@ -370,7 +370,7 @@
                 color: '#00ffd2',
                 weight: 3.5,
                 opacity: 0.9,
-                fillColor: '#0b0f19',
+                fillColor: '#1E293B',
                 fillOpacity: 0.5,
                 interactive: false
             }).addTo(map);
@@ -653,7 +653,7 @@
         const marker = L.circleMarker(latlng, {
             radius: 5,
             color: '#ffff00', // Yellow corners for staged plotting
-            fillColor: '#0b0f19',
+            fillColor: '#1E293B',
             fillOpacity: 1,
             weight: 2
         }).addTo(map);
@@ -1023,7 +1023,7 @@
         const marker = L.circleMarker(latlng, {
             radius: 5,
             color: '#ffffff',
-            fillColor: '#0b0f19',
+            fillColor: '#1E293B',
             fillOpacity: 1,
             weight: 2
         }).addTo(map);
@@ -1281,7 +1281,7 @@
         const marker = L.circleMarker(latlng, {
             radius: 4,
             color: '#00ffd2', // Cyan markers for road tracing
-            fillColor: '#0b0f19',
+            fillColor: '#1E293B',
             fillOpacity: 1,
             weight: 2
         }).addTo(map);
@@ -1541,7 +1541,7 @@
         currentGateMarker = L.marker(latlng, {
             icon: L.divIcon({
                 className: 'gate-marker-tooltip',
-                html: `<div class="gate-pin" style="background-color: #ffff00; border-color: #ffff00; color: #0b0f19;">
+                html: `<div class="gate-pin" style="background-color: #ffff00; border-color: #ffff00; color: #1E293B;">
                             <i class="bi bi-geo-alt-fill text-dark"></i>
                             <span class="gate-pin-label text-dark">STAGED GATE</span>
                         </div>`,
@@ -1731,7 +1731,7 @@
 .btn-action-primary {
     background: linear-gradient(135deg, #00b2ff, #00ffc4);
     border: none;
-    color: #0b0f19;
+color: #1E293B;
     transition: all 0.3s ease;
 }
 .btn-action-primary:hover:not(:disabled) {
@@ -1744,7 +1744,7 @@
 }
 .btn-action-primary-glow:hover {
     background: linear-gradient(135deg, #00ffc4, #00b2ff);
-    color: #0b0f19 !important;
+    color: #1E293B !important;
     box-shadow: 0 0 15px rgba(0, 255, 196, 0.5);
 }
 .btn-action-secondary {
@@ -1936,6 +1936,59 @@
 @keyframes pulseGate {
     0% { transform: scale(1); filter: brightness(1); }
     100% { transform: scale(1.15); filter: brightness(1.3); }
+}
+[data-theme="light"] .creator-card {
+    border-color: #E8ECF2 !important;
+    background: #FFFFFF !important;
+    backdrop-filter: none !important;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08) !important;
+}
+[data-theme="light"] .btn-action-primary {
+    background: #F59E0B !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="light"] .btn-action-primary:hover:not(:disabled) {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
+}
+[data-theme="light"] .btn-action-primary-glow {
+    background: #FFFFFF !important;
+    border-color: #E8ECF2 !important;
+    color: #1F2937 !important;
+}
+[data-theme="light"] .btn-action-primary-glow:hover {
+    background: #F59E0B !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
+}
+[data-theme="light"] .btn-action-secondary {
+    background: #FFFFFF !important;
+    border-color: #E8ECF2 !important;
+    color: #1F2937 !important;
+}
+[data-theme="light"] .btn-action-secondary:hover {
+    background: #F8FAFC !important;
+}
+[data-theme="light"] .gate-pin {
+    background: #FFFFFF !important;
+    border-color: #E8ECF2 !important;
+    color: #1F2937 !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
+}
+[data-theme="light"] .badge-point-entry {
+    background-color: #DCFCE7 !important;
+    color: #166534 !important;
+    border-color: #22C55E !important;
+}
+[data-theme="light"] .badge-point-exit {
+    background-color: #FEF3C7 !important;
+    color: #92400E !important;
+    border-color: #F59E0B !important;
+}
+[data-theme="light"] .badge-point-both {
+    background-color: #DBEAFE !important;
+    color: #1D4ED8 !important;
+    border-color: #3B82F6 !important;
 }
 </style>
 {% endblock %}

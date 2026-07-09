@@ -4,101 +4,834 @@
 {% block title %}Lands Directory — The Lease Monkey{% endblock %}
 
 {% block content %}
-<div class="container d-flex flex-column align-items-center justify-content-center min-vh-100 py-5" style="position: relative; z-index: 10;">
-    <!-- Back to Homepage Link -->
-    <a href="/" class="btn-map-back shadow-lg" style="position: absolute; top: 92px; left: 20px; text-decoration: none;">
-        <i class="bi bi-arrow-left"></i> Back to Home
-    </a>
-
-    <!-- Section Title -->
-    <div class="text-center mb-5 mt-5">
-        <h2 class="display-6 text-white font-ranade fw-bold mb-2 text-uppercase tracking-wide">Available Lands</h2>
-        <div class="orange-cyan-bar mx-auto"></div>
-        <p class="text-muted-glow mt-3 fs-15">Explore properties and land holdings available for layout allotment</p>
+<div class="lands-page">
+  <div class="lands-header">
+    <div class="container-fluid lands-container">
+      <h2 class="lands-title">Available Lands</h2>
+      <p class="lands-subtitle">Explore properties and land holdings available for layout allotment</p>
     </div>
+  </div>
 
-    <!-- Lands Grid -->
-    <div class="row g-4 justify-content-start w-100 max-w-1000">
-        {% for land in lands %}
-        <div class="col-md-6">
-            <div class="vision-card p-4 rounded-4 shadow-lg text-center h-100 d-flex flex-column justify-content-between position-relative">
-                <!-- Status Banner overlay visual -->
-                <div class="position-absolute top-0 end-0 bg-success text-white px-3 py-1 fs-11 fw-bold rounded-bottom-left-4 text-uppercase tracking-wider">
-                    <i class="bi bi-check-circle-fill"></i> Active
-                </div>
-                
-                <div>
-                    <div class="fs-1 text-primary-glow mb-3"><i class="bi bi-map-fill"></i></div>
-                    <h3 class="font-ranade text-white fw-bold mb-3 fs-20">{{ land.name }}</h3>
-                    <div class="orange-cyan-bar mx-auto mb-3" style="width: 50px; height: 2px;"></div>
-                    
-                    <ul class="list-unstyled text-start text-muted-glow fs-14 mb-4 gap-2 d-flex flex-column">
-                        <li class="d-flex justify-content-between border-bottom border-secondary-glow pb-1.5">
-                            <span class="text-white-50"><i class="bi bi-person-badge me-1"></i> Owner:</span>
-                            <strong class="text-white">{{ land.owner.username }}</strong>
-                        </li>
-                        <li class="d-flex justify-content-between border-bottom border-secondary-glow pb-1.5">
-                            <span class="text-white-50"><i class="bi bi-fullscreen me-1"></i> Area:</span>
-                            <strong class="text-white">{{ land.area }} Acres</strong>
-                        </li>
-                        <li class="d-flex justify-content-between pb-1">
-                            <span class="text-white-50"><i class="bi bi-tags me-1"></i> Avg Plot Price:</span>
-                            <strong class="highlight-text-orange">INR {{ land.average_plot_price|floatformat:0 }}</strong>
-                        </li>
-                    </ul>
-                </div>
-                
-                <div class="mt-auto">
-                    <a href="{% url 'lands:plot_viewer' slug=land.slug %}" class="btn btn-get-started w-100 text-uppercase fw-bold fs-12 py-2.5">
-                        Explore Plots <i class="bi bi-chevron-right ms-1"></i>
-                    </a>
-                </div>
+  <div class="container-fluid lands-container">
+    <div class="lands-grid" id="landsGrid">
+      {% for land in lands %}
+      <div class="land-card-wrapper">
+        <div class="land-card" data-slug="{{ land.slug }}" data-url="{% url 'lands:plot_viewer' slug=land.slug %}" tabindex="0" role="button" aria-label="View details for {{ land.name }}">
+          <div class="land-card-image">
+            {% with first_img=land.images.first %}
+            {% if first_img %}
+            <img src="{{ first_img.image.url }}" alt="{{ land.name }}" loading="lazy">
+            {% else %}
+            <div class="land-card-placeholder">
+              <i class="bi bi-map-fill"></i>
             </div>
+            {% endif %}
+            {% endwith %}
+          </div>
+          <div class="land-card-body">
+            <div class="land-card-badge">Active</div>
+            <h3 class="land-card-title">{{ land.name }}</h3>
+            <p class="land-card-location"><i class="bi bi-geo-alt"></i> {{ land.location }}</p>
+          </div>
         </div>
-        {% empty %}
-        <div class="col-12 text-center py-5">
-            <div class="p-5 rounded-4 border border-secondary-glow bg-dark-glow max-w-500 mx-auto">
-                <i class="bi bi-info-circle text-primary-glow fs-2 mb-3 d-inline-block"></i>
-                <h4 class="text-white font-ranade fw-bold">No Lands Registered</h4>
-                <p class="text-muted-glow fs-14">Check back later or register property holdings via the owner portal.</p>
-            </div>
-        </div>
-        {% endfor %}
+      </div>
+      {% empty %}
+      <div class="lands-empty">
+        <i class="bi bi-info-circle"></i>
+        <h4>No Lands Registered</h4>
+        <p>Check back later or register property holdings via the owner portal.</p>
+      </div>
+      {% endfor %}
     </div>
+  </div>
 </div>
 
+<!-- Netflix-style Modal -->
+<div class="land-modal-overlay" id="landModalOverlay">
+  <div class="land-modal" id="landModal">
+    <button class="land-modal-close" id="landModalClose" aria-label="Close">&times;</button>
+
+    <!-- Hero Image -->
+    <div class="land-modal-hero" id="landModalHero">
+      <img src="" alt="" id="landModalHeroImg">
+      <div class="land-modal-hero-gradient"></div>
+      <div class="land-modal-hero-info">
+        <div class="land-modal-hero-info-left">
+          <h2 id="landModalTitle"></h2>
+          <span class="land-modal-badge">Active</span>
+        </div>
+        <a href="#" class="btn-explore-plots" id="btnExplorePlots">
+          Explore Plots <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- Slideshow -->
+    <div class="land-modal-slideshow" id="landModalSlideshow">
+      <div class="slideshow-track" id="slideshowTrack">
+        <!-- Slides injected by JS -->
+      </div>
+      <button class="slideshow-btn slideshow-prev" id="slideshowPrev" aria-label="Previous image">
+        <i class="bi bi-chevron-left"></i>
+      </button>
+      <button class="slideshow-btn slideshow-next" id="slideshowNext" aria-label="Next image">
+        <i class="bi bi-chevron-right"></i>
+      </button>
+      <div class="slideshow-dots" id="slideshowDots"></div>
+    </div>
+
+    <!-- Details -->
+    <div class="land-modal-details" id="landModalDetails">
+      <div class="land-modal-details-inner">
+        <div class="detail-section">
+          <h4 class="detail-section-title">Property Information</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Owner</span>
+              <span class="detail-value" id="detailOwner"></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Total Area</span>
+              <span class="detail-value" id="detailArea"></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Location</span>
+              <span class="detail-value" id="detailLocation"></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Avg. Plot Price</span>
+              <span class="detail-value" id="detailPrice"></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Number of Plots</span>
+              <span class="detail-value" id="detailPlots"></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Status</span>
+              <span class="detail-value"><span class="land-modal-badge">Active</span></span>
+            </div>
+          </div>
+        </div>
+        <div class="detail-section" id="descriptionSection">
+          <h4 class="detail-section-title">Description</h4>
+          <p class="detail-description" id="detailDescription"></p>
+        </div>
+      </div>
+      <div class="land-modal-footer"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
 <style>
-.max-w-1000 {
-    max-width: 1000px;
+/* ── Page Layout ─────────────────────────────── */
+.lands-page {
+  padding: 100px 0 60px;
+  min-height: 100vh;
 }
-.max-w-500 {
-    max-width: 500px;
+.lands-container {
+  max-width: 1260px !important;
+  padding-left: 40px !important;
+  padding-right: 40px !important;
 }
-.rounded-bottom-left-4 {
-    border-bottom-left-radius: 8px;
+.lands-header {
+  text-align: center;
+  margin-bottom: 48px;
 }
-.pb-1.5 {
-    padding-bottom: 6px;
+.lands-title {
+  font-family: 'Ranade', sans-serif;
+  font-weight: 800;
+  font-size: 2.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 8px;
 }
-.btn-map-back {
-    padding: 8px 16px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    background: rgba(10, 18, 30, 0.85);
-    color: #ffffff;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.lands-subtitle {
+  font-size: 1rem;
+  opacity: 0.7;
+  max-width: 500px;
+  margin: 0 auto;
 }
-.btn-map-back:hover {
-    border-color: rgba(255, 255, 255, 0.35);
-    background: #000000;
-    color: #ffffff !important;
+[data-theme="dark"] .lands-title { color: #ffffff; }
+[data-theme="light"] .lands-title { color: #1F2937; }
+
+/* ── Grid: 2 columns ─────────────────────────── */
+.lands-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+.land-card-wrapper {
+  width: 100%;
+}
+
+/* ── Card ────────────────────────────────────── */
+.land-card {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              box-shadow 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.land-card:focus-visible {
+  outline: 3px solid var(--accent-orange, #F59E0B);
+  outline-offset: 2px;
+}
+.land-card-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  position: relative;
+  background: #1E293B;
+}
+.land-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.land-card:hover .land-card-image img {
+  transform: scale(1.05);
+}
+.land-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: #64748B;
+}
+.land-card-body {
+  padding: 20px 22px 18px;
+  position: relative;
+}
+.land-card-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+}
+.land-card-title {
+  font-family: 'Ranade', sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+.land-card-location {
+  font-size: 0.88rem;
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.land-card-location i {
+  font-size: 0.8rem;
+}
+
+/* ── Dark Card ───────────────────────────────── */
+[data-theme="dark"] .land-card {
+  background: #1E293B;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] .land-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 178, 255, 0.15);
+}
+[data-theme="dark"] .land-card-title { color: #ffffff; }
+[data-theme="dark"] .land-card-location { color: #94A3B8; }
+[data-theme="dark"] .land-card-badge {
+  background: rgba(0, 255, 196, 0.15);
+  color: #00ffd2;
+}
+
+/* ── Light Card ──────────────────────────────── */
+[data-theme="light"] .land-card {
+  background: #FFFFFF;
+  border: 1px solid #E8ECF2;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06),
+              0 16px 40px rgba(15, 23, 42, 0.08);
+}
+[data-theme="light"] .land-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08),
+              0 24px 48px rgba(15, 23, 42, 0.1);
+}
+[data-theme="light"] .land-card-title { color: #1F2937; }
+[data-theme="light"] .land-card-location { color: #64748B; }
+[data-theme="light"] .land-card-badge {
+  background: #DCFCE7;
+  color: #166534;
+}
+
+/* ── Empty State ─────────────────────────────── */
+.lands-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 80px 20px;
+}
+.lands-empty i {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  display: inline-block;
+}
+[data-theme="dark"] .lands-empty i { color: #00B2FF; }
+[data-theme="light"] .lands-empty i { color: #F59E0B; }
+.lands-empty h4 {
+  font-family: 'Ranade', sans-serif;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+[data-theme="dark"] .lands-empty h4 { color: #ffffff; }
+[data-theme="light"] .lands-empty h4 { color: #1F2937; }
+.lands-empty p {
+  font-size: 0.95rem;
+  opacity: 0.6;
+}
+[data-theme="dark"] .lands-empty p { color: #94A3B8; }
+[data-theme="light"] .lands-empty p { color: #64748B; }
+
+/* ── Modal Overlay ───────────────────────────── */
+.land-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  overflow-y: auto;
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+.land-modal-overlay.open {
+  display: flex;
+  opacity: 1;
+}
+
+/* ── Modal ───────────────────────────────────── */
+.land-modal {
+  width: 85vw;
+  max-width: 1170px;
+  border-radius: 20px;
+  overflow: hidden;
+  transform: scale(0.92) translateY(20px);
+  transition: transform 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: relative;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+.land-modal-overlay.open .land-modal {
+  transform: scale(1) translateY(0);
+}
+.land-modal-close {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 99999;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+  line-height: 1;
+}
+.land-modal-close:hover {
+  background: rgba(0, 0, 0, 0.85);
+  transform: scale(1.08);
+}
+[data-theme="dark"] .land-modal { background: #111827; }
+[data-theme="light"] .land-modal { background: #FFFFFF; }
+
+/* ── Modal Hero ──────────────────────────────── */
+.land-modal-hero {
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+  max-height: 55vh;
+  overflow: hidden;
+  background: #1E293B;
+  flex-shrink: 0;
+}
+.land-modal-hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
+}
+.land-modal-hero-gradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+}
+.land-modal-hero-info {
+  position: absolute;
+  bottom: 24px;
+  left: 32px;
+  right: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.land-modal-hero-info-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.land-modal-hero-info h2 {
+  font-family: 'Ranade', sans-serif;
+  font-weight: 800;
+  font-size: 1.8rem;
+  color: #ffffff;
+  margin: 0;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.land-modal-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+[data-theme="light"] .land-modal-badge {
+  background: #DCFCE7;
+  color: #166534;
+}
+[data-theme="dark"] .land-modal-badge {
+  background: rgba(0, 255, 196, 0.2);
+  color: #00ffd2;
+}
+
+/* ── Slideshow ───────────────────────────────── */
+.land-modal-slideshow {
+  position: relative;
+  width: 100%;
+  padding: 24px 36px 16px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+.slideshow-track {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 8px;
+}
+.slideshow-track::-webkit-scrollbar { display: none; }
+.slideshow-track img {
+  flex: 0 0 auto;
+  width: 200px;
+  height: 125px;
+  object-fit: cover;
+  border-radius: 12px;
+  scroll-snap-align: start;
+  cursor: pointer;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.slideshow-track img:hover {
+  transform: scale(1.05);
+}
+.slideshow-track img.active {
+  box-shadow: 0 0 0 3px #F59E0B;
+}
+.slideshow-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.1rem;
+  z-index: 5;
+  transition: background 0.2s ease;
+}
+.slideshow-prev { left: 8px; }
+.slideshow-next { right: 8px; }
+[data-theme="dark"] .slideshow-btn {
+  background: rgba(255,255,255,0.12);
+  color: #ffffff;
+}
+[data-theme="dark"] .slideshow-btn:hover { background: rgba(255,255,255,0.28); }
+[data-theme="light"] .slideshow-btn {
+  background: rgba(0,0,0,0.07);
+  color: #1F2937;
+}
+[data-theme="light"] .slideshow-btn:hover { background: rgba(0,0,0,0.14); }
+.slideshow-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.slideshow-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+[data-theme="dark"] .slideshow-dot { background: rgba(255,255,255,0.25); }
+[data-theme="dark"] .slideshow-dot.active { background: #F59E0B; width: 18px; border-radius: 4px; }
+[data-theme="light"] .slideshow-dot { background: rgba(0,0,0,0.15); }
+[data-theme="light"] .slideshow-dot.active { background: #F59E0B; width: 18px; border-radius: 4px; }
+
+/* ── Modal Details (scrollable) ──────────────── */
+.land-modal-details {
+  padding: 0 32px 24px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.land-modal-details-inner {
+  /* content flows naturally */
+}
+.land-modal-details::-webkit-scrollbar { width: 5px; }
+[data-theme="dark"] .land-modal-details::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+[data-theme="light"] .land-modal-details::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 4px; }
+.detail-section {
+  margin-bottom: 24px;
+}
+.detail-section:last-child { margin-bottom: 0; }
+.detail-section-title {
+  font-family: 'Ranade', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+}
+[data-theme="dark"] .detail-section-title { color: #94A3B8; border-bottom: 1px solid rgba(255,255,255,0.06); }
+[data-theme="light"] .detail-section-title { color: #94A3B8; border-bottom: 1px solid #E8ECF2; }
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px 24px;
+}
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.detail-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+[data-theme="dark"] .detail-label { color: #64748B; }
+[data-theme="light"] .detail-label { color: #94A3B8; }
+.detail-value {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+[data-theme="dark"] .detail-value { color: #ffffff; }
+[data-theme="light"] .detail-value { color: #1F2937; }
+.detail-description {
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+[data-theme="dark"] .detail-description { color: #CBD5E1; }
+[data-theme="light"] .detail-description { color: #475569; }
+
+/* ── Modal Footer ────────────────────────────── */
+.land-modal-footer {
+  margin-top: 20px;
+  padding-top: 18px;
+  flex-shrink: 0;
+}
+[data-theme="dark"] .land-modal-footer { border-top: 1px solid rgba(255,255,255,0.06); }
+[data-theme="light"] .land-modal-footer { border-top: 1px solid #E8ECF2; }
+.btn-explore-plots {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Ranade', sans-serif;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 24px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  border: none;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  flex-shrink: 0;
+}
+.btn-explore-plots:hover {
+  transform: translateY(-1px);
+}
+[data-theme="dark"] .btn-explore-plots {
+  background: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+[data-theme="dark"] .btn-explore-plots:hover {
+  background: rgba(255, 94, 0, 0.6);
+  border-color: #FF5E00;
+  box-shadow: 0 0 20px rgba(255, 94, 0, 0.3);
+}
+[data-theme="light"] .btn-explore-plots {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+[data-theme="light"] .btn-explore-plots:hover {
+  background: #F59E0B;
+  border-color: #F59E0B;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
+}
+
+/* ── Responsive ──────────────────────────────── */
+@media (max-width: 992px) {
+  .lands-container {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+  }
+  .lands-grid { gap: 24px; }
+  .land-modal { max-width: 95vw; max-height: 92vh; }
+  .land-modal-hero { min-height: 300px; max-height: 45vh; }
+  .land-modal-hero-info h2 { font-size: 1.4rem; }
+  .land-modal-hero-info { left: 24px; right: 24px; }
+  .land-modal-slideshow { padding: 20px 28px 12px; }
+  .slideshow-track img { width: 160px; height: 100px; }
+  .land-modal-details { padding: 0 24px 20px; }
+}
+
+@media (max-width: 768px) {
+  .lands-page { padding: 80px 0 40px; }
+  .lands-title { font-size: 1.5rem; }
+  .lands-grid { grid-template-columns: 1fr; gap: 20px; }
+  .lands-container {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  .land-modal-overlay { padding: 0; align-items: flex-start; }
+  .land-modal { max-width: 100%; border-radius: 0; min-height: 100vh; max-height: none; }
+  .land-modal-close { top: 14px; right: 14px; width: 38px; height: 38px; font-size: 1.3rem; }
+  .land-modal-hero { min-height: 250px; max-height: 40vh; }
+  .land-modal-hero-info { bottom: 16px; left: 16px; right: 16px; flex-wrap: wrap; gap: 10px; }
+  .land-modal-hero-info h2 { font-size: 1.1rem; }
+  .land-modal-slideshow { padding: 16px; }
+  .slideshow-track img { width: 120px; height: 80px; }
+  .land-modal-details { padding: 0 16px 16px; }
+  .land-modal-hero-info .btn-explore-plots { font-size: 0.75rem; padding: 8px 16px; }
+  .detail-grid { grid-template-columns: 1fr 1fr; }
+  .detail-section { margin-bottom: 16px; }
+  .land-modal-footer { display: none; }
 }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const landsData = {{ lands_json|safe }};
+  const overlay = document.getElementById('landModalOverlay');
+  const modal = document.getElementById('landModal');
+  const closeBtn = document.getElementById('landModalClose');
+  const heroImg = document.getElementById('landModalHeroImg');
+  const modalTitle = document.getElementById('landModalTitle');
+  const slideshowTrack = document.getElementById('slideshowTrack');
+  const slideshowDots = document.getElementById('slideshowDots');
+  const slideshowPrev = document.getElementById('slideshowPrev');
+  const slideshowNext = document.getElementById('slideshowNext');
+  const detailOwner = document.getElementById('detailOwner');
+  const detailArea = document.getElementById('detailArea');
+  const detailLocation = document.getElementById('detailLocation');
+  const detailPrice = document.getElementById('detailPrice');
+  const detailPlots = document.getElementById('detailPlots');
+  const detailDescription = document.getElementById('detailDescription');
+  const descriptionSection = document.getElementById('descriptionSection');
+  const btnExplore = document.getElementById('btnExplorePlots');
+  const cards = document.querySelectorAll('.land-card');
+
+  let currentLand = null;
+  let slideIndex = 0;
+  let slideImages = [];
+
+  function formatPrice(price) {
+    return '₹ ' + Number(price).toLocaleString('en-IN');
+  }
+
+  function openModal(land, url) {
+    currentLand = land;
+    slideIndex = 0;
+    slideImages = land.images || [];
+
+    // Use Django-generated URL — guaranteed correct
+    btnExplore.href = url;
+
+    // Scroll modal to top on open
+    if (modal) modal.scrollTop = 0;
+
+    // Hero
+    if (land.first_image_url) {
+      heroImg.src = land.first_image_url;
+      heroImg.alt = land.name;
+    } else {
+      heroImg.src = '';
+      heroImg.alt = '';
+    }
+    modalTitle.textContent = land.name;
+
+    // Slideshow
+    slideshowTrack.innerHTML = '';
+    slideshowDots.innerHTML = '';
+    if (slideImages.length > 0) {
+      slideImages.forEach(function (img, i) {
+        const imgEl = document.createElement('img');
+        imgEl.src = img.url;
+        imgEl.alt = img.caption || '';
+        imgEl.loading = 'lazy';
+        if (i === 0) imgEl.classList.add('active');
+        imgEl.addEventListener('click', function () { setSlide(i); });
+        slideshowTrack.appendChild(imgEl);
+
+        const dot = document.createElement('span');
+        dot.className = 'slideshow-dot' + (i === 0 ? ' active' : '');
+        dot.addEventListener('click', function () { setSlide(i); });
+        slideshowDots.appendChild(dot);
+      });
+      slideshowPrev.style.display = slideImages.length > 1 ? 'flex' : 'none';
+      slideshowNext.style.display = slideImages.length > 1 ? 'flex' : 'none';
+    } else {
+      slideshowPrev.style.display = 'none';
+      slideshowNext.style.display = 'none';
+    }
+
+    // Details
+    detailOwner.textContent = land.owner;
+    detailArea.textContent = land.area + ' Acres';
+    detailLocation.textContent = land.location;
+    detailPrice.textContent = formatPrice(land.average_plot_price);
+    detailPlots.textContent = land.plots_count;
+    if (land.description && land.description.trim()) {
+      detailDescription.textContent = land.description;
+      descriptionSection.style.display = 'block';
+    } else {
+      descriptionSection.style.display = 'none';
+    }
+
+    // Open
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+    slideImages = [];
+  }
+
+  function setSlide(index) {
+    if (slideImages.length === 0) return;
+    if (index < 0) index = slideImages.length - 1;
+    if (index >= slideImages.length) index = 0;
+    slideIndex = index;
+
+    // Update hero
+    heroImg.src = slideImages[index].url;
+    heroImg.alt = slideImages[index].caption || '';
+
+    // Update track highlighting
+    const imgs = slideshowTrack.querySelectorAll('img');
+    imgs.forEach(function (img, i) {
+      img.classList.toggle('active', i === index);
+    });
+    // Scroll into view
+    if (imgs[index]) {
+      imgs[index].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+
+    // Update dots
+    const dots = slideshowDots.querySelectorAll('.slideshow-dot');
+    dots.forEach(function (d, i) { d.classList.toggle('active', i === index); });
+  }
+
+  // Modal events
+  cards.forEach(function (card) {
+    card.addEventListener('click', function () {
+      const slug = card.getAttribute('data-slug');
+      const url = card.getAttribute('data-url');
+      const land = landsData.find(function (l) { return l.slug === slug; });
+      if (land) openModal(land, url);
+    });
+    card.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        card.click();
+      }
+    });
+  });
+
+  closeBtn.addEventListener('click', closeModal);
+
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) closeModal();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+    if (overlay.classList.contains('open') && e.key === 'ArrowRight') setSlide(slideIndex + 1);
+    if (overlay.classList.contains('open') && e.key === 'ArrowLeft') setSlide(slideIndex - 1);
+  });
+
+  slideshowPrev.addEventListener('click', function () { setSlide(slideIndex - 1); });
+  slideshowNext.addEventListener('click', function () { setSlide(slideIndex + 1); });
+
+  // Touch swipe
+  let touchStartX = 0;
+  let touchEndX = 0;
+  slideshowTrack.addEventListener('touchstart', function (e) {
+    touchStartX = e.changedTouches[0].screenX;
+  }, { passive: true });
+  slideshowTrack.addEventListener('touchend', function (e) {
+    touchEndX = e.changedTouches[0].screenX;
+    const diff = touchStartX - touchEndX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) setSlide(slideIndex + 1);
+      else setSlide(slideIndex - 1);
+    }
+  }, { passive: true });
+});
+</script>
 {% endblock %}

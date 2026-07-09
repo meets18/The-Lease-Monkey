@@ -1,0 +1,1329 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}My Profile — The Lease Monkey{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   PROFILE PAGE — COMPACT SAAS LAYOUT
+   ═══════════════════════════════════════════════════════════════ */
+.profile-page-wrapper {
+    display: flex;
+    min-height: calc(100vh - 56px);
+    padding-top: 56px;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 28px;
+    padding-left: 40px;
+    padding-right: 40px;
+    padding-bottom: 40px;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────── */
+.profile-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    padding-top: 28px;
+}
+
+.profile-sidebar-nav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.profile-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    color: #94A3B8;
+    text-decoration: none;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.profile-sidebar-item i {
+    font-size: 1.05rem;
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.profile-sidebar-item:hover {
+    background: rgba(255, 94, 0, 0.06);
+    color: #FF5E00;
+}
+
+.profile-sidebar-item.active {
+    background: #FF5E00;
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(255, 94, 0, 0.25);
+}
+
+.profile-sidebar-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 6px 14px;
+}
+
+/* ── Content ──────────────────────────────────────────────── */
+.profile-content {
+    flex: 1;
+    min-width: 0;
+    padding-top: 28px;
+}
+
+.profile-header {
+    margin-bottom: 20px;
+}
+
+.profile-header h1 {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+    margin-bottom: 2px;
+}
+
+.profile-header p {
+    color: #94A3B8;
+    font-size: 0.85rem;
+    margin-bottom: 0;
+}
+
+/* ── Card ─────────────────────────────────────────────────── */
+.profile-card {
+    background: #1E293B;
+    border: 1px solid rgba(255, 94, 0, 0.08);
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.profile-card h2 {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 16px;
+}
+
+/* ── Profile Identity Header (avatar + name/email) ────────── */
+.profile-identity {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 22px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.profile-avatar-preview {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: linear-gradient(135deg, rgba(255, 94, 0, 0.15), rgba(0, 178, 255, 0.15));
+    border: 2px solid rgba(255, 94, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    color: #FF5E00;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.profile-identity-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.profile-identity-name {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-identity-email {
+    font-size: 0.82rem;
+    color: #64748B;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-identity-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.btn-change-photo {
+    background: #FF5E00;
+    border: none;
+    color: #fff;
+    padding: 7px 16px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Open Sans', sans-serif;
+    line-height: 1.3;
+}
+
+.btn-change-photo:hover {
+    background: #E05200;
+    box-shadow: 0 2px 10px rgba(255, 94, 0, 0.3);
+    transform: translateY(-1px);
+}
+
+.btn-remove-photo {
+    background: rgba(255, 74, 74, 0.08);
+    border: 1px solid rgba(255, 74, 74, 0.2);
+    color: #FF4A4A;
+    padding: 7px 16px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Open Sans', sans-serif;
+    line-height: 1.3;
+}
+
+.btn-remove-photo:hover {
+    background: rgba(255, 74, 74, 0.14);
+    border-color: rgba(255, 74, 74, 0.35);
+}
+
+.photo-hint {
+    font-size: 0.7rem;
+    color: #64748B;
+}
+
+/* ── Form ─────────────────────────────────────────────────── */
+.profile-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+}
+
+.profile-form-grid .full-width {
+    grid-column: 1 / -1;
+}
+
+.profile-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.profile-form-group label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #94A3B8;
+}
+
+.profile-form-group .form-control-static {
+    padding: 9px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    color: #64748B;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.profile-input {
+    padding: 9px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    color: #E2E8F0;
+    font-size: 0.85rem;
+    font-family: 'Open Sans', sans-serif;
+    transition: all 0.2s ease;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.profile-input:focus {
+    border-color: #FF5E00;
+    box-shadow: 0 0 0 3px rgba(255, 94, 0, 0.12);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.profile-input::placeholder {
+    color: #475569;
+}
+
+.profile-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ── Form Buttons ─────────────────────────────────────────── */
+.profile-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.btn-profile-cancel {
+    padding: 9px 22px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: transparent;
+    color: #94A3B8;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.btn-profile-cancel:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #E2E8F0;
+}
+
+.btn-profile-save,
+.btn-profile-edit {
+    padding: 9px 24px;
+    border-radius: 6px;
+    border: none;
+    background: linear-gradient(135deg, #FF5E00, #E05200);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Open Sans', sans-serif;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-profile-save:hover,
+.btn-profile-edit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 12px rgba(255, 94, 0, 0.3);
+}
+
+/* ── Security ─────────────────────────────────────────────── */
+.security-group {
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.security-group:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.security-group h3 {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 600;
+    font-size: 0.92rem;
+    margin-bottom: 10px;
+}
+
+.security-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+}
+
+.security-field-label {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.security-field-label span:first-child {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #94A3B8;
+}
+
+.security-field-label span:last-child {
+    font-size: 0.85rem;
+    color: #E2E8F0;
+}
+
+.btn-security-action {
+    padding: 7px 16px;
+    border-radius: 6px;
+    border: none;
+    background: linear-gradient(135deg, #FF5E00, #E05200);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Open Sans', sans-serif;
+    white-space: nowrap;
+}
+
+.btn-security-action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 10px rgba(255, 94, 0, 0.25);
+}
+
+/* ── OTP Modal ────────────────────────────────────────────── */
+.otp-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+
+.otp-overlay.open {
+    display: flex;
+}
+
+.otp-modal {
+    background: #1E293B;
+    border: 1px solid rgba(255, 94, 0, 0.1);
+    border-radius: 12px;
+    padding: 28px;
+    width: 400px;
+    max-width: 90vw;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: otpFadeIn 0.2s ease;
+}
+
+@keyframes otpFadeIn {
+    from { opacity: 0; transform: scale(0.96) translateY(6px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.otp-modal h3 {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 3px;
+}
+
+.otp-modal p {
+    color: #94A3B8;
+    font-size: 0.82rem;
+    margin-bottom: 18px;
+}
+
+.otp-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 14px;
+}
+
+.otp-input-group label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #94A3B8;
+}
+
+.otp-input {
+    padding: 9px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    color: #E2E8F0;
+    font-size: 0.85rem;
+    font-family: 'Open Sans', sans-serif;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.otp-input:focus {
+    border-color: #FF5E00;
+    box-shadow: 0 0 0 3px rgba(255, 94, 0, 0.12);
+}
+
+.otp-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.otp-error {
+    color: #EF4444;
+    font-size: 0.8rem;
+    margin-top: 4px;
+    display: none;
+}
+
+.otp-error.show {
+    display: block;
+}
+
+.otp-step { display: none; }
+.otp-step.active { display: block; }
+
+/* ── Section transitions ──────────────────────────────────── */
+.profile-section {
+    display: none;
+    animation: sectionFadeIn 0.2s ease;
+}
+
+.profile-section.active {
+    display: block;
+}
+
+@keyframes sectionFadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Messages ─────────────────────────────────────────────── */
+.profile-messages {
+    margin-bottom: 16px;
+}
+
+.profile-messages .alert {
+    padding: 9px 14px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    border: none;
+}
+
+.profile-messages .alert-success {
+    background: rgba(0, 255, 196, 0.08);
+    color: #00FFC4;
+    border: 1px solid rgba(0, 255, 196, 0.15);
+}
+
+.profile-messages .alert-error {
+    background: rgba(255, 74, 74, 0.08);
+    color: #FF4A4A;
+    border: 1px solid rgba(255, 74, 74, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE
+   ═══════════════════════════════════════════════════════════════ */
+[data-theme="light"] .profile-card {
+    background: #FFFFFF;
+    border-color: #E5E7EB;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="light"] .profile-header p,
+[data-theme="light"] .profile-form-group label,
+[data-theme="light"] .security-field-label span:first-child,
+[data-theme="light"] .otp-modal p,
+[data-theme="light"] .otp-input-group label,
+[data-theme="light"] .profile-identity-email {
+    color: #64748B;
+}
+
+[data-theme="light"] .profile-input {
+    background: #FFFFFF;
+    border-color: #D1D5DB;
+    color: #1F2937;
+}
+
+[data-theme="light"] .profile-input:focus {
+    border-color: #F59E0B;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+    background: #FFFFFF;
+}
+
+[data-theme="light"] .profile-input::placeholder {
+    color: #9CA3AF;
+}
+
+[data-theme="light"] .profile-input:disabled {
+    background: #F9FAFB;
+    border-color: #E5E7EB;
+    opacity: 0.7;
+}
+
+[data-theme="light"] .profile-form-group .form-control-static {
+    background: #F9FAFB;
+    border-color: #E5E7EB;
+    color: #9CA3AF;
+}
+
+[data-theme="light"] .profile-identity {
+    border-bottom-color: #E5E7EB;
+}
+
+[data-theme="light"] .profile-form-actions {
+    border-top-color: #E5E7EB;
+}
+
+[data-theme="light"] .profile-sidebar-item {
+    color: #64748B;
+}
+
+[data-theme="light"] .profile-sidebar-item:hover {
+    background: rgba(245, 158, 11, 0.05);
+    color: #F59E0B;
+}
+
+[data-theme="light"] .profile-sidebar-item.active {
+    background: #F59E0B;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="light"] .profile-sidebar-divider {
+    background: #E5E7EB;
+}
+
+[data-theme="light"] .btn-change-photo {
+    background: #F59E0B;
+}
+
+[data-theme="light"] .btn-change-photo:hover {
+    background: #D97706;
+    box-shadow: 0 2px 10px rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="light"] .btn-remove-photo {
+    background: rgba(220, 38, 38, 0.06);
+    border-color: rgba(220, 38, 38, 0.2);
+    color: #DC2626;
+}
+
+[data-theme="light"] .btn-remove-photo:hover {
+    background: rgba(220, 38, 38, 0.1);
+    border-color: rgba(220, 38, 38, 0.35);
+}
+
+[data-theme="light"] .btn-profile-cancel {
+    border-color: #D1D5DB;
+    color: #64748B;
+}
+
+[data-theme="light"] .btn-profile-cancel:hover {
+    background: #F9FAFB;
+    color: #1F2937;
+}
+
+[data-theme="light"] .btn-profile-save,
+[data-theme="light"] .btn-profile-edit {
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+}
+
+[data-theme="light"] .btn-profile-save:hover,
+[data-theme="light"] .btn-profile-edit:hover {
+    box-shadow: 0 3px 12px rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="light"] .security-field {
+    background: #F9FAFB;
+    border-color: #E5E7EB;
+}
+
+[data-theme="light"] .security-field-label span:last-child {
+    color: #1F2937;
+}
+
+[data-theme="light"] .btn-security-action {
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+}
+
+[data-theme="light"] .btn-security-action:hover {
+    box-shadow: 0 2px 10px rgba(245, 158, 11, 0.2);
+}
+
+[data-theme="light"] .security-group {
+    border-bottom-color: #E5E7EB;
+}
+
+[data-theme="light"] .otp-modal {
+    background: #FFFFFF;
+    border-color: #E5E7EB;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.1);
+}
+
+[data-theme="light"] .otp-input {
+    background: #FFFFFF;
+    border-color: #D1D5DB;
+    color: #1F2937;
+}
+
+[data-theme="light"] .otp-input:focus {
+    border-color: #F59E0B;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+[data-theme="light"] .photo-hint {
+    color: #94A3B8;
+}
+
+[data-theme="light"] .profile-messages .alert-success {
+    background: #F0FDF4;
+    color: #16A34A;
+    border-color: #BBF7D0;
+}
+
+[data-theme="light"] .profile-messages .alert-error {
+    background: #FEF2F2;
+    color: #DC2626;
+    border-color: #FECACA;
+}
+
+[data-theme="light"] .profile-avatar-preview {
+    border-color: rgba(245, 158, 11, 0.25);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.04));
+    color: #F59E0B;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 991px) {
+    .profile-page-wrapper {
+        flex-direction: column;
+        padding-left: 20px;
+        padding-right: 20px;
+        gap: 0;
+    }
+
+    .profile-sidebar {
+        width: 100%;
+        padding-top: 18px;
+        overflow-x: auto;
+    }
+
+    .profile-sidebar-nav {
+        flex-direction: row;
+        gap: 4px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .profile-sidebar-item {
+        white-space: nowrap;
+        padding: 7px 12px;
+        font-size: 0.8rem;
+    }
+
+    .profile-sidebar-item span {
+        display: none;
+    }
+
+    .profile-sidebar-divider {
+        display: none;
+    }
+
+    .profile-content {
+        padding-top: 18px;
+    }
+
+    .profile-identity {
+        flex-wrap: wrap;
+    }
+
+    .profile-identity-actions {
+        flex-direction: row;
+        width: 100%;
+    }
+
+    .profile-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-card {
+        padding: 18px;
+    }
+}
+
+@media (max-width: 576px) {
+    .profile-page-wrapper {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .profile-identity {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .profile-identity-actions {
+        justify-content: center;
+    }
+
+    .profile-form-actions {
+        flex-direction: column;
+    }
+
+    .btn-profile-cancel,
+    .btn-profile-save,
+    .btn-profile-edit {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+    }
+
+    .security-field {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-page-wrapper">
+    <!-- Sidebar -->
+    <aside class="profile-sidebar">
+        <ul class="profile-sidebar-nav">
+            <li>
+                <a href="?section=personal"
+                   class="profile-sidebar-item {% if active_section == 'personal' %}active{% endif %}"
+                   data-section="personal">
+                    <i class="bi bi-person"></i> <span>Personal Information</span>
+                </a>
+            </li>
+            <li>
+                <a href="?section=security"
+                   class="profile-sidebar-item {% if active_section == 'security' %}active{% endif %}"
+                   data-section="security">
+                    <i class="bi bi-shield-lock"></i> <span>Security</span>
+                </a>
+            </li>
+            <li class="profile-sidebar-divider"></li>
+            <li>
+                <a href="{% if user.role == 'BUYER' %}{% url 'buyer_dashboard' %}{% elif user.role == 'LAND_OWNER' %}{% url 'landowner_dashboard' %}{% elif user.role == 'ADMIN' or user.is_superuser %}{% url 'admin_dashboard' %}{% else %}#{% endif %}" class="profile-sidebar-item">
+                    <i class="bi bi-grid-1x2-fill"></i> <span>Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'logout' %}" class="profile-sidebar-item">
+                    <i class="bi bi-box-arrow-right"></i> <span>Log Out</span>
+                </a>
+            </li>
+        </ul>
+    </aside>
+
+    <!-- Content -->
+    <div class="profile-content">
+        {% if messages %}
+        <div class="profile-messages">
+            {% for message in messages %}
+            <div class="alert alert-{% if message.tags %}{{ message.tags }}{% else %}success{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- ═══ PERSONAL INFORMATION ═══ -->
+        <div class="profile-section {% if active_section == 'personal' %}active{% endif %}" id="section-personal">
+            <div class="profile-header">
+                <h1>My Profile</h1>
+                <p>Manage your account information.</p>
+            </div>
+
+            <form method="post" enctype="multipart/form-data" class="profile-card" id="personalForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_profile">
+
+                <!-- Avatar + Name/Email header -->
+                <div class="profile-identity">
+                    <div class="profile-avatar-preview" id="avatarPreview">
+                        {% if user.profile_picture %}
+                        <img src="{{ user.profile_picture.url }}" alt="Profile"
+                             style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        {% else %}
+                        {{ user.get_full_name|first|default:user.username|first }}
+                        {% endif %}
+                    </div>
+                    <div class="profile-identity-info">
+                        <div class="profile-identity-name">
+                            {{ user.get_full_name|default:user.username }}
+                        </div>
+                        <div class="profile-identity-email">{{ user.email }}</div>
+                    </div>
+                    <div class="profile-identity-actions">
+                        <label for="profilePictureInput" class="btn-change-photo" id="changePhotoLabel">
+                            <i class="bi bi-camera"></i> Change Photo
+                        </label>
+                        <input type="file" id="profilePictureInput" name="profile_picture"
+                               accept="image/*" style="display:none;">
+                        {% if user.profile_picture %}
+                        <button type="button" class="btn-remove-photo" onclick="removePhoto()">
+                            <i class="bi bi-trash"></i> Remove
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Form Fields -->
+                <div class="profile-form-grid">
+                    <div class="profile-form-group">
+                        <label>Username</label>
+                        <div class="form-control-static">{{ user.username }}</div>
+                    </div>
+                    <div class="profile-form-group">
+                        <label>Email</label>
+                        <div class="form-control-static">{{ user.email }}</div>
+                    </div>
+                    <div class="profile-form-group">
+                        <label>First Name</label>
+                        <input type="text" name="first_name" class="profile-input" id="fieldFirstName"
+                               value="{{ user.first_name }}" placeholder="John" disabled>
+                    </div>
+                    <div class="profile-form-group">
+                        <label>Last Name</label>
+                        <input type="text" name="last_name" class="profile-input" id="fieldLastName"
+                               value="{{ user.last_name }}" placeholder="Doe" disabled>
+                    </div>
+                    <div class="profile-form-group">
+                        <label>Phone Number</label>
+                        <input type="tel" name="phone_number" class="profile-input" id="fieldPhone"
+                               value="{{ user.phone_number|default:'' }}" placeholder="+1 234 567 8900" disabled>
+                    </div>
+                    <div class="profile-form-group">
+                        <label>Address</label>
+                        <input type="text" name="address" class="profile-input" id="fieldAddress"
+                               value="{{ user.address|default:'' }}" placeholder="123 Main St" disabled>
+                    </div>
+                    <div class="profile-form-group">
+                        <label>City</label>
+                        <input type="text" name="city" class="profile-input" id="fieldCity"
+                               value="{{ user.city|default:'' }}" placeholder="New York" disabled>
+                    </div>
+                    <div class="profile-form-group">
+                        <label>State</label>
+                        <input type="text" name="state" class="profile-input" id="fieldState"
+                               value="{{ user.state|default:'' }}" placeholder="NY" disabled>
+                    </div>
+                    <div class="profile-form-group full-width">
+                        <label>Country</label>
+                        <input type="text" name="country" class="profile-input" id="fieldCountry"
+                               value="{{ user.country|default:'' }}" placeholder="United States" disabled>
+                    </div>
+                </div>
+
+                <div class="profile-form-actions" id="profileEditActions" style="display:none;">
+                    <button type="button" class="btn-profile-cancel" onclick="cancelEdit()">Cancel</button>
+                    <button type="submit" class="btn-profile-save">Save Changes</button>
+                </div>
+                <div class="profile-form-actions" id="profileViewActions">
+                    <button type="button" class="btn-profile-edit" onclick="enableEditing()">
+                        <i class="bi bi-pencil"></i> Edit Profile
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ═══ SECURITY ═══ -->
+        <div class="profile-section {% if active_section == 'security' %}active{% endif %}" id="section-security">
+            <div class="profile-header">
+                <h1>Security</h1>
+                <p>Manage your account credentials.</p>
+            </div>
+            <div class="profile-card">
+                <h2>Account Credentials</h2>
+
+                <div class="security-group">
+                    <h3>Email Address</h3>
+                    <div class="security-field">
+                        <div class="security-field-label">
+                            <span>Current Email</span>
+                            <span>{{ user.email }}</span>
+                        </div>
+                        <button type="button" class="btn-security-action" onclick="openOtpModal('change_email')">
+                            Change Email
+                        </button>
+                    </div>
+                </div>
+
+                <div class="security-group">
+                    <h3>Password</h3>
+                    <div class="security-field">
+                        <div class="security-field-label">
+                            <span>Password</span>
+                            <span>••••••••</span>
+                        </div>
+                        <button type="button" class="btn-security-action" onclick="openOtpModal('change_password')">
+                            Change Password
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- OTP Modal -->
+<div class="otp-overlay" id="otpOverlay">
+    <div class="otp-modal">
+        <div class="otp-step active" id="otpStep1">
+            <h3 id="otpTitle">Change Email</h3>
+            <p id="otpDesc">Enter your new email address to receive a verification code.</p>
+
+            <div class="otp-input-group" id="otpEmailGroup">
+                <label>New Email Address</label>
+                <input type="email" id="otpNewEmail" class="otp-input" placeholder="new@example.com">
+            </div>
+
+            <div class="otp-input-group" id="otpPasswordGroup" style="display:none;">
+                <label>Current Password</label>
+                <input type="password" id="otpCurrentPassword" class="otp-input" placeholder="Enter current password">
+            </div>
+
+            <div class="otp-input-group" id="otpNewPasswordGroup" style="display:none;">
+                <label>New Password</label>
+                <input type="password" id="otpNewPassword" class="otp-input" placeholder="At least 8 characters">
+            </div>
+
+            <div class="otp-input-group" id="otpConfirmGroup" style="display:none;">
+                <label>Confirm New Password</label>
+                <input type="password" id="otpConfirmPassword" class="otp-input" placeholder="Re-enter new password">
+            </div>
+
+            <div class="otp-error" id="otpStepError"></div>
+
+            <div class="otp-actions">
+                <button type="button" class="btn-profile-cancel" onclick="closeOtpModal()">Cancel</button>
+                <button type="button" class="btn-profile-save" onclick="sendOtp()">Send OTP</button>
+            </div>
+        </div>
+
+        <div class="otp-step" id="otpStep2">
+            <h3>Verify OTP</h3>
+            <p>Enter the 6-digit code sent to your email.</p>
+
+            <input type="hidden" id="otpPurpose" value="">
+            <input type="hidden" id="otpTargetEmail" value="">
+
+            <div class="otp-input-group">
+                <label>OTP Code</label>
+                <input type="text" id="otpCode" class="otp-input" placeholder="000000" maxlength="6" inputmode="numeric">
+            </div>
+
+            <div class="otp-error" id="otpVerifyError"></div>
+
+            <div class="otp-actions">
+                <button type="button" class="btn-profile-cancel" onclick="closeOtpModal()">Cancel</button>
+                <button type="button" class="btn-profile-save" onclick="verifyOtp()">Verify</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════
+document.querySelectorAll('.profile-sidebar-item[data-section]').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        var section = this.getAttribute('data-section');
+
+        document.querySelectorAll('.profile-sidebar-item').forEach(function(item) {
+            item.classList.remove('active');
+        });
+        this.classList.add('active');
+
+        document.querySelectorAll('.profile-section').forEach(function(el) {
+            el.classList.remove('active');
+        });
+        document.getElementById('section-' + section).classList.add('active');
+
+        var url = new URL(window.location);
+        url.searchParams.set('section', section);
+        window.history.replaceState({}, '', url);
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// PROFILE PICTURE - AJAX UPLOAD
+// ═══════════════════════════════════════════════════════════════
+document.getElementById('profilePictureInput').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+
+    // Preview locally immediately
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+        var preview = document.getElementById('avatarPreview');
+        preview.innerHTML = '<img src="' + ev.target.result + '" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+    };
+    reader.readAsDataURL(file);
+
+    // Upload via AJAX
+    var formData = new FormData();
+    formData.append('action', 'update_profile');
+    formData.append('profile_picture', file);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch(window.location.pathname, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+    })
+    .then(function(r) { return r.json().catch(function() { return {}; }).then(function(data) { return { status: r.status, data: data }; }); })
+    .then(function(result) {
+        if (result.data && result.data.profile_picture_url) {
+            // Update navbar avatar
+            var navAvatar = document.querySelector('#profileAvatar');
+            if (navAvatar) {
+                var existingImg = navAvatar.querySelector('.profile-avatar-img');
+                if (existingImg) {
+                    existingImg.src = result.data.profile_picture_url;
+                } else {
+                    navAvatar.innerHTML = '<img src="' + result.data.profile_picture_url + '" alt="Profile" class="profile-avatar-img">';
+                }
+            }
+            // Update profile preview with server URL
+            var preview = document.getElementById('avatarPreview');
+            preview.innerHTML = '<img src="' + result.data.profile_picture_url + '" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+            // Show remove button if not present
+            if (!document.querySelector('.btn-remove-photo')) {
+                var actions = document.querySelector('.profile-identity-actions');
+                var hint = actions.querySelector('.photo-hint');
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn-remove-photo';
+                btn.innerHTML = '<i class="bi bi-trash"></i> Remove';
+                btn.onclick = removePhoto;
+                actions.insertBefore(btn, hint);
+            }
+        }
+    })
+    .catch(function() {});
+});
+
+// ═══════════════════════════════════════════════════════════════
+// REMOVE PHOTO (AJAX)
+// ═══════════════════════════════════════════════════════════════
+function removePhoto() {
+    if (!confirm('Remove your profile photo?')) return;
+
+    var formData = new FormData();
+    formData.append('action', 'remove_photo');
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch(window.location.pathname, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+    })
+    .then(function(r) { return r.json().catch(function() { return {}; }); })
+    .then(function(data) {
+        if (data.status === 'done') {
+            // Restore initials in profile preview
+            var initial = '{{ user.get_full_name|first|default:user.username|first }}';
+            var preview = document.getElementById('avatarPreview');
+            preview.innerHTML = initial;
+
+            // Restore initials in navbar
+            var navAvatar = document.querySelector('#profileAvatar');
+            if (navAvatar) {
+                navAvatar.innerHTML = '<span class="profile-avatar-text">' + initial + '</span>';
+            }
+
+            // Remove the remove button
+            var rmBtn = document.querySelector('.btn-remove-photo');
+            if (rmBtn) rmBtn.remove();
+        } else {
+            window.location.reload();
+        }
+    })
+    .catch(function() {
+        window.location.reload();
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EDIT PROFILE TOGGLE
+// ═══════════════════════════════════════════════════════════════
+function enableEditing() {
+    document.querySelectorAll('#personalForm .profile-input').forEach(function(field) {
+        field.disabled = false;
+    });
+    document.getElementById('profileViewActions').style.display = 'none';
+    document.getElementById('profileEditActions').style.display = 'flex';
+}
+
+function cancelEdit() {
+    document.querySelectorAll('#personalForm .profile-input').forEach(function(field) {
+        field.disabled = true;
+    });
+    document.getElementById('personalForm').reset();
+    document.getElementById('profileEditActions').style.display = 'none';
+    document.getElementById('profileViewActions').style.display = 'flex';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OTP MODAL
+// ═══════════════════════════════════════════════════════════════
+var currentPurpose = '';
+
+function openOtpModal(purpose) {
+    currentPurpose = purpose;
+    document.getElementById('otpPurpose').value = purpose;
+
+    document.getElementById('otpStep1').classList.add('active');
+    document.getElementById('otpStep2').classList.remove('active');
+    document.getElementById('otpStepError').classList.remove('show');
+    document.getElementById('otpVerifyError').classList.remove('show');
+    document.getElementById('otpCode').value = '';
+    document.getElementById('otpNewEmail').value = '';
+    document.getElementById('otpCurrentPassword').value = '';
+    document.getElementById('otpNewPassword').value = '';
+    document.getElementById('otpConfirmPassword').value = '';
+
+    if (purpose === 'change_email') {
+        document.getElementById('otpTitle').textContent = 'Change Email';
+        document.getElementById('otpDesc').textContent = 'Enter your new email address to receive a verification code.';
+        document.getElementById('otpEmailGroup').style.display = '';
+        document.getElementById('otpPasswordGroup').style.display = 'none';
+        document.getElementById('otpNewPasswordGroup').style.display = 'none';
+        document.getElementById('otpConfirmGroup').style.display = 'none';
+    } else if (purpose === 'change_password') {
+        document.getElementById('otpTitle').textContent = 'Change Password';
+        document.getElementById('otpDesc').textContent = 'Enter your current password and a new password.';
+        document.getElementById('otpEmailGroup').style.display = 'none';
+        document.getElementById('otpPasswordGroup').style.display = '';
+        document.getElementById('otpNewPasswordGroup').style.display = '';
+        document.getElementById('otpConfirmGroup').style.display = '';
+    }
+
+    document.getElementById('otpOverlay').classList.add('open');
+}
+
+function closeOtpModal() {
+    document.getElementById('otpOverlay').classList.remove('open');
+}
+
+function sendOtp() {
+    var purpose = currentPurpose;
+    var email = '';
+
+    if (purpose === 'change_email') {
+        email = document.getElementById('otpNewEmail').value.trim();
+        if (!email) { showOtpError('Please enter your new email address.'); return; }
+        if (!email.includes('@')) { showOtpError('Please enter a valid email address.'); return; }
+    } else if (purpose === 'change_password') {
+        email = '{{ user.email|escapejs }}';
+        var currentPw = document.getElementById('otpCurrentPassword').value;
+        var newPw = document.getElementById('otpNewPassword').value;
+        var confirmPw = document.getElementById('otpConfirmPassword').value;
+        if (!currentPw) { showOtpError('Please enter your current password.'); return; }
+        if (!newPw || newPw.length < 8) { showOtpError('New password must be at least 8 characters.'); return; }
+        if (newPw !== confirmPw) { showOtpError('Passwords do not match.'); return; }
+    }
+
+    document.getElementById('otpTargetEmail').value = email;
+    document.getElementById('otpStepError').classList.remove('show');
+
+    fetch('{% url "send_profile_otp" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({ email: email, purpose: purpose })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) { showOtpError(data.error); }
+        else {
+            document.getElementById('otpStep1').classList.remove('active');
+            document.getElementById('otpStep2').classList.add('active');
+        }
+    })
+    .catch(function() { showOtpError('Failed to send OTP. Please try again.'); });
+}
+
+function verifyOtp() {
+    var purpose = currentPurpose;
+    var email = document.getElementById('otpTargetEmail').value;
+    var otp = document.getElementById('otpCode').value.trim();
+
+    if (!otp || otp.length !== 6) { showVerifyError('Please enter the 6-digit OTP.'); return; }
+
+    document.getElementById('otpVerifyError').classList.remove('show');
+
+    var body = { email: email, otp: otp, purpose: purpose };
+    if (purpose === 'change_password') {
+        body.new_password = document.getElementById('otpNewPassword').value;
+    }
+
+    fetch('{% url "verify_profile_otp" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify(body)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) { showVerifyError(data.error); }
+        else {
+            closeOtpModal();
+            alert(data.message || 'Update successful!');
+            window.location.reload();
+        }
+    })
+    .catch(function() { showVerifyError('Verification failed. Please try again.'); });
+}
+
+function showOtpError(msg) { var el = document.getElementById('otpStepError'); el.textContent = msg; el.classList.add('show'); }
+function showVerifyError(msg) { var el = document.getElementById('otpVerifyError'); el.textContent = msg; el.classList.add('show'); }
+
+document.getElementById('otpOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeOtpModal();
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('otpOverlay').classList.contains('open')) {
+        closeOtpModal();
+    }
+});
+</script>
+{% endblock %}

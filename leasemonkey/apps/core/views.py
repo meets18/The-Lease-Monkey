@@ -12,6 +12,14 @@ class LandingPageView(TemplateView):
     template_name = "landing.html"
 
 
+class PrivacyPolicyView(TemplateView):
+    template_name = "core/privacy.html"
+
+
+class TermsOfServiceView(TemplateView):
+    template_name = "core/terms.html"
+
+
 @login_required
 def handle_notification_action(request, notification_id):
     """

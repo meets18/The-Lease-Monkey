@@ -37,8 +37,30 @@ def serialize_building(building):
 
 def lands_directory(request):
     """Renders the catalog list of available land properties."""
-    lands = [land for land in Land.objects.all() if land.boundary_coordinates and len(land.boundary_coordinates) >= 3]
-    return render(request, 'lands/directory.html', {'lands': lands})
+    lands_qs = Land.objects.all().prefetch_related('images', 'plots')
+    lands = [land for land in lands_qs if land.boundary_coordinates and len(land.boundary_coordinates) >= 3]
+
+    lands_data = []
+    for land in lands:
+        images = list(land.images.all())
+        lands_data.append({
+            'id': land.id,
+            'name': land.name,
+            'slug': land.slug,
+            'owner': land.owner.username,
+            'area': float(land.area),
+            'average_plot_price': float(land.average_plot_price),
+            'location': land.location,
+            'description': land.description,
+            'plots_count': land.plots.count(),
+            'first_image_url': images[0].image.url if images else None,
+            'images': [{'url': img.image.url, 'caption': img.caption} for img in images],
+        })
+
+    return render(request, 'lands/directory.html', {
+        'lands': lands,
+        'lands_json': json.dumps(lands_data),
+    })
 
 def plot_viewer(request, slug):
     """Renders the fullscreen dynamic plot viewer for the specific land site."""

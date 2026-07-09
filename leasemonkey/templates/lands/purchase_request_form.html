@@ -22,12 +22,12 @@
     .form-container {
         width: 100%;
         max-width: 850px;
-        background: rgba(11, 15, 25, 0.4);
+        background: rgba(30, 41, 59, 0.4);
         backdrop-filter: blur(15px);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 16px;
-        padding: 3rem 4rem;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        padding: 2.5rem 3.5rem;
+        box-shadow: 0 10px 40px rgba(15, 23, 42, 0.5);
         margin-bottom: 3rem;
     }
 
@@ -82,7 +82,7 @@
         width: 32px;
         height: 32px;
         border-radius: 50%;
-        background: rgba(11, 15, 25, 0.8);
+        background: rgba(30, 41, 59, 0.8);
         border: 2px solid rgba(255,255,255,0.2);
         color: #9ca3af;
         display: flex;
@@ -272,6 +272,131 @@
     .terms-link:hover {
         text-decoration: underline;
     }
+    [data-theme="light"] .step-indicator.active .step-number {
+        border-color: #F59E0B;
+        color: #F59E0B;
+        box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+        background: #FFF8EB;
+    }
+    [data-theme="light"] .step-indicator.active .step-text {
+        color: #F59E0B;
+        font-weight: 700;
+    }
+    [data-theme="light"] .step-indicator.completed .step-number {
+        background: #F59E0B;
+        border-color: #F59E0B;
+        color: #fff;
+        box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
+    }
+    [data-theme="light"] .step-indicator.completed .step-text {
+        color: #F59E0B;
+    }
+    [data-theme="light"] .form-label {
+        color: #475569 !important;
+    }
+    [data-theme="light"] .form-control {
+        background-color: #FFFFFF !important;
+        border-color: #D1D5DB !important;
+        color: #1F2937 !important;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+    }
+    [data-theme="light"] .form-control:hover {
+        border-color: #9CA3AF !important;
+    }
+    [data-theme="light"] .form-control:focus {
+        background-color: #FFFFFF !important;
+        border-color: #F59E0B !important;
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12), 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+    }
+    [data-theme="light"] .form-control::placeholder {
+        color: #9CA3AF !important;
+        opacity: 0.7;
+    }
+    [data-theme="light"] .form-control.is-invalid {
+        border-color: #DC2626 !important;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+    }
+    [data-theme="light"] .invalid-feedback {
+        color: #DC2626;
+    }
+    [data-theme="light"] .btn-primary {
+        background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25) !important;
+    }
+    [data-theme="light"] .btn-primary:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35) !important;
+        background: linear-gradient(135deg, #D97706, #B45309) !important;
+    }
+    [data-theme="light"] .btn-primary:disabled {
+        background: #E5E7EB !important;
+        color: #9CA3AF !important;
+        box-shadow: none !important;
+    }
+    [data-theme="light"] .btn-secondary-outline {
+        border-color: #D1D5DB;
+        color: #64748B;
+    }
+    [data-theme="light"] .btn-secondary-outline:hover {
+        background: #F9FAFB;
+        color: #1F2937;
+        border-color: #9CA3AF;
+    }
+    [data-theme="light"] .proposal-box {
+        background: #F9FAFB;
+        border-color: #E5E7EB;
+    }
+    [data-theme="light"] .proposal-title {
+        color: #1F2937;
+        border-bottom-color: #E5E7EB;
+    }
+    [data-theme="light"] .proposal-detail span:first-child {
+        color: #64748B;
+    }
+    [data-theme="light"] .proposal-detail span:last-child {
+        color: #1F2937;
+    }
+    [data-theme="light"] .otp-layout .form-control {
+        background: #FFFFFF !important;
+    }
+    [data-theme="light"] .terms-label {
+        color: #475569;
+    }
+    [data-theme="light"] .terms-link {
+        color: #F59E0B;
+    }
+    [data-theme="light"] .form-check-input:checked {
+        background-color: #F59E0B;
+        border-color: #F59E0B;
+    }
+    [data-theme="light"] .page-container,
+    [data-theme="light"] body {
+        background: #F4F6F9;
+    }
+    [data-theme="light"] .form-container {
+        background: #FFFFFF;
+        backdrop-filter: none;
+        border-color: #E5E7EB;
+        box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    [data-theme="light"] .wizard-header h2 {
+        color: #1F2937;
+    }
+    [data-theme="light"] .wizard-header p {
+        color: #64748B;
+    }
+    [data-theme="light"] .stepper::before {
+        background: #E5E7EB;
+    }
+    [data-theme="light"] .step-number {
+        background: #F3F4F6;
+        border-color: #D1D5DB;
+        color: #9CA3AF;
+    }
+    [data-theme="light"] .step-text {
+        color: #9CA3AF;
+    }
 </style>
 {% endblock %}
 
@@ -280,8 +405,8 @@
     <div class="form-container">
         
         <div class="wizard-header">
-            <h2>Let's get you started</h2>
-            <p>Enter the details to raise your purchase request</p>
+            <h2>Submit Purchase Request</h2>
+            <p>Complete the information below to submit your purchase request to the land owner.</p>
         </div>
 
         <div id="alertBox" class="alert" style="display: none;"></div>
@@ -290,7 +415,7 @@
         <div class="stepper">
             <div class="step-indicator active" id="indicator1">
                 <div class="step-number">1</div>
-                <div class="step-text">Personal Details</div>
+                <div class="step-text">Personal Information</div>
             </div>
             <div class="step-indicator" id="indicator2">
                 <div class="step-number">2</div>
@@ -298,7 +423,7 @@
             </div>
             <div class="step-indicator" id="indicator3">
                 <div class="step-number">3</div>
-                <div class="step-text">Pricing and Submit</div>
+                <div class="step-text">Confirmation</div>
             </div>
         </div>
 

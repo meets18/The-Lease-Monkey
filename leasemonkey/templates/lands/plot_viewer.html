@@ -11,9 +11,9 @@
 <link rel="stylesheet" href="{% static 'css/map_viewer.css' %}?v={% now 'U' %}" />
 
 <!-- Fullscreen Map Canvas Container -->
-<div id="map-container" style="width: 100%; height: calc(100vh - 72px); position: absolute; top: 72px; left: 0; z-index: 1; background-color: #0b0e14;">
+<div id="map-container" style="width: 100%; height: calc(100vh - 56px); position: absolute; top: 56px; left: 0; z-index: 1; background-color: var(--bg-primary, #111827);">
     <!-- Leaflet Map Canvas (Solid dark background, no tiles loaded on default) -->
-    <div id="map" style="width: 100%; height: 100%; background: #0b0e14; z-index: 1;"></div>
+    <div id="map" style="width: 100%; height: 100%; background: var(--bg-primary, #111827); z-index: 1;"></div>
     
     <!-- Floating Compass HUD -->
     <div id="compassWidget" class="compass-hud" title="Plot Orientation Indicator">
@@ -28,7 +28,7 @@
 </div>
 
 <!-- Back to Catalog Directory Link -->
-<a href="{% url 'lands:directory' %}" class="btn-map-back shadow-lg" style="top: 92px; left: 20px; z-index: 10;">
+<a href="{% url 'lands:directory' %}" class="btn-map-back shadow-lg" style="top: 76px; left: 20px; z-index: 10;">
     <i class="bi bi-arrow-left"></i> Back to Catalog
 </a>
 
@@ -1057,7 +1057,7 @@ body {
 .btn-action-primary {
     background: linear-gradient(135deg, #00b2ff, #00ffc4) !important;
     border: none !important;
-    color: #0b0f19 !important;
+    color: #1E293B !important;
     transition: all 0.3s ease !important;
 }
 .btn-action-primary:hover:not(:disabled) {
@@ -1460,7 +1460,7 @@ body {
     align-items: center;
 }
 .distance-pill {
-    background: #0b0f19;
+    background: #111827;
     color: #00ffd2;
     border: 1px solid rgba(0, 255, 210, 0.4);
     font-family: 'Ranade', sans-serif;
@@ -1540,6 +1540,28 @@ body {
 @keyframes pulseGate {
     0% { transform: scale(1); filter: brightness(1); }
     100% { transform: scale(1.15); filter: brightness(1.3); }
+}
+[data-theme="light"] .btn-action-primary {
+    background: #F59E0B !important;
+    color: #FFFFFF !important;
+}
+[data-theme="light"] .btn-action-primary:hover:not(:disabled) {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
+}
+[data-theme="light"] .btn-action-secondary {
+    background: #FFFFFF !important;
+    border-color: #E8ECF2 !important;
+    color: #1F2937 !important;
+}
+[data-theme="light"] .btn-action-secondary:hover {
+    background: #F8FAFC !important;
+    border-color: #D1D5DB !important;
+}
+[data-theme="light"] .distance-pill {
+    background: #FFFFFF !important;
+    color: #1F2937 !important;
+    border-color: #E8ECF2 !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
 }
 </style>
 {% endblock %}

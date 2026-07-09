@@ -38,8 +38,8 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="sidebar-link disabled">
-                        <i class="bi bi-sliders"></i> Account Settings <span class="badge bg-secondary ms-auto fs-9">Locked</span>
+                    <a href="{% url 'profile' %}" class="sidebar-link">
+                        <i class="bi bi-person"></i> Profile
                     </a>
                 </li>
             </ul>
@@ -281,7 +281,7 @@
     backdrop-filter: blur(10px);
 }
 .user-profile-badge {
-    background: rgba(11, 15, 25, 0.4);
+    background: rgba(30, 41, 59, 0.4);
 }
 .profile-avatar {
     width: 60px;
@@ -393,6 +393,18 @@
     padding: 1px 7px;
     font-size: 11px;
     font-weight: 700;
+}
+[data-theme="light"] .status-indicator-green {
+    background-color: #22C55E !important;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.4) !important;
+}
+[data-theme="light"] .status-indicator-blue {
+    background-color: #3B82F6 !important;
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.4) !important;
+}
+[data-theme="light"] .status-indicator-orange {
+    background-color: #F59E0B !important;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.4) !important;
 }
 </style>
 {% endblock %}

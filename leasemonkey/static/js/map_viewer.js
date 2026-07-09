@@ -335,14 +335,26 @@ let minZoomLimit = 16;
 
 
 
-// Constants for color codes
-const COLORS = {
-  available: '#9CB447', // Available
-  reserved: '#8e9aa8',  // Booked (Grey)
-  sold: '#C7483F',      // On Hold
-  building: '#ffffff',  // Building
-  uniform: '#eaddca'    // Uniform beige
-};
+// Constants for color codes — theme-aware
+function getThemeColors() {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  return {
+    available: isLight ? '#43A047' : '#9CB447',
+    reserved: isLight ? '#F59E0B' : '#8e9aa8',
+    sold: isLight ? '#DC2626' : '#C7483F',
+    building: isLight ? '#cbd5e1' : '#ffffff',
+    uniform: '#eaddca'
+  };
+}
+const COLORS = getThemeColors();
+
+// Rebuild colors when theme toggles
+const themeObserver = new MutationObserver(function() {
+  const c = getThemeColors();
+  Object.assign(COLORS, c);
+});
+const htmlEl = document.documentElement;
+themeObserver.observe(htmlEl, { attributes: true, attributeFilter: ['data-theme'] });
 
 // Initial document load setup
 document.addEventListener("DOMContentLoaded", () => {
