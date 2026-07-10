@@ -154,6 +154,7 @@
                             <th>Plot Details</th>
                             <th>Proposed Amount</th>
                             <th>Approval Date</th>
+                            <th class="text-end px-3">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -164,6 +165,11 @@
                             <td class="text-muted-glow">Plot {{ req.plot_number }} (Land: {{ req.land.name }})</td>
                             <td class="text-cyan-glow fw-bold">₹{{ req.proposed_amount }}</td>
                             <td class="text-muted-glow">{{ req.updated_at|date:"M d, Y" }}</td>
+                            <td class="text-end px-3">
+                                <button type="button" class="btn btn-sm btn-outline-danger py-1" onclick="dashboardDeallotPlot('{{ req.land.slug }}', '{{ req.plot_number }}')">
+                                    De-allot
+                                </button>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -273,6 +279,26 @@
                                             {% endif %}
                                         </span>
                                     </div>
+                                    {% if req.status == 'meeting_scheduled' %}
+                                        {% if req.meet_link %}
+                                        <div class="pr-field">
+                                            <span class="pr-field-label">Meet Link</span>
+                                            <span class="pr-field-value">
+                                                <a href="{{ req.meet_link }}" target="_blank" class="text-cyan-glow fw-bold text-decoration-none d-inline-flex align-items-center">
+                                                    <i class="bi bi-camera-video me-1"></i> Join Meeting
+                                                </a>
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                        {% if req.meeting_datetime %}
+                                        <div class="pr-field">
+                                            <span class="pr-field-label">Meeting Time</span>
+                                            <span class="pr-field-value">
+                                                {{ req.meeting_datetime|date:"d M Y, h:i A" }} ({{ req.meeting_duration_mins }} mins)
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                    {% endif %}
                                     {% if req.rejection_reason %}
                                     <div class="pr-field">
                                         <span class="pr-field-label">Rejection Reason</span>
@@ -286,7 +312,9 @@
                                 <button class="pr-btn pr-btn-primary" onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'fix_meeting')">Fix Meeting</button>
                                 <button class="pr-btn pr-btn-danger" onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'reject')">Reject Request</button>
                                 {% elif req.status == 'meeting_scheduled' %}
-                                <button class="pr-btn pr-btn-primary" onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'approve')">Approve Purchase</button>
+                                    {% if req.is_meeting_finished %}
+                                    <button class="pr-btn pr-btn-primary" onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'approve')">Approve Purchase</button>
+                                    {% endif %}
                                 <button class="pr-btn pr-btn-danger" onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'reject')">Reject</button>
                                 {% endif %}
                             </div>
@@ -475,11 +503,40 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body py-3">
-                <p class="text-muted-glow fs-14 mb-3">Please confirm if you want to proceed with this action on the purchase request.</p>
+                <p class="text-muted-glow fs-14 mb-3" id="purchaseActionSubtitle">Please confirm if you want to proceed with this action on the purchase request.</p>
+
+                <!-- Meeting-specific fields (shown only for fix_meeting) -->
+                <div id="meetingFieldsContainer" class="mb-3" style="display: none;">
+                    <div class="row g-2 mb-2">
+                        <div class="col-12">
+                            <label class="form-label text-white-50 fs-13">Date & Time <span class="text-danger">*</span></label>
+                            <input type="datetime-local" id="meetingDatetime" class="form-control bg-dark-glow border-secondary-glow text-white fs-14">
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-12">
+                            <label class="form-label text-white-50 fs-13">Duration</label>
+                            <select id="meetingDuration" class="form-select bg-dark-glow border-secondary-glow text-white fs-14">
+                                <option value="15">15 minutes</option>
+                                <option value="30" selected>30 minutes</option>
+                                <option value="45">45 minutes</option>
+                                <option value="60">1 hour</option>
+                                <option value="90">1.5 hours</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label text-white-50 fs-13">Message to buyer <span class="text-white-50 fs-11">(optional)</span></label>
+                        <textarea id="meetingMessage" class="form-control bg-dark-glow border-secondary-glow text-white fs-14" rows="2" placeholder="e.g. Please bring your Aadhaar and PAN card."></textarea>
+                    </div>
+                </div>
+
+                <!-- Rejection reason (shown only for reject) -->
                 <div id="purchaseActionReasonContainer" class="mb-3" style="display: none;">
                     <label class="form-label text-white-50 fs-13">Reason for Rejection <span class="text-danger">*</span></label>
                     <textarea id="purchaseActionReason" class="form-control bg-dark-glow border-secondary-glow text-white fs-14" rows="3" placeholder="Enter reason here..."></textarea>
                 </div>
+
                 <div class="d-grid gap-2">
                     <button id="purchaseActionConfirmBtn" onclick="confirmPurchaseAction()" class="btn btn-action btn-lg py-2 fs-12 text-uppercase fw-bold w-100">
                         Confirm Action
@@ -526,21 +583,40 @@
         currentPurchaseAction = action;
 
         const actionLabels = {
-            'fix_meeting': 'Fix a Meeting',
+            'fix_meeting': 'Schedule Google Meet',
             'approve': 'Approve Purchase',
             'reject': 'Reject Request'
         };
+        const isMeeting = action === 'fix_meeting';
         const requiresReason = action === 'reject';
-        
-        document.getElementById('purchaseActionTitle').innerText = actionLabels[action];
+
+        document.getElementById('purchaseActionTitle').innerText = actionLabels[action] || action;
+        document.getElementById('purchaseActionSubtitle').innerText = isMeeting
+            ? 'Set the date, time and duration for the Google Meet call with the buyer.'
+            : 'Please confirm if you want to proceed with this action on the purchase request.';
+
+        document.getElementById('meetingFieldsContainer').style.display = isMeeting ? 'block' : 'none';
         document.getElementById('purchaseActionReasonContainer').style.display = requiresReason ? 'block' : 'none';
         document.getElementById('purchaseActionReason').value = '';
-        
+        document.getElementById('meetingMessage').value = '';
+
+        // Pre-fill datetime-local to tomorrow at 10:00
+        if (isMeeting) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(10, 0, 0, 0);
+            const pad = n => String(n).padStart(2, '0');
+            const dtStr = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth()+1)}-${pad(tomorrow.getDate())}T${pad(tomorrow.getHours())}:${pad(tomorrow.getMinutes())}`;
+            document.getElementById('meetingDatetime').value = dtStr;
+        }
+
         const btn = document.getElementById('purchaseActionConfirmBtn');
-        btn.innerText = actionLabels[action];
-        
+        btn.innerText = actionLabels[action] || 'Confirm';
+
         if (action === 'reject') {
             btn.className = 'btn btn-danger btn-lg py-2 fs-12 text-uppercase fw-bold w-100';
+        } else if (action === 'fix_meeting') {
+            btn.className = 'btn btn-success btn-lg py-2 fs-12 text-uppercase fw-bold w-100';
         } else {
             btn.className = 'btn btn-success btn-lg py-2 fs-12 text-uppercase fw-bold w-100';
         }
@@ -555,24 +631,42 @@
             showToast("A reason is required to reject.", "danger");
             return;
         }
+        if (currentPurchaseAction === 'fix_meeting') {
+            const dt = document.getElementById('meetingDatetime').value;
+            if (!dt) {
+                showToast("Please select a date and time for the meeting.", "danger");
+                return;
+            }
+        }
         submitPurchaseRequestAction(currentPurchaseRequestId, currentPurchaseAction, reason);
         bootstrap.Modal.getInstance(document.getElementById('purchaseActionModal')).hide();
     }
-    
+
     function submitPurchaseRequestAction(requestId, action, reason) {
+        const payload = { action, reason };
+        if (action === 'fix_meeting') {
+            payload.meeting_datetime = document.getElementById('meetingDatetime').value;
+            payload.duration_minutes = parseInt(document.getElementById('meetingDuration').value, 10);
+            payload.message = document.getElementById('meetingMessage').value.trim();
+        }
         fetch(`/lands/purchase-request/${requestId}/action/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCsrf()
             },
-            body: JSON.stringify({ action: action, reason: reason })
+            body: JSON.stringify(payload)
         })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showToast(data.message, 'success');
-                setTimeout(() => window.location.reload(), 1500);
+                if (data.meet_link) {
+                    showToast(`✅ Google Meet scheduled! <a href="${data.meet_link}" target="_blank" class="text-white fw-bold">Join Meet →</a>`, 'success');
+                    setTimeout(() => window.location.reload(), 3000);
+                } else {
+                    showToast(data.message, 'success');
+                    setTimeout(() => window.location.reload(), 1500);
+                }
             } else {
                 showToast(data.error || 'Action failed.', 'danger');
             }
@@ -628,12 +722,17 @@
                 'Content-Type': 'application/json',
             },
         })
-            .then(r => r.json())
+            .then(r => {
+                if (!r.ok) {
+                    return r.json().then(data => { throw new Error(data.error || 'Failed to submit request.'); });
+                }
+                return r.json();
+            })
             .then(data => {
                 bootstrap.Modal.getInstance(document.getElementById('landActionModal')).hide();
                 showToast(data.message || 'Deletion request sent to admin.', 'success');
             })
-            .catch(() => showToast('Something went wrong. Please try again.', 'danger'));
+            .catch((err) => showToast(err.message || 'Something went wrong. Please try again.', 'danger'));
     });
 
     // ─── Mark Notification Read ────────────────────────────────────────────────
@@ -699,6 +798,39 @@
             body.classList.add('expanded');
             body.style.maxHeight = body.scrollHeight + 'px';
             icon.style.transform = 'rotate(180deg)';
+        }
+    }
+
+    function dashboardDeallotPlot(landSlug, plotNumber) {
+        const reason = prompt(`Please enter the reason for de-alloting Plot ${plotNumber} (an email will be sent to the buyer):`);
+        if (reason === null) return;
+        if (reason.trim() === '') {
+            alert("A reason is required to de-allot the user.");
+            return;
+        }
+        
+        if (confirm(`Are you sure you want to de-allot Plot ${plotNumber} and mark it as Available?`)) {
+            fetch(`/lands/plots-creator/${landSlug}/deallot/${encodeURIComponent(plotNumber)}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrf()
+                },
+                body: JSON.stringify({ reason: reason.trim() })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    alert("Error: " + data.error);
+                } else {
+                    alert(data.message);
+                    location.reload(); 
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Network error occurred.");
+            });
         }
     }
 </script>

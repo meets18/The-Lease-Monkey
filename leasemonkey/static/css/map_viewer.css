@@ -6,10 +6,7 @@
     --map-glass: rgba(30, 41, 59, 0.75);
 }
 
-[data-theme="light"] {
-    --map-card: #FFFFFF;
-    --map-glass: rgba(255, 255, 255, 0.92);
-}
+
 
 /* Fullscreen map canvas styling */
 #map {
@@ -211,22 +208,7 @@
     box-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
 }
 
-[data-theme="light"] .dot-available {
-    background-color: #43A047;
-    box-shadow: 0 0 8px rgba(67, 160, 71, 0.5);
-}
-[data-theme="light"] .dot-reserved {
-    background-color: #F59E0B;
-    box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
-}
-[data-theme="light"] .dot-sold {
-    background-color: #DC2626;
-    box-shadow: 0 0 8px rgba(220, 38, 38, 0.5);
-}
-[data-theme="light"] .dot-building {
-    background-color: #cbd5e1;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-}
+
 
 /* Utility menu icon button items */
 .btn-utility-icon {
@@ -349,15 +331,14 @@ div[style*="z-index: 1000000"],
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    color: #111827 !important;
+    color: #000000 !important;
     font-family: 'Ranade', sans-serif;
-    font-weight: 800;
+    font-weight: 900;
     transform: rotate(40deg);
     transform-origin: center;
-    font-size: 13px !important;
+    font-size: 14px !important;
     pointer-events: none !important;
     user-select: none !important;
-    text-shadow: 0 0 2px rgba(255, 255, 255, 0.4);
 }
 
 /* Hide plot text and road markers when satellite map is active */
@@ -417,166 +398,14 @@ div[style*="z-index: 1000000"],
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
+    color: #000000 !important;
     font-family: 'Ranade', sans-serif;
-    font-weight: 800;
-    font-size: 11px !important;
+    font-weight: 900;
+    font-size: 14px !important;
     pointer-events: none !important;
     user-select: none !important;
     display: flex;
     align-items: center;
     justify-content: center;
     transform: rotate(40deg);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   LIGHT MODE — MAP VIEWER
-   ═══════════════════════════════════════════════════════════════ */
-[data-theme="light"] .glass-panel {
-    background: #FFFFFF !important;
-    border: 1px solid #E8ECF2 !important;
-    color: #1F2937 !important;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
-    backdrop-filter: none !important;
-}
-[data-theme="light"] .glass-panel:hover {
-    border-color: #E8ECF2 !important;
-}
-[data-theme="light"] .search-field {
-    background: #FFFFFF;
-    border: 1px solid #CBD5E1;
-    border-radius: 8px;
-    color: #1F2937;
-}
-[data-theme="light"] .search-field:focus {
-    border-color: #F59E0B;
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
-    background: #FFFFFF;
-}
-[data-theme="light"] .search-input-group i {
-    color: #94A3B8;
-}
-[data-theme="light"] .btn-filter-tag {
-    background: #FFFFFF;
-    border: 1px solid #E8ECF2;
-    border-radius: 8px;
-    color: #64748B;
-}
-[data-theme="light"] .btn-filter-tag:hover {
-    background: #FFF8EB;
-    color: #1F2937;
-}
-[data-theme="light"] .btn-filter-tag.active[data-filter="all"] {
-    background: #FFF4D6;
-    border-color: #F59E0B;
-    color: #F59E0B;
-}
-[data-theme="light"] .btn-filter-tag.active[data-filter="available"],
-[data-theme="light"] .active-cyan-btn {
-    background: #DCFCE7 !important;
-    border-color: #22C55E !important;
-    color: #166534 !important;
-}
-[data-theme="light"] .btn-filter-tag.active[data-filter="reserved"] {
-    background: #FEF3C7 !important;
-    border-color: #F59E0B !important;
-    color: #92400E !important;
-}
-[data-theme="light"] .btn-filter-tag.active[data-filter="sold"] {
-    background: #FEE2E2 !important;
-    border-color: #EF4444 !important;
-    color: #B91C1C !important;
-}
-[data-theme="light"] .btn-utility-icon {
-    background: #FFFFFF !important;
-    border: 1px solid #E8ECF2 !important;
-    color: #64748B !important;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.09) !important;
-}
-[data-theme="light"] .btn-utility-icon:hover {
-    background: #FFF8EB !important;
-    border-color: #F59E0B !important;
-    color: #F59E0B !important;
-    box-shadow: 0 6px 18px rgba(245, 158, 11, 0.18) !important;
-}
-[data-theme="light"] .detail-item-row {
-    border-bottom-color: #E8ECF2;
-}
-[data-theme="light"] .detail-item-row span {
-    color: #64748B;
-}
-[data-theme="light"] .detail-item-row strong {
-    color: #1F2937;
-}
-[data-theme="light"] .btn-map-back {
-    background: #FFFFFF !important;
-    border: 1px solid #E8ECF2 !important;
-    color: #1F2937 !important;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.09) !important;
-    border-radius: 10px !important;
-}
-[data-theme="light"] .btn-map-back:hover {
-    background: #F8FAFC !important;
-    border-color: #D1D5DB !important;
-    color: #1F2937 !important;
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12) !important;
-}
-[data-theme="light"] .opacity-slider {
-    background: #D1D5DB;
-}
-[data-theme="light"] .opacity-slider::-webkit-slider-thumb {
-    background: #F59E0B;
-    box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
-}
-[data-theme="light"] .compass-hud {
-    background: #FFFFFF !important;
-    border: 1px solid #E8ECF2 !important;
-    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.10) !important;
-}
-[data-theme="light"] #legendPanel {
-    background: #FFFFFF !important;
-    border: 1px solid #E8ECF2 !important;
-}
-[data-theme="light"] #legendPanel .legend-item {
-    color: #1F2937 !important;
-}
-[data-theme="light"] .satellite-active .btn-dock-button,
-[data-theme="light"] .satellite-active .btn-utility-icon,
-[data-theme="light"] .satellite-active .glass-pill-container,
-[data-theme="light"] .satellite-active .search-field {
-    background: rgba(255, 255, 255, 0.97) !important;
-    border-color: #CBD5E1 !important;
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.10) !important;
-}
-[data-theme="light"] .satellite-active .btn-utility-icon:hover {
-    background: #FFF8EB !important;
-    border-color: #F59E0B !important;
-}
-[data-theme="light"] .plot-details-panel {
-    border-top-color: #E8ECF2;
-}
-[data-theme="light"] .road-label-container {
-    background: transparent !important;
-}
-[data-theme="light"] .btn-dock-button {
-    background: #FFFFFF !important;
-    border: 1px solid #E8ECF2 !important;
-    border-radius: 8px !important;
-    color: #1F2937 !important;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
-}
-[data-theme="light"] .btn-dock-button:hover {
-    background: #FFF8EB !important;
-    border-color: #F59E0B !important;
-}
-[data-theme="light"] .glass-pill-container {
-    background: #FFFFFF !important;
-    border: 1px solid #E8ECF2 !important;
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08) !important;
-}
-[data-theme="light"] .btn-dock-button span {
-    color: #64748B !important;
-}
-[data-theme="light"] .glass-pill-container {
-    background: #FFFFFF !important;
-    border: 1px solid #E8ECF2 !important;
 }

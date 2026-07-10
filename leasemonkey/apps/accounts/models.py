@@ -71,3 +71,44 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+
+
+CONDITION_CHOICES = [
+    ('never_leased', 'Never Leased'),
+    ('previously_leased', 'Previously Leased'),
+    ('no_preference', 'No Preference'),
+]
+
+PROXIMITY_CHOICES = [
+    ('school', 'School'),
+    ('highway', 'Highway'),
+    ('hospital', 'Hospital'),
+    ('railway', 'Railway Station'),
+    ('airport', 'Airport'),
+    ('city_center', 'City Center'),
+    ('water_source', 'Water Source'),
+]
+
+class UserPreferences(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='preferences')
+    min_budget = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    max_budget = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    min_acres = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    max_acres = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    property_condition = models.CharField(max_length=50, choices=CONDITION_CHOICES, default='no_preference')
+    proximity_preferences = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Preferences for {self.user.username}"
+
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender=User)
+def create_user_preferences(sender, instance, created, **kwargs):
+    if created:
+        UserPreferences.objects.get_or_create(user=instance)
+

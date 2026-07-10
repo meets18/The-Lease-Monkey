@@ -11,9 +11,9 @@
 <link rel="stylesheet" href="{% static 'css/map_viewer.css' %}?v={% now 'U' %}" />
 
 <!-- Fullscreen Map Canvas Container -->
-<div id="map-container" style="width: 100%; height: calc(100vh - 56px); position: absolute; top: 56px; left: 0; z-index: 1; background-color: var(--bg-primary, #111827);">
+<div id="map-container" style="width: 100%; height: calc(100vh - 56px); position: absolute; top: 56px; left: 0; z-index: 1; background-color: #111827;">
     <!-- Leaflet Map Canvas (Solid dark background, no tiles loaded on default) -->
-    <div id="map" style="width: 100%; height: 100%; background: var(--bg-primary, #111827); z-index: 1;"></div>
+    <div id="map" style="width: 100%; height: 100%; background: #111827; z-index: 1;"></div>
     
     <!-- Floating Compass HUD -->
     <div id="compassWidget" class="compass-hud" title="Plot Orientation Indicator">
@@ -69,6 +69,11 @@
         <button id="btnHoldPlot" class="btn btn-get-started flex-grow-1 text-uppercase fw-bold fs-11 py-2" onclick="handleRequestClick();">
             Raise a Request <i class="bi bi-send ms-1"></i>
         </button>
+        {% if user.is_authenticated and user.role == 'BUYER' %}
+        <button id="btnSavePlot" class="btn btn-outline-info flex-grow-1 text-uppercase fw-bold fs-11 py-2" onclick="toggleSavePlot();">
+            <span id="savePlotText">Save Plot</span> <i id="savePlotIcon" class="bi bi-bookmark ms-1"></i>
+        </button>
+        {% endif %}
         {% endif %}
     </div>
 </div>
@@ -203,6 +208,78 @@
         }
         return cookieValue;
     }
+
+    function toggleSavePlot() {
+        const plotNum = document.getElementById('detailNum').innerText.trim();
+        if (!plotNum) return;
+
+        fetch(`/lands/plots/${landSlug}/toggle-save/${encodeURIComponent(plotNum)}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'saved') {
+                if (!landConfig.savedPlots.includes(plotNum)) {
+                    landConfig.savedPlots.push(plotNum);
+                }
+                document.getElementById('savePlotIcon').className = 'bi bi-bookmark-fill ms-1';
+                document.getElementById('savePlotText').innerText = 'Unsave Plot';
+            } else if (data.status === 'unsaved') {
+                const index = landConfig.savedPlots.indexOf(plotNum);
+                if (index > -1) {
+                    landConfig.savedPlots.splice(index, 1);
+                }
+                document.getElementById('savePlotIcon').className = 'bi bi-bookmark ms-1';
+                document.getElementById('savePlotText').innerText = 'Save Plot';
+            } else if (data.error) {
+                alert(data.error);
+            }
+        })
+        .catch(err => {
+            console.error('Save Plot Error:', err);
+        });
+    }
+
+    // On detail panel open, we need to update the save icon state
+    // We'll use a MutationObserver on the detailNum to know when a plot changes
+    document.addEventListener("DOMContentLoaded", function() {
+        const detailNum = document.getElementById('detailNum');
+        if (detailNum) {
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    const currentPlotNum = detailNum.innerText.trim();
+                    const icon = document.getElementById('savePlotIcon');
+                    const textSpan = document.getElementById('savePlotText');
+                    if (icon && textSpan && currentPlotNum) {
+                        if (landConfig.savedPlots && landConfig.savedPlots.includes(currentPlotNum)) {
+                            icon.className = 'bi bi-bookmark-fill ms-1';
+                            textSpan.innerText = 'Unsave Plot';
+                        } else {
+                            icon.className = 'bi bi-bookmark ms-1';
+                            textSpan.innerText = 'Save Plot';
+                        }
+                    }
+                });
+            });
+            observer.observe(detailNum, { childList: true, characterData: true, subtree: true });
+        }
+        
+        // Wait for map to initialize, then check URL parameters
+        setTimeout(() => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const plotParam = urlParams.get('plot');
+            if (plotParam && typeof mapPolygons !== 'undefined') {
+                const targetPolygon = mapPolygons.find(p => p.plotData && p.plotData.number === plotParam);
+                if (targetPolygon) {
+                    targetPolygon.fire('click');
+                }
+            }
+        }, 1500); // Small delay to ensure map and polygons are rendered
+    });
 
     function handleDeletePlotClick() {
         const plotNum = document.getElementById('detailNum').innerText;
@@ -893,7 +970,8 @@
         buildings: {{ buildings_list_json|safe|default:"[]" }},
         images: {{ images_list_json|safe|default:"[]" }},
         roads: {{ roads_list_json|safe|default:"[]" }},
-        gates: {{ gates_list_json|safe|default:"[]" }}
+        gates: {{ gates_list_json|safe|default:"[]" }},
+        savedPlots: {{ saved_plots_json|safe|default:"[]" }}
     };
 </script>
 
@@ -1243,7 +1321,7 @@ body {
 .btn-dock-button {
     background: #0c101b !important;
     border: 1px solid rgba(255, 255, 255, 0.25) !important;
-    color: #ffffff;
+    color: #ffffff !important;
     height: 42px;
     display: inline-flex;
     align-items: center;
@@ -1254,11 +1332,17 @@ body {
     cursor: pointer;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6) !important;
 }
+.btn-dock-button span {
+    color: #ffffff !important;
+}
 .btn-dock-button:hover {
     background: rgba(0, 255, 196, 0.15) !important;
     border-color: var(--primary-cyan) !important;
     color: var(--primary-cyan) !important;
     box-shadow: 0 0 12px rgba(0, 255, 196, 0.4) !important;
+}
+.btn-dock-button:hover span {
+    color: var(--primary-cyan) !important;
 }
 
 /* Cache-bypassing search field high contrast overlay styling */
@@ -1541,27 +1625,26 @@ body {
     0% { transform: scale(1); filter: brightness(1); }
     100% { transform: scale(1.15); filter: brightness(1.3); }
 }
-[data-theme="light"] .btn-action-primary {
-    background: #F59E0B !important;
-    color: #FFFFFF !important;
+
+/* Force map UI text to stay white in light mode, protecting against global styles.css overrides */
+[data-theme="light"] .text-white {
+    color: #ffffff !important;
 }
-[data-theme="light"] .btn-action-primary:hover:not(:disabled) {
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
+[data-theme="light"] .text-white-50 {
+    color: rgba(255, 255, 255, 0.5) !important;
 }
-[data-theme="light"] .btn-action-secondary {
-    background: #FFFFFF !important;
-    border-color: #E8ECF2 !important;
+[data-theme="light"] .plot-number-tooltip,
+[data-theme="light"] .plot-number-tooltip-3d,
+[data-theme="light"] .plot-number-tooltip div,
+[data-theme="light"] .plot-number-tooltip-3d div {
+    color: #000000 !important;
+}
+/* Allow navbar to still invert properly if needed */
+[data-theme="light"] #navbar .text-white {
     color: #1F2937 !important;
 }
-[data-theme="light"] .btn-action-secondary:hover {
-    background: #F8FAFC !important;
-    border-color: #D1D5DB !important;
-}
-[data-theme="light"] .distance-pill {
-    background: #FFFFFF !important;
-    color: #1F2937 !important;
-    border-color: #E8ECF2 !important;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
+[data-theme="light"] #navbar .text-white-50 {
+    color: #64748B !important;
 }
 </style>
 {% endblock %}

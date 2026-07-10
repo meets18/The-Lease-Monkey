@@ -6,13 +6,14 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
-from .models import Land, Plot, Building, LandImage, Road, EntryExitPoint
+from django.views.decorators.http import require_POST
+from .models import Land, Plot, Building, LandImage, Road, EntryExitPoint, SavedPlot
 
 User = get_user_model()
 
 
 def serialize_plot(plot):
-    return {
+    data = {
         'type': 'plot',
         'number': plot.plot_number,
         'area': plot.area,
@@ -20,7 +21,24 @@ def serialize_plot(plot):
         'facing': plot.facing,
         'status': plot.status,
         'coordinates': plot.coordinates,
+        'allotted_buyer': None,
+        'allotted_buyer_name': None,
     }
+    try:
+        from apps.core.models import PurchaseRequest
+        pr = PurchaseRequest.objects.filter(
+            land=plot.land, 
+            plot_number=plot.plot_number, 
+            status__in=['approved', 'lease_active']
+        ).first()
+        if pr:
+            data['allotted_buyer'] = pr.buyer.username
+            data['allotted_buyer_name'] = pr.full_name
+            data['purchase_request_id'] = pr.id
+    except ImportError:
+        pass
+        
+    return data
 
 
 def serialize_building(building):
@@ -75,6 +93,10 @@ def plot_viewer(request, slug):
     land_items_list = plots_list + buildings_list
 
     is_admin = request.user.is_authenticated and (request.user.role == 'ADMIN' or request.user.is_superuser or request.user == land.owner)
+    
+    saved_plots = []
+    if request.user.is_authenticated and request.user.role == 'BUYER':
+        saved_plots = list(request.user.saved_plots.filter(land=land).values_list('plot_number', flat=True))
 
     context = {
         'land': land,
@@ -84,6 +106,7 @@ def plot_viewer(request, slug):
         'land_items_json': json.dumps(land_items_list),
         'plots_list_json': json.dumps(plots_list),
         'buildings_list_json': json.dumps(buildings_list),
+        'saved_plots_json': json.dumps(saved_plots),
         'google_maps_api_key': os.getenv('GOOGLE_MAPS_API_KEY', ''),
         'is_admin': is_admin,
     }
@@ -512,6 +535,74 @@ def update_plot(request, slug, plot_number):
         
     return JsonResponse({'error': 'Invalid request method.'}, status=400)
 
+@require_POST
+@login_required
+def deallot_plot(request, slug, plot_number):
+    """De-allot a plot from a buyer by rejecting their approved purchase request."""
+    land = get_object_or_404(Land, slug=slug)
+    
+    if request.user != land.owner and not request.user.is_superuser:
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+        
+    try:
+        data = json.loads(request.body)
+        reason = data.get('reason', '').strip()
+        
+        if not reason:
+            return JsonResponse({'error': 'A reason for de-allocation is required.'}, status=400)
+            
+        from apps.core.models import PurchaseRequest, Notification
+        from django.core.mail import send_mail
+        from django.conf import settings as django_settings
+        
+        # Find the approved purchase request
+        pr = PurchaseRequest.objects.filter(
+            land=land, 
+            plot_number=plot_number, 
+            status__in=['approved', 'lease_active']
+        ).first()
+        
+        if not pr:
+            return JsonResponse({'error': 'No allotted buyer found for this plot.'}, status=404)
+            
+        # Update Purchase Request
+        pr.status = 'rejected'
+        pr.rejection_reason = reason
+        pr.save()
+        
+        # Update Plot status back to available
+        plot = land.plots.filter(plot_number=plot_number).first()
+        if plot:
+            plot.status = 'available'
+            plot.save()
+            
+        # Send Notification to Buyer
+        Notification.objects.create(
+            recipient=pr.buyer,
+            sender=request.user,
+            notif_type='purchase_request_rejected',
+            title=f"Plot {plot_number} De-allocated",
+            message=f"Your allotment for Plot {plot_number} in {land.name} has been cancelled by the landowner.\n\nReason: {reason}",
+            land_slug=land.slug,
+            plot_number=plot_number
+        )
+        
+        # Send Email to Buyer
+        try:
+            send_mail(
+                subject=f'[Lease Monkey] Plot {plot_number} De-allocation Notice',
+                message=f'Hello {pr.buyer.username},\n\nWe regret to inform you that your allotment for Plot {plot_number} in {land.name} has been cancelled by the landowner.\n\nReason for de-allocation: {reason}\n\nIf you have any questions, please contact the landowner or our support team.\n\n— The Lease Monkey Team',
+                from_email=django_settings.EMAIL_HOST_USER,
+                recipient_list=[pr.buyer.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+            
+        return JsonResponse({'status': 'ok', 'message': f'Plot {plot_number} has been de-allotted successfully.'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
 @login_required
 def save_road(request, slug):
     """Creates a new road inside the land boundary."""
@@ -740,9 +831,15 @@ def request_land_deletion(request, slug):
     if request.user != land.owner and not request.user.is_superuser:
         return JsonResponse({'error': 'Permission denied.'}, status=403)
 
-    from apps.core.models import Notification
+    if not land:
+        return JsonResponse({'error': 'Land not found.'}, status=404)
+
+    from apps.core.models import Notification, PurchaseRequest
     from django.core.mail import send_mail
     from django.conf import settings as django_settings
+
+    if PurchaseRequest.objects.filter(land=land, status__in=['approved', 'lease_active']).exists():
+        return JsonResponse({'error': 'Cannot delete land. Some plots are allotted to buyers. Please de-allot them first.'}, status=400)
 
     admins = User.objects.filter(role='ADMIN')
     if not admins.exists():
@@ -814,9 +911,13 @@ def request_plot_deletion(request, slug, plot_number):
     if not obj:
         return JsonResponse({'error': f'{item_label} not found in land {land.name}.'}, status=404)
 
-    from apps.core.models import Notification
+    from apps.core.models import Notification, PurchaseRequest
     from django.core.mail import send_mail
     from django.conf import settings as django_settings
+
+    if kind == 'plot':
+        if PurchaseRequest.objects.filter(land=land, plot_number=plot_number, status__in=['approved', 'lease_active']).exists():
+            return JsonResponse({'error': 'Cannot delete plot. Please de-allot the buyer first.'}, status=400)
 
     admins = User.objects.filter(role='ADMIN')
     if not admins.exists():
@@ -1048,39 +1149,128 @@ def purchase_request_action(request, request_id):
         reason = data.get('reason', '').strip()
         
         if action == 'fix_meeting' and pr.status == 'pending':
+            # --- Parse meeting datetime and duration sent from the modal ---
+            meeting_datetime_str = data.get('meeting_datetime', '').strip()
+            duration_minutes = int(data.get('duration_minutes', 30))
+
+            if not meeting_datetime_str:
+                return JsonResponse({'error': 'Meeting date and time are required.'}, status=400)
+
+            from django.utils import timezone as tz
+            from django.utils.dateparse import parse_datetime
+            import pytz
+
+            # Parse the ISO string from the frontend (e.g. "2026-07-12T14:30")
+            naive_dt = parse_datetime(meeting_datetime_str)
+            if naive_dt is None:
+                return JsonResponse({'error': 'Invalid date/time format.'}, status=400)
+
+            ist = pytz.timezone('Asia/Kolkata')
+            if naive_dt.tzinfo is None:
+                meeting_dt = ist.localize(naive_dt)
+            else:
+                meeting_dt = naive_dt
+
+            # --- Create Google Meet via Calendar API ---
+            meet_link = ''
+            calendar_event_id = ''
+            try:
+                from apps.core.google_calendar import create_meet_event
+                event_result = create_meet_event(
+                    title=f'Lease Monkey Meeting — Plot {pr.plot_number} in {pr.land.name}',
+                    description=(
+                        f'Purchase Request Meeting\n\n'
+                        f'Buyer: {pr.full_name} ({pr.buyer.username})\n'
+                        f'Plot: {pr.plot_number}\n'
+                        f'Land: {pr.land.name}\n'
+                        f'Proposed Amount: ₹{pr.proposed_amount}\n\n'
+                        f'{data.get("message", "")}'
+                    ),
+                    start_datetime=meeting_dt,
+                    duration_minutes=duration_minutes,
+                    attendee_emails=[pr.email, request.user.email],
+                )
+                meet_link = event_result.get('meet_link', '')
+                calendar_event_id = event_result.get('event_id', '')
+            except Exception as cal_err:
+                # Log but don't block — still schedule in our system
+                import logging
+                logging.getLogger(__name__).error(f'Google Calendar error: {cal_err}')
+
+            # --- Update the Purchase Request ---
             pr.status = 'meeting_scheduled'
+            pr.meeting_datetime = meeting_dt
+            pr.meeting_duration_mins = duration_minutes
+            pr.meet_link = meet_link
+            pr.calendar_event_id = calendar_event_id
+            pr.meeting_notes = data.get('message', '')
             pr.save()
-            
+
             # Update plot status to reserved
             plot = pr.land.plots.filter(plot_number=pr.plot_number).first()
             if plot:
                 plot.status = 'reserved'
                 plot.save()
-                
+
+            # --- In-app notification ---
+            meeting_dt_display = meeting_dt.strftime('%d %b %Y at %I:%M %p IST')
+            meet_info = f'\n\nGoogle Meet Link: {meet_link}' if meet_link else ''
             Notification.objects.create(
                 recipient=pr.buyer,
                 sender=request.user,
                 notif_type='purchase_request_meeting',
                 title=f"Meeting Scheduled for Plot {pr.plot_number}",
-                message=f"Landowner {request.user.username} has scheduled a meeting with you for Plot {pr.plot_number} in {pr.land.name}.",
+                message=(
+                    f"The landowner has scheduled a Google Meet with you for Plot {pr.plot_number} "
+                    f"in {pr.land.name}.\n\n"
+                    f"📅 Date & Time: {meeting_dt_display}\n"
+                    f"⏱ Duration: {duration_minutes} minutes"
+                    f"{meet_info}"
+                ),
                 land_slug=pr.land.slug,
                 plot_number=pr.plot_number
             )
-            
+
+            # --- Email to buyer ---
             try:
+                meet_line = f'\n\nJoin Google Meet: {meet_link}' if meet_link else ''
                 send_mail(
                     subject=f'[Lease Monkey] Meeting Scheduled — Plot {pr.plot_number}',
-                    message=f'Hello {pr.full_name},\n\nThe landowner has scheduled a meeting for your purchase request on Plot {pr.plot_number} in {pr.land.name}.\n\n— The Lease Monkey Team',
+                    message=(
+                        f'Hello {pr.full_name},\n\n'
+                        f'The landowner has scheduled a Google Meet for your purchase request.\n\n'
+                        f'📅 Date & Time: {meeting_dt_display}\n'
+                        f'⏱ Duration: {duration_minutes} minutes\n'
+                        f'🏡 Property: Plot {pr.plot_number} in {pr.land.name}'
+                        f'{meet_line}\n\n'
+                        f'— The Lease Monkey Team'
+                    ),
                     from_email=settings.EMAIL_HOST_USER,
                     recipient_list=[pr.email],
-                    fail_silently=False,
+                    fail_silently=True,
                 )
             except Exception:
                 pass
-                
-            return JsonResponse({'success': True, 'message': 'Meeting scheduled successfully.'})
+
+            response_data = {
+                'success': True,
+                'message': 'Meeting scheduled successfully.',
+                'meet_link': meet_link,
+                'meeting_datetime': meeting_dt_display,
+            }
+            return JsonResponse(response_data)
             
         elif action == 'approve' and pr.status == 'meeting_scheduled':
+            # Check if meeting has concluded
+            from datetime import timedelta
+            from django.utils import timezone
+            if pr.meeting_datetime:
+                meeting_end = pr.meeting_datetime + timedelta(minutes=pr.meeting_duration_mins)
+                if timezone.now() < meeting_end:
+                    return JsonResponse({
+                        'error': 'Cannot approve purchase request yet. The scheduled meeting has not concluded.'
+                    }, status=400)
+
             pr.status = 'approved'
             pr.save()
             
@@ -1176,3 +1366,25 @@ def purchase_request_action(request, request_id):
             
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@require_POST
+def toggle_saved_plot(request, slug, plot_number):
+    if request.user.role != 'BUYER':
+        return JsonResponse({'error': 'Only buyers can save plots.'}, status=403)
+        
+    land = get_object_or_404(Land, slug=slug)
+    
+    # Check if plot exists in this land
+    plot_exists = land.plots.filter(plot_number=plot_number).exists()
+    if not plot_exists:
+        return JsonResponse({'error': 'Plot not found in this land.'}, status=404)
+        
+    saved_plot = SavedPlot.objects.filter(user=request.user, land=land, plot_number=plot_number).first()
+    
+    if saved_plot:
+        saved_plot.delete()
+        return JsonResponse({'status': 'unsaved'})
+    else:
+        SavedPlot.objects.create(user=request.user, land=land, plot_number=plot_number)
+        return JsonResponse({'status': 'saved'})

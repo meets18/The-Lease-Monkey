@@ -72,6 +72,7 @@ def buyer_dashboard(request):
             raise PermissionDenied("You do not have access to this portal.")
             
     from apps.core.models import Notification, PurchaseRequest
+    from apps.lands.models import SavedPlot
     
     notifications = Notification.objects.filter(recipient=request.user).order_by('-created_at')
     unread_count = notifications.filter(is_read=False).count()
@@ -80,12 +81,15 @@ def buyer_dashboard(request):
     purchased_plots = purchase_requests.filter(status='approved')
     purchased_count = purchased_plots.count()
     
+    saved_plots = SavedPlot.objects.filter(user=request.user).select_related('land').order_by('-created_at')
+    
     context = {
         'notifications': notifications,
         'unread_count': unread_count,
         'purchase_requests': purchase_requests,
         'purchased_plots': purchased_plots,
         'purchased_count': purchased_count,
+        'saved_plots': saved_plots,
     }
             
     return render(request, 'accounts/buyer_dashboard.html', context)
@@ -275,16 +279,110 @@ def _process_profile_post(request, user, section):
     return None
 
 
+def _process_preferences_post(request, user):
+    """Handles updating UserPreferences."""
+    from decimal import Decimal, InvalidOperation
+    from apps.accounts.models import UserPreferences
+
+    prefs, _ = UserPreferences.objects.get_or_create(user=user)
+
+    min_budget_str = request.POST.get('min_budget', '').strip()
+    max_budget_str = request.POST.get('max_budget', '').strip()
+    min_acres_str = request.POST.get('min_acres', '').strip()
+    max_acres_str = request.POST.get('max_acres', '').strip()
+    property_condition = request.POST.get('property_condition', 'no_preference').strip()
+    
+    proximity_preferences = request.POST.getlist('proximity_preferences')
+
+    min_budget = None
+    max_budget = None
+    min_acres = None
+    max_acres = None
+
+    errors = {}
+
+    if min_budget_str:
+        try:
+            min_budget = Decimal(min_budget_str)
+            if min_budget < 0:
+                errors['min_budget'] = "Minimum budget cannot be negative."
+        except (InvalidOperation, ValueError):
+            errors['min_budget'] = "Invalid minimum budget value."
+
+    if max_budget_str:
+        try:
+            max_budget = Decimal(max_budget_str)
+            if max_budget < 0:
+                errors['max_budget'] = "Maximum budget cannot be negative."
+        except (InvalidOperation, ValueError):
+            errors['max_budget'] = "Invalid maximum budget value."
+
+    if min_acres_str:
+        try:
+            min_acres = Decimal(min_acres_str)
+            if min_acres < 0:
+                errors['min_acres'] = "Minimum acres cannot be negative."
+        except (InvalidOperation, ValueError):
+            errors['min_acres'] = "Invalid minimum acres value."
+
+    if max_acres_str:
+        try:
+            max_acres = Decimal(max_acres_str)
+            if max_acres < 0:
+                errors['max_acres'] = "Maximum acres cannot be negative."
+        except (InvalidOperation, ValueError):
+            errors['max_acres'] = "Invalid maximum acres value."
+
+    if not errors:
+        if min_budget is not None and max_budget is not None and min_budget > max_budget:
+            errors['min_budget'] = "Minimum budget cannot exceed maximum budget."
+        if min_acres is not None and max_acres is not None and min_acres > max_acres:
+            errors['min_acres'] = "Minimum acres cannot exceed maximum acres."
+
+    if errors:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'status': 'error', 'errors': errors}, status=400)
+        for field, msg in errors.items():
+            messages.error(request, msg)
+        return None
+
+    # Save preferences
+    prefs.min_budget = min_budget
+    prefs.max_budget = max_budget
+    prefs.min_acres = min_acres
+    prefs.max_acres = max_acres
+    prefs.property_condition = property_condition
+    prefs.proximity_preferences = proximity_preferences
+    prefs.save()
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'done', 'message': 'Preferences updated successfully.'})
+
+    messages.success(request, 'Preferences updated successfully.')
+    return None
+
+
 @login_required
 def profile(request):
     user = request.user
     section = request.GET.get('section', 'personal')
+    
+    from apps.accounts.models import UserPreferences
+    prefs, _ = UserPreferences.objects.get_or_create(user=user)
+    
     if request.method == 'POST':
-        result = _process_profile_post(request, user, section)
-        if result:
-            return result
+        if section == 'preferences':
+            result = _process_preferences_post(request, user)
+            if result:
+                return result
+            return redirect(request.path + '?section=preferences')
+        else:
+            result = _process_profile_post(request, user, section)
+            if result:
+                return result
     return render(request, 'accounts/profile.html', {
         'active_section': section,
+        'preferences': prefs,
     })
 
 
@@ -303,7 +401,10 @@ def landowner_profile(request):
 
 @login_required
 def preferences(request):
-    return render(request, 'accounts/preferences.html')
+    from django.urls import reverse
+    if request.user.role == 'LAND_OWNER':
+        return redirect(reverse('landowner_profile'))
+    return redirect(reverse('profile') + '?section=preferences')
 
 
 @login_required

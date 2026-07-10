@@ -64,10 +64,13 @@ def _handle_approve(request, notif):
     item_label = '(unknown)'
 
     try:
+        from apps.core.models import PurchaseRequest
         if notif.notif_type == 'land_delete_request':
             land = Land.objects.get(slug=notif.land_slug)
             land_name = land.name
             item_label = f"Land: {land_name}"
+            if PurchaseRequest.objects.filter(land=land, status__in=['approved', 'lease_active']).exists():
+                return JsonResponse({'error': 'Cannot approve deletion. Some plots are allotted to buyers. Please de-allot them first.'}, status=400)
             land.delete()
 
         elif notif.notif_type == 'plot_delete_request':
@@ -81,6 +84,8 @@ def _handle_approve(request, notif):
             else:
                 obj = land.plots.filter(plot_number=plot_num).first()
                 item_label = f"Plot {plot_num} in {land_name}"
+                if PurchaseRequest.objects.filter(land=land, plot_number=plot_num, status__in=['approved', 'lease_active']).exists():
+                    return JsonResponse({'error': 'Cannot approve deletion. This plot is allotted to a buyer. Please de-allot them first.'}, status=400)
             if obj:
                 obj.delete()
             else:

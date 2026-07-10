@@ -79,11 +79,23 @@ class PurchaseRequest(models.Model):
     status          = models.CharField(max_length=30, choices=STATUS_CHOICES, default='pending')
     rejection_reason = models.TextField(blank=True)
     meeting_notes   = models.TextField(blank=True)
+    meet_link       = models.URLField(blank=True, null=True)
+    meeting_datetime = models.DateTimeField(blank=True, null=True)
+    meeting_duration_mins = models.PositiveIntegerField(default=30)
+    calendar_event_id = models.CharField(max_length=200, blank=True, null=True)
     created_at      = models.DateTimeField(auto_now_add=True)
     updated_at      = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
+
+    @property
+    def is_meeting_finished(self):
+        if not self.meeting_datetime:
+            return True
+        from datetime import timedelta
+        from django.utils import timezone
+        return timezone.now() >= self.meeting_datetime + timedelta(minutes=self.meeting_duration_mins)
 
     def __str__(self):
         return f"PurchaseRequest by {self.buyer.username} for Plot {self.plot_number} in {self.land.name}"

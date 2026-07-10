@@ -64,6 +64,12 @@
                     <option value="sold">Booked</option>
                     </select>
                 </div>
+                
+                <!-- De-allot section (hidden by default) -->
+                <div id="plotBuyerInfo" class="alert alert-warning border border-warning bg-dark-glow text-white fs-11 mb-3 py-2" style="display: none;">
+                    <div class="mb-2"><strong>Allotted To:</strong> <span id="lblPlotBuyer"></span></div>
+                    <button type="button" onclick="deallotSelectedPlot()" class="btn btn-sm btn-danger w-100 fs-12 fw-bold">De-allot User</button>
+                </div>
 
                 <!-- Drawing State Banner -->
                 <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-11 mb-3 py-2 text-center" role="alert">
@@ -970,6 +976,16 @@
         document.getElementById('plot_area').value = plot.area.replace(' sqft', '');
         document.getElementById('plot_status').value = plot.status;
         document.getElementById('plot_price').value = Math.round(Number(plot.price));
+        
+        if (plot.allotted_buyer) {
+            document.getElementById('plotBuyerInfo').style.display = 'block';
+            document.getElementById('lblPlotBuyer').innerText = `${plot.allotted_buyer_name} (${plot.allotted_buyer})`;
+            document.getElementById('plot_status').disabled = true;
+        } else {
+            document.getElementById('plotBuyerInfo').style.display = 'none';
+            document.getElementById('plot_status').disabled = false;
+        }
+        
         handlePlotStatusChange();
 
         const btnSave = document.getElementById('btnSavePlot');
@@ -988,6 +1004,8 @@
         document.getElementById('plot_area').value = '';
         document.getElementById('plot_price').value = '';
         document.getElementById('plot_status').selectedIndex = 0;
+        document.getElementById('plot_status').disabled = false;
+        document.getElementById('plotBuyerInfo').style.display = 'none';
         handlePlotStatusChange();
 
         const btnSave = document.getElementById('btnSavePlot');
@@ -999,6 +1017,41 @@
             "Click corner points directly on the map to trace this plot's outline.";
         
         clearPlotPoints();
+    }
+    
+    function deallotSelectedPlot() {
+        if (!editingPlotNumber) return;
+        
+        const reason = prompt(`Please enter the reason for de-alloting Plot ${editingPlotNumber} (an email will be sent):`);
+        if (reason === null) return;
+        if (reason.trim() === '') {
+            alert("A reason is required to de-allot the user.");
+            return;
+        }
+        
+        if (confirm(`Are you sure you want to de-allot Plot ${editingPlotNumber} and mark it as Available?`)) {
+            fetch(`/lands/plots-creator/{{ land.slug }}/deallot/${encodeURIComponent(editingPlotNumber)}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ reason: reason.trim() })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    alert("Error: " + data.error);
+                } else {
+                    alert(data.message);
+                    location.reload(); // Reload to refresh plot data and map
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Network error occurred.");
+            });
+        }
     }
 
     // ==========================================

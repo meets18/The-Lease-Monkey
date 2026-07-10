@@ -288,6 +288,68 @@
     cursor: not-allowed;
 }
 
+/* Custom Segmented Radio Buttons for Preferences */
+.property-condition-selector {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 5px;
+}
+
+.condition-btn-input {
+    display: none;
+}
+
+.condition-btn-label {
+    padding: 10px 18px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    color: #94A3B8;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.condition-btn-label:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.16);
+    color: #E2E8F0;
+}
+
+.condition-btn-input:checked + .condition-btn-label {
+    background: rgba(255, 94, 0, 0.15);
+    border-color: #FF5E00;
+    color: #FF5E00;
+    box-shadow: 0 0 12px rgba(255, 94, 0, 0.2);
+    font-weight: 600;
+}
+
+/* Light Theme Styling overrides */
+[data-theme="light"] .condition-btn-label {
+    background: #F3F4F6;
+    border-color: #E5E7EB;
+    color: #4B5563;
+}
+
+[data-theme="light"] .condition-btn-label:hover {
+    background: #E5E7EB;
+    border-color: #D1D5DB;
+    color: #1F2937;
+}
+
+[data-theme="light"] .condition-btn-input:checked + .condition-btn-label {
+    background: rgba(255, 94, 0, 0.1);
+    border-color: #FF5E00;
+    color: #FF5E00;
+    box-shadow: 0 0 8px rgba(255, 94, 0, 0.15);
+}
+
 /* ── Form Buttons ─────────────────────────────────────────── */
 .profile-form-actions {
     display: flex;
@@ -831,6 +893,13 @@
                 </a>
             </li>
             <li>
+                <a href="?section=preferences"
+                   class="profile-sidebar-item {% if active_section == 'preferences' %}active{% endif %}"
+                   data-section="preferences">
+                    <i class="bi bi-sliders2"></i> <span>Preferences</span>
+                </a>
+            </li>
+            <li>
                 <a href="?section=security"
                    class="profile-sidebar-item {% if active_section == 'security' %}active{% endif %}"
                    data-section="security">
@@ -959,6 +1028,143 @@
                     <button type="button" class="btn-profile-edit" onclick="enableEditing()">
                         <i class="bi bi-pencil"></i> Edit Profile
                     </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ═══ PREFERENCES ═══ -->
+        <div class="profile-section {% if active_section == 'preferences' %}active{% endif %}" id="section-preferences">
+            <div class="profile-header">
+                <h1>Preferences</h1>
+                <p>Customize your search and leasing criteria.</p>
+            </div>
+
+            <form method="post" class="profile-card" id="preferencesForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_preferences">
+
+                <!-- Budget Section -->
+                <div class="mb-4">
+                    <h3 class="font-ranade text-white fs-16 border-bottom border-secondary-glow pb-2 mb-3">Budget</h3>
+                    <div class="profile-form-grid">
+                        <div class="profile-form-group">
+                            <label for="prefMinBudget">Min Budget (INR)</label>
+                            <input type="number" name="min_budget" id="prefMinBudget" class="profile-input" 
+                                   value="{{ preferences.min_budget|default:'' }}" placeholder="e.g. 10000" min="0" step="any">
+                            <small class="text-white-50 fs-11">Enter minimum INR amount.</small>
+                            <div class="invalid-feedback text-danger fs-12 mt-1" id="error-min_budget" style="display:none;"></div>
+                        </div>
+                        <div class="profile-form-group">
+                            <label for="prefMaxBudget">Max Budget (INR)</label>
+                            <input type="number" name="max_budget" id="prefMaxBudget" class="profile-input" 
+                                   value="{{ preferences.max_budget|default:'' }}" placeholder="e.g. 500000" min="0" step="any">
+                            <small class="text-white-50 fs-11">Enter maximum INR amount.</small>
+                            <div class="invalid-feedback text-danger fs-12 mt-1" id="error-max_budget" style="display:none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Land Size Section -->
+                <div class="mb-4">
+                    <h3 class="font-ranade text-white fs-16 border-bottom border-secondary-glow pb-2 mb-3">Land Size</h3>
+                    <div class="profile-form-grid">
+                        <div class="profile-form-group">
+                            <label for="prefMinAcres">Min Acres</label>
+                            <input type="number" name="min_acres" id="prefMinAcres" class="profile-input" 
+                                   value="{{ preferences.min_acres|default:'' }}" placeholder="e.g. 0.5" min="0" step="0.01">
+                            <small class="text-white-50 fs-11">Enter land area in acres.</small>
+                            <div class="invalid-feedback text-danger fs-12 mt-1" id="error-min_acres" style="display:none;"></div>
+                        </div>
+                        <div class="profile-form-group">
+                            <label for="prefMaxAcres">Max Acres</label>
+                            <input type="number" name="max_acres" id="prefMaxAcres" class="profile-input" 
+                                   value="{{ preferences.max_acres|default:'' }}" placeholder="e.g. 10" min="0" step="0.01">
+                            <small class="text-white-50 fs-11">Enter land area in acres.</small>
+                            <div class="invalid-feedback text-danger fs-12 mt-1" id="error-max_acres" style="display:none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Property Preference Section -->
+                <div class="mb-4">
+                    <h3 class="font-ranade text-white fs-16 border-bottom border-secondary-glow pb-2 mb-3">Property Preference</h3>
+                    <div class="profile-form-group full-width">
+                        <label class="mb-1">Property Condition</label>
+                        <div class="property-condition-selector" id="prefPropertyCondition">
+                            <input type="radio" name="property_condition" value="no_preference" id="condNoPref" class="condition-btn-input"
+                                   {% if preferences.property_condition == 'no_preference' or not preferences.property_condition %}checked{% endif %}>
+                            <label for="condNoPref" class="condition-btn-label">No Preference</label>
+
+                            <input type="radio" name="property_condition" value="never_leased" id="condNever" class="condition-btn-input"
+                                   {% if preferences.property_condition == 'never_leased' %}checked{% endif %}>
+                            <label for="condNever" class="condition-btn-label">Never Leased</label>
+
+                            <input type="radio" name="property_condition" value="previously_leased" id="condPrev" class="condition-btn-input"
+                                   {% if preferences.property_condition == 'previously_leased' %}checked{% endif %}>
+                            <label for="condPrev" class="condition-btn-label">Previously Leased</label>
+                        </div>
+                        <small class="text-white-50 fs-11 mt-1">Desired leasing history of the land.</small>
+                    </div>
+                </div>
+
+                <!-- Proximity Preferences Section -->
+                <div class="mb-4">
+                    <h3 class="font-ranade text-white fs-16 border-bottom border-secondary-glow pb-2 mb-3">Preferred Nearby Infrastructure</h3>
+                    <div class="row g-3 px-1">
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="proximity_preferences" value="school" id="proxSchool"
+                                       {% if 'school' in preferences.proximity_preferences %}checked{% endif %}>
+                                <label class="form-check-label text-muted-glow fs-14" for="proxSchool">School</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="proximity_preferences" value="highway" id="proxHighway"
+                                       {% if 'highway' in preferences.proximity_preferences %}checked{% endif %}>
+                                <label class="form-check-label text-muted-glow fs-14" for="proxHighway">Highway</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="proximity_preferences" value="hospital" id="proxHospital"
+                                       {% if 'hospital' in preferences.proximity_preferences %}checked{% endif %}>
+                                <label class="form-check-label text-muted-glow fs-14" for="proxHospital">Hospital</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="proximity_preferences" value="railway" id="proxRailway"
+                                       {% if 'railway' in preferences.proximity_preferences %}checked{% endif %}>
+                                <label class="form-check-label text-muted-glow fs-14" for="proxRailway">Railway Station</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="proximity_preferences" value="airport" id="proxAirport"
+                                       {% if 'airport' in preferences.proximity_preferences %}checked{% endif %}>
+                                <label class="form-check-label text-muted-glow fs-14" for="proxAirport">Airport</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="proximity_preferences" value="city_center" id="proxCityCenter"
+                                       {% if 'city_center' in preferences.proximity_preferences %}checked{% endif %}>
+                                <label class="form-check-label text-muted-glow fs-14" for="proxCityCenter">City Center</label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="proximity_preferences" value="water_source" id="proxWater"
+                                       {% if 'water_source' in preferences.proximity_preferences %}checked{% endif %}>
+                                <label class="form-check-label text-muted-glow fs-14" for="proxWater">Water Source</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-form-actions">
+                    <button type="submit" class="btn-profile-save">Save Preferences</button>
                 </div>
             </form>
         </div>
@@ -1325,5 +1531,97 @@ document.addEventListener('keydown', function(e) {
         closeOtpModal();
     }
 });
+
+// ═══════════════════════════════════════════════════════════════
+// USER PREFERENCES AJAX SUBMISSION
+// ═══════════════════════════════════════════════════════════════
+function showProfileAlert(msg, type = 'success') {
+    var container = document.querySelector('.profile-messages');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'profile-messages';
+        container.style.maxWidth = '1200px';
+        container.style.margin = '76px auto 0';
+        container.style.padding = '0 40px';
+        var wrapper = document.querySelector('.profile-page-wrapper');
+        wrapper.parentNode.insertBefore(container, wrapper);
+    }
+    container.innerHTML = '<div class="alert alert-' + (type === 'danger' ? 'error' : type) + '">' + msg + '</div>';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+var prefForm = document.getElementById('preferencesForm');
+if (prefForm) {
+    prefForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // Clear previous errors
+        document.querySelectorAll('#preferencesForm .invalid-feedback').forEach(function(el) {
+            el.textContent = '';
+            el.style.display = 'none';
+        });
+        document.querySelectorAll('#preferencesForm .profile-input').forEach(function(el) {
+            el.classList.remove('is-invalid');
+        });
+
+        var formData = new FormData(this);
+
+        fetch(window.location.pathname + '?section=preferences', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: formData
+        })
+        .then(function(r) {
+            return r.json().catch(function() { return {}; }).then(function(data) {
+                return { status: r.status, body: data };
+            });
+        })
+        .then(function(res) {
+            if (res.status === 400) {
+                var errors = res.body.errors || {};
+                var firstErrField = null;
+                for (var field in errors) {
+                    if (!firstErrField) firstErrField = field;
+                    var errEl = document.getElementById('error-' + field);
+                    // Match camelCase ID format (e.g. prefMinBudget)
+                    var idSuffix = field.split('_').map(function(w) {
+                        return w.charAt(0).toUpperCase() + w.slice(1);
+                    }).join('');
+                    var inputEl = document.getElementById('pref' + idSuffix);
+
+                    if (errEl) {
+                        errEl.textContent = errors[field];
+                        errEl.style.display = 'block';
+                    }
+                    if (inputEl) {
+                        inputEl.classList.add('is-invalid');
+                    }
+                }
+                showProfileAlert('Please correct the validation errors below.', 'danger');
+                if (firstErrField) {
+                    var targetSuffix = firstErrField.split('_').map(function(w) {
+                        return w.charAt(0).toUpperCase() + w.slice(1);
+                    }).join('');
+                    var targetInput = document.getElementById('pref' + targetSuffix);
+                    if (targetInput) targetInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            } else if (res.status === 200 && res.body.status === 'done') {
+                showProfileAlert(res.body.message || 'Preferences updated successfully!', 'success');
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showProfileAlert(res.body.error || 'Something went wrong. Please try again.', 'danger');
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+            showProfileAlert('Network error occurred.', 'danger');
+        });
+    });
+}
 </script>
 {% endblock %}

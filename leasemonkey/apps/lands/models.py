@@ -178,6 +178,19 @@ class EntryExitPoint(models.Model):
     def __str__(self):
         return f"{self.get_point_type_display()}: {self.name} - {self.land.name}"
 
+class SavedPlot(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='saved_plots')
+    land = models.ForeignKey(Land, on_delete=models.CASCADE, related_name='saved_by_users')
+    plot_number = models.CharField(max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'land', 'plot_number')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} saved {self.plot_number} in {self.land.name}"
+
 # Signal handlers to clean up physical storage files on model instance deletions
 from django.db.models.signals import post_delete
 from django.dispatch import receiver

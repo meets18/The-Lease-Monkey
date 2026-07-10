@@ -161,3 +161,8 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'The Lease Monkey <noreply@
 ADMIN_EMAIL     = os.getenv('ADMIN_EMAIL', '')
 LANDOWNER_EMAIL = os.getenv('LANDOWNER_EMAIL', '')
 
+# ─── Google Calendar / Meet OAuth ─────────────────────────────────────────────
+GOOGLE_CLIENT_ID     = os.getenv('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+GOOGLE_REFRESH_TOKEN = os.getenv('GOOGLE_REFRESH_TOKEN', '')
+GOOGLE_CALENDAR_EMAIL = os.getenv('GOOGLE_CALENDAR_EMAIL', 'the1leasemonkey@gmail.com')
