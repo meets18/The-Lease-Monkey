@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Verify Email — The Lease Monkey{% endblock %}
+
+{% block content %}
+<div class="container d-flex align-items-center justify-content-center min-vh-100 py-5" style="position: relative; z-index: 10;">
+    <div class="login-card p-4 p-md-5 rounded-4 border border-secondary-glow bg-dark-glow shadow-lg max-w-500 w-100 mt-4">
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <i class="bi bi-shield-check text-primary-glow fs-1 mb-2 d-inline-block"></i>
+            <h2 class="font-ranade text-white fw-bold mb-1 fs-26">VERIFY EMAIL</h2>
+            <p class="text-muted-glow fs-13">Enter the 6-digit OTP sent to your registered email</p>
+        </div>
+
+        <!-- Messages / Errors -->
+        {% if messages %}
+            <div class="mb-3">
+                {% for message in messages %}
+                    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} bg-opacity-10 border border-opacity-35 py-2 px-3 rounded fs-13 text-center" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <!-- OTP Form -->
+        <form method="POST" action="{% url 'verify_email' %}" autocomplete="off">
+            {% csrf_token %}
+            
+            <!-- OTP field -->
+            <div class="mb-4">
+                <label for="otp" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">6-Digit Verification Code</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-dark-glow border-secondary-glow text-muted-glow"><i class="bi bi-lock"></i></span>
+                    <input type="text" class="form-control bg-dark-glow border-secondary-glow text-white fs-16 py-2.5 text-center letter-spacing-10 fw-bold" id="otp" name="otp" required maxlength="6" placeholder="000000">
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider mb-3">
+                Verify OTP & Continue <i class="bi bi-arrow-right ms-1"></i>
+            </button>
+
+            <!-- Back to Signup / Login link -->
+            <div class="text-center mt-3 fs-13">
+                <a href="{% url 'buyer_login' %}" class="text-muted-glow hover-white text-decoration-none">
+                    <i class="bi bi-arrow-left me-1"></i> Return to Login
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.max-w-500 {
+    max-width: 500px;
+}
+.login-card {
+    backdrop-filter: blur(15px);
+}
+.letter-spacing-10 {
+    letter-spacing: 6px;
+}
+.alert-danger {
+    color: #ff4a4a !important;
+    background-color: rgba(255, 74, 74, 0.08) !important;
+    border-color: rgba(255, 74, 74, 0.25) !important;
+}
+.alert-success {
+    color: #00ffc4 !important;
+    background-color: rgba(0, 255, 196, 0.08) !important;
+    border-color: rgba(0, 255, 196, 0.25) !important;
+}
+.input-group-text {
+    border-right: none !important;
+}
+.form-control:focus {
+    background-color: rgba(17, 24, 39, 0.8) !important;
+    border-color: #FF5E00 !important;
+    box-shadow: 0 0 10px rgba(255, 94, 0, 0.3) !important;
+    color: #ffffff !important;
+}
+[data-theme="light"] .form-control:focus {
+    background-color: #FFFFFF !important;
+    border-color: #F59E0B !important;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
+    color: #1F2937 !important;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,78 @@
+from django.test import TestCase, Client
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from apps.core.models import EmailOTP, PurchaseRequest
+from apps.lands.models import Land, Plot
+import json
+
+User = get_user_model()
+
+class PurchaseRequestFormTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.buyer = User.objects.create_user(
+            username='pr_buyer',
+            email='pr_buyer@test.com',
+            password='Password123!',
+            role='BUYER',
+            phone_number='+919876543210',
+            is_verified=True
+        )
+        self.owner = User.objects.create_user(
+            username='pr_owner',
+            email='pr_owner@test.com',
+            password='Password123!',
+            role='LAND_OWNER',
+            is_verified=True
+        )
+        self.land = Land.objects.create(
+            name="Test Land",
+            owner=self.owner,
+            slug="test-land",
+            area=10.0,
+            average_plot_price=1500000
+        )
+        self.plot = Plot.objects.create(
+            land=self.land,
+            plot_number="Plot101",
+            price=1500000,
+            status="available",
+            area="1500 sqft",
+            coordinates=[[26.9, 75.8], [26.91, 75.8], [26.91, 75.81], [26.9, 75.8]]
+        )
+
+    def test_submit_purchase_request_without_otp(self):
+        self.client.login(username='pr_buyer', password='Password123!')
+        payload = {
+            'full_name': 'PR Buyer',
+            'aadhaar_number': '123456789012',
+            'pan_number': 'ABCDE1234F',
+            'proposed_amount': 1500000
+        }
+        url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
+        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('not verified', response.json()['error'])
+
+    def test_submit_purchase_request_success(self):
+        self.client.login(username='pr_buyer', password='Password123!')
+        
+        # Pre-verify with EmailOTP
+        EmailOTP.objects.create(email='pr_buyer@test.com', otp_code='123456', is_used=True)
+        
+        payload = {
+            'full_name': 'PR Buyer',
+            'aadhaar_number': '123456789012',
+            'pan_number': 'ABCDE1234F',
+            'proposed_amount': 1450000
+        }
+        url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
+        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify created request attributes (should pull email/phone from logged in buyer user)
+        pr = PurchaseRequest.objects.get(buyer=self.buyer, land=self.land, plot_number="Plot101")
+        self.assertEqual(pr.email, 'pr_buyer@test.com')
+        self.assertEqual(pr.phone_number, '+919876543210')
+        self.assertEqual(pr.proposed_amount, 1450000)

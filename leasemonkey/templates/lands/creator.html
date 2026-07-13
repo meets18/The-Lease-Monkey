@@ -13,61 +13,82 @@
     <div id="mapCreator" style="width: 100%; height: calc(100vh - 75px); background: #0b0e14;"></div>
 
     <!-- Floating Drawing Tool Control Panel (Left Sidebar Overlay) -->
-    <div class="creator-card glass-panel shadow-2xl p-4 text-white font-opensans" style="position: absolute; top: 95px; left: 20px; z-index: 1000; width: 340px;">
-        <div class="border-bottom border-secondary-glow pb-3 mb-3">
-            <h4 class="font-ranade fw-bold text-white mb-1"><i class="bi bi-pencil-fill text-cyan-glow me-2"></i>Boundary Plotter</h4>
-            <p class="text-muted-glow fs-13 mb-0">Trace the corners of your property to draw its boundaries.</p>
+    <div class="creator-card" style="position: absolute; top: 95px; left: 20px; z-index: 1000; width: 360px; max-height: calc(100vh - 120px); overflow-y: auto; overscroll-behavior: contain;">
+        <!-- Header -->
+        <div class="creator-header">
+            <h4 class="creator-title">Boundary Plotter</h4>
+            <p class="creator-subtitle">Draw the outer boundary of your property.</p>
         </div>
 
-        <!-- Metadata Properties -->
-        <div class="mb-3 fs-13">
-            <div class="d-flex justify-content-between mb-1">
-                <span class="text-white-50">Property Name:</span>
-                <strong class="text-white" id="lblLandName">-</strong>
-            </div>
-            <div class="d-flex justify-content-between mb-1">
-                <span class="text-white-50">Land Owner:</span>
-                <strong class="text-white" id="lblLandOwner">-</strong>
-            </div>
-            <div class="d-flex justify-content-between mb-1">
-                <span class="text-white-50">Average Price:</span>
-                <strong class="text-cyan-glow" id="lblLandPrice">-</strong>
-            </div>
-            <div class="d-flex justify-content-between">
-                <span class="text-white-50">Target Location:</span>
-                <strong class="text-white text-truncate max-w-180" id="lblLandLocation" title="">-</strong>
+        <div class="creator-divider"></div>
+
+        <!-- Property Section -->
+        <div class="creator-section">
+            <div class="creator-section-label">Property</div>
+            <div class="creator-prop-grid">
+                <div class="creator-prop-item">
+                    <span class="creator-prop-label">Property Name</span>
+                    <strong class="creator-prop-value" id="lblLandName">-</strong>
+                </div>
+                <div class="creator-prop-item">
+                    <span class="creator-prop-label">Owner</span>
+                    <strong class="creator-prop-value" id="lblLandOwner">-</strong>
+                </div>
+                <div class="creator-prop-item">
+                    <span class="creator-prop-label">Avg Price</span>
+                    <strong class="creator-prop-value creator-price" id="lblLandPrice">-</strong>
+                </div>
+                <div class="creator-prop-item">
+                    <span class="creator-prop-label">Location</span>
+                    <strong class="creator-prop-value text-truncate" id="lblLandLocation" title="">-</strong>
+                </div>
             </div>
         </div>
 
-        <!-- Live Area Calculations -->
-        <div class="area-badge-panel p-3 rounded-3 mb-3 border border-secondary-glow text-center">
-            <span class="fs-11 text-uppercase tracking-wider text-secondary-glow d-block mb-1">Calculated Land Area</span>
-            <span class="fs-24 font-ranade fw-bold text-white d-block mb-1" id="lblCalculatedArea">0.00 Acres</span>
-            <span class="fs-12 text-white-50 d-block" id="lblCalculatedSqFt">0 sq ft</span>
-            <span class="badge bg-dark-glow border border-secondary-glow mt-2 fs-11 text-cyan-glow" id="lblCornerCount">Drawn Corners: 0</span>
+        <div class="creator-divider"></div>
+
+        <!-- Boundary Status (Highlighted Area Card) -->
+        <div class="creator-section">
+            <div class="creator-section-label">Boundary Status</div>
+            <div class="creator-area-card">
+                <div class="creator-area-number" id="lblCalculatedArea">0.00 Acres</div>
+                <div class="creator-area-sqft" id="lblCalculatedSqFt">0 sq ft</div>
+                <div class="creator-area-badge" id="lblCornerCount">Boundary Points: 0</div>
+            </div>
         </div>
 
-        <!-- Mode status banner -->
-        <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-12 mb-3 py-2 text-center" role="alert">
-            <i class="bi bi-info-circle-fill text-cyan-glow me-1"></i>
-            Click points directly on the map to define the outer corners.
+        <div class="creator-divider"></div>
+
+        <!-- Instructions -->
+        <div class="creator-section">
+            <div class="creator-section-label">Instructions</div>
+            <ul class="creator-instructions">
+                <li><i class="bi bi-check-circle-fill"></i> Click map to add a corner point</li>
+                <li><i class="bi bi-check-circle-fill"></i> Minimum 3 corners required</li>
+                <li><i class="bi bi-check-circle-fill"></i> Use <strong>Undo</strong> to remove the last point</li>
+                <li><i class="bi bi-check-circle-fill"></i> Press <strong>Save</strong> when complete</li>
+            </ul>
         </div>
 
-        <!-- Form action buttons -->
-        <div class="d-flex gap-2 mb-2">
-            <button type="button" onclick="undoPoint();" class="btn btn-action-secondary w-50 py-2 fs-12 text-uppercase fw-bold">
-                <i class="bi bi-arrow-counterclockwise me-1"></i> Undo
+        <div class="creator-divider"></div>
+
+        <!-- Actions -->
+        <div class="creator-actions">
+            <button type="button" onclick="submitLandLayout();" disabled id="btnSaveLand" class="creator-btn-primary">
+                Save Boundary <i class="bi bi-check2 ms-1"></i>
             </button>
-            <button type="button" onclick="clearPoints();" class="btn btn-action-secondary w-50 py-2 fs-12 text-uppercase fw-bold">
-                <i class="bi bi-trash-fill me-1"></i> Clear
-            </button>
+            <div class="creator-btn-row">
+                <button type="button" onclick="undoPoint();" class="creator-btn-secondary">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Undo
+                </button>
+                <button type="button" onclick="clearPoints();" class="creator-btn-danger">
+                    <i class="bi bi-trash3 me-1"></i> Clear
+                </button>
+            </div>
+            <a href="{% url 'lands:discard_land_draft' slug=land.slug %}" onclick="return confirm('Exit boundary workspace? If boundary is not saved, this land draft will be discarded.');" class="creator-btn-ghost">
+                Cancel &amp; Exit
+            </a>
         </div>
-        <button type="button" id="btnSaveLand" onclick="submitLandLayout();" disabled class="btn btn-action-primary w-100 py-2.5 fs-13 text-uppercase fw-bold">
-            Next: Add Plots <i class="bi bi-arrow-right ms-1"></i>
-        </button>
-        <a href="{% url 'lands:discard_land_draft' slug=land.slug %}" onclick="return confirm('Exit boundary workspace? If boundary is not saved, this land draft will be discarded.');" class="btn btn-link text-white-50 fs-12 w-100 text-center text-decoration-none mt-2">
-            <i class="bi bi-x-circle me-1"></i> Cancel & Exit
-        </a>
     </div>
 </div>
 
@@ -338,7 +359,7 @@
 
         const saveButton = document.getElementById('btnSaveLand');
         saveButton.disabled = true;
-        saveButton.innerHTML = 'Registering <span class="spinner-border spinner-border-sm ms-1" role="status" aria-hidden="true"></span>';
+        saveButton.innerHTML = 'Saving <span class="spinner-border spinner-border-sm ms-1" role="status" aria-hidden="true"></span>';
 
         fetch("{% url 'lands:save_land_layout' %}", {
             method: 'POST',
@@ -355,63 +376,298 @@
             } else {
                 alert("Error registering land: " + res.error);
                 saveButton.disabled = false;
-                saveButton.innerHTML = 'Next: Add Plots <i class="bi bi-arrow-right ms-1"></i>';
+                saveButton.innerHTML = 'Save Boundary <i class="bi bi-check2 ms-1"></i>';
             }
         })
         .catch(err => {
             console.error("AJAX Error: ", err);
             alert("Error sending layout to server.");
             saveButton.disabled = false;
-            saveButton.innerHTML = 'Next: Add Plots <i class="bi bi-arrow-right ms-1"></i>';
+            saveButton.innerHTML = 'Save Boundary <i class="bi bi-check2 ms-1"></i>';
         });
     }
 </script>
 
 <style>
 .creator-card {
-    border: 1px solid rgba(0, 255, 196, 0.15);
-    backdrop-filter: blur(15px);
+    background: #FFFFFF;
     border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.10);
+    padding: 24px;
+    font-family: 'Open Sans', sans-serif;
+    color: #222831;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
 }
-.area-badge-panel {
-    background: rgba(30, 41, 59, 0.4);
+.creator-card::-webkit-scrollbar { width: 4px; }
+.creator-card::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }
+.creator-header {
+    margin-bottom: 8px;
 }
-.btn-action-primary {
-    background: linear-gradient(135deg, #00b2ff, #00ffc4);
+.creator-title {
+    font-family: 'Ranade', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #222831;
+    margin: 0 0 4px;
+}
+.creator-subtitle {
+    font-size: 13px;
+    color: #6B7280;
+    margin: 0;
+}
+.creator-divider {
+    height: 1px;
+    background: #E5E7EB;
+    margin: 20px 0;
+}
+.creator-section {
+    margin-bottom: 4px;
+}
+.creator-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9CA3AF;
+    margin-bottom: 14px;
+}
+.creator-prop-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.creator-prop-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.creator-prop-label {
+    font-size: 13px;
+    color: #6B7280;
+}
+.creator-prop-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #222831;
+    max-width: 180px;
+    text-align: right;
+}
+.creator-prop-value.creator-price {
+    color: var(--accent-orange, #F59E0B);
+}
+.creator-area-card {
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+}
+.creator-area-number {
+    font-family: 'Ranade', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: #222831;
+    line-height: 1.2;
+    margin-bottom: 4px;
+}
+.creator-area-sqft {
+    font-size: 13px;
+    color: #6B7280;
+    margin-bottom: 8px;
+}
+.creator-area-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent-orange, #F59E0B);
+    background: rgba(245, 158, 11, 0.08);
+    padding: 3px 10px;
+    border-radius: 20px;
+}
+.creator-instructions {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.creator-instructions li {
+    font-size: 13px;
+    color: #4B5563;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.creator-instructions li i {
+    font-size: 12px;
+    color: #9CA3AF;
+    flex-shrink: 0;
+}
+.creator-instructions li strong {
+    color: #222831;
+    font-weight: 600;
+}
+.creator-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.creator-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 20px;
     border: none;
-    color: #1E293B;
-    transition: all 0.3s ease;
+    border-radius: 8px;
+    background: var(--accent-orange, #F59E0B);
+    color: #FFFFFF;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
 }
-.btn-action-primary:hover:not(:disabled) {
-    box-shadow: 0 0 15px rgba(0, 255, 196, 0.5);
+.creator-btn-primary:hover:not(:disabled) {
+    background: #D97706;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
     transform: translateY(-1px);
 }
-.btn-action-primary:disabled {
+.creator-btn-primary:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
-.btn-action-secondary {
+.creator-btn-row {
+    display: flex;
+    gap: 8px;
+}
+.creator-btn-secondary {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border: 1px solid #D1D5DB;
+    border-radius: 8px;
+    background: #FFFFFF;
+    color: #374151;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.creator-btn-secondary:hover {
+    background: #F9FAFB;
+    border-color: #9CA3AF;
+}
+.creator-btn-danger {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border: 1px solid #FCA5A5;
+    border-radius: 8px;
+    background: #FFFFFF;
+    color: #DC2626;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.creator-btn-danger:hover {
+    background: #FEF2F2;
+    border-color: #EF4444;
+}
+.creator-btn-ghost {
+    display: block;
+    text-align: center;
+    padding: 8px;
+    font-size: 12px;
+    color: #9CA3AF;
+    text-decoration: none;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+.creator-btn-ghost:hover {
+    color: #374151;
+    background: #F3F4F6;
+}
+/* Dark mode overrides */
+[data-theme="dark"] .creator-card {
+    background: #1E293B;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+[data-theme="dark"] .creator-title {
+    color: #FFFFFF;
+}
+[data-theme="dark"] .creator-subtitle {
+    color: #94A3B8;
+}
+[data-theme="dark"] .creator-divider {
+    background: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .creator-section-label {
+    color: #64748B;
+}
+[data-theme="dark"] .creator-prop-label {
+    color: #94A3B8;
+}
+[data-theme="dark"] .creator-prop-value {
+    color: #FFFFFF;
+}
+[data-theme="dark"] .creator-area-card {
+    background: rgba(15, 23, 42, 0.6);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .creator-area-number {
+    color: #FFFFFF;
+}
+[data-theme="dark"] .creator-area-sqft {
+    color: #94A3B8;
+}
+[data-theme="dark"] .creator-instructions li {
+    color: #94A3B8;
+}
+[data-theme="dark"] .creator-instructions li i {
+    color: #64748B;
+}
+[data-theme="dark"] .creator-instructions li strong {
+    color: #FFFFFF;
+}
+[data-theme="dark"] .creator-btn-secondary {
     background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #ffffff;
-    transition: all 0.25s ease;
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #E2E8F0;
 }
-.btn-action-secondary:hover {
+[data-theme="dark"] .creator-btn-secondary:hover {
     background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
 }
-.max-w-180 {
-    max-width: 180px;
+[data-theme="dark"] .creator-btn-danger {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #F87171;
 }
-[data-theme="light"] .area-badge-panel {
-    background: #FFFFFF !important;
+[data-theme="dark"] .creator-btn-danger:hover {
+    background: rgba(239, 68, 68, 0.1);
 }
-[data-theme="light"] .btn-action-primary {
-    background: #F59E0B !important;
-    color: #FFFFFF !important;
-    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25) !important;
+[data-theme="dark"] .creator-btn-ghost {
+    color: #64748B;
 }
-[data-theme="light"] .btn-action-primary:hover:not(:disabled) {
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
+[data-theme="dark"] .creator-btn-ghost:hover {
+    color: #E2E8F0;
+    background: rgba(255, 255, 255, 0.05);
 }
 </style>
 {% endblock %}

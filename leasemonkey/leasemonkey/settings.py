@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'apps.accounts.apps.AccountsConfig',
     'apps.lands.apps.LandsConfig',
     'apps.core.apps.CoreConfig',
+    'apps.ai.apps.AiConfig',
 ]
 
 MIDDLEWARE = [

@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.utils.text import slugify
+from django.utils import timezone
 
 class Land(models.Model):
     name = models.CharField(max_length=150, unique=True)
@@ -190,6 +191,26 @@ class SavedPlot(models.Model):
 
     def __str__(self):
         return f"{self.user.username} saved {self.plot_number} in {self.land.name}"
+
+
+class OccupancyRecord(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('terminated', 'Terminated'),
+    ]
+    land = models.ForeignKey(Land, on_delete=models.CASCADE, related_name='occupancy_records')
+    plot_number = models.CharField(max_length=50)
+    buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='occupancy_records')
+    allotted_at = models.DateTimeField(default=timezone.now)
+    deallotted_at = models.DateTimeField(null=True, blank=True)
+    deallotment_reason = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+
+    class Meta:
+        ordering = ['-allotted_at']
+
+    def __str__(self):
+        return f"{self.plot_number} - {self.buyer.username} ({self.status})"
 
 # Signal handlers to clean up physical storage files on model instance deletions
 from django.db.models.signals import post_delete

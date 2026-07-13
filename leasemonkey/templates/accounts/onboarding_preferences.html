@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Onboarding Preferences — The Lease Monkey{% endblock %}
+
+{% block content %}
+<div class="container d-flex align-items-center justify-content-center min-vh-100 py-5" style="position: relative; z-index: 10;">
+    <div class="preferences-card p-4 p-md-5 rounded-4 border border-secondary-glow bg-dark-glow shadow-lg max-w-600 w-100 mt-4">
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <i class="bi bi-sliders text-primary-glow fs-1 mb-2 d-inline-block"></i>
+            <h2 class="font-ranade text-white fw-bold mb-1 fs-26">SET YOUR PREFERENCES</h2>
+            <p class="text-muted-glow fs-13">Help us tailor land recommendations matching your exact interests</p>
+        </div>
+
+        <!-- Messages / Errors -->
+        {% if messages %}
+            <div class="mb-3">
+                {% for message in messages %}
+                    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} bg-opacity-10 border border-opacity-35 py-2 px-3 rounded fs-13 text-center" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <!-- Preferences Form -->
+        <form method="POST" action="{% url 'onboarding_preferences' %}" id="preferencesForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save">
+            
+            <div class="row">
+                <!-- Budget inputs (Supporting Indian Numeral notation) -->
+                <div class="col-md-6 mb-3">
+                    <label for="min_budget" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Min Budget (INR)</label>
+                    <input type="text" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" id="min_budget" name="min_budget" placeholder="e.g. 2,00,000 or 2L" value="0">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="max_budget" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Max Budget (INR)</label>
+                    <input type="text" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" id="max_budget" name="max_budget" placeholder="e.g. 15,00,000 or 15L" value="10L">
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Acres -->
+                <div class="col-md-6 mb-3">
+                    <label for="min_acres" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Min Area (Acres)</label>
+                    <input type="number" step="0.01" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" id="min_acres" name="min_acres" placeholder="e.g. 1.0">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="max_acres" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Max Area (Acres)</label>
+                    <input type="number" step="0.01" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" id="max_acres" name="max_acres" placeholder="e.g. 5.5">
+                </div>
+            </div>
+
+            <!-- Property Condition Segmented Radio Options -->
+            <div class="mb-4">
+                <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50 d-block">Property Condition Preference</label>
+                <div class="condition-segmented-control d-flex rounded-3 p-1 border border-secondary-glow">
+                    <input type="radio" class="btn-check" name="property_condition" id="cond_never" value="never_leased">
+                    <label class="btn btn-segmented w-33 py-2 fs-12 tracking-wide text-uppercase" for="cond_never">Never Leased</label>
+                    
+                    <input type="radio" class="btn-check" name="property_condition" id="cond_prev" value="previously_leased">
+                    <label class="btn btn-segmented w-33 py-2 fs-12 tracking-wide text-uppercase" for="cond_prev">Prev Leased</label>
+                    
+                    <input type="radio" class="btn-check" name="property_condition" id="cond_none" value="no_preference" checked>
+                    <label class="btn btn-segmented w-33 py-2 fs-12 tracking-wide text-uppercase" for="cond_none">No Pref</label>
+                </div>
+            </div>
+
+            <!-- Proximity Checkbox Grid -->
+            <div class="mb-4">
+                <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50 d-block">Infrastructure Proximity Preferences</label>
+                <div class="row g-2">
+                    <div class="col-6 col-sm-4">
+                        <div class="form-check custom-checkbox-card p-2 rounded border border-secondary-glow text-center">
+                            <input class="form-check-input d-none" type="checkbox" name="proximity_preferences" id="prox_school" value="school">
+                            <label class="form-check-label w-100 fs-13 text-muted-glow cursor-pointer" for="prox_school">
+                                <i class="bi bi-book me-1"></i> School
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-6 col-sm-4">
+                        <div class="form-check custom-checkbox-card p-2 rounded border border-secondary-glow text-center">
+                            <input class="form-check-input d-none" type="checkbox" name="proximity_preferences" id="prox_highway" value="highway">
+                            <label class="form-check-label w-100 fs-13 text-muted-glow cursor-pointer" for="prox_highway">
+                                <i class="bi bi-signpost-split me-1"></i> Highway
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-6 col-sm-4">
+                        <div class="form-check custom-checkbox-card p-2 rounded border border-secondary-glow text-center">
+                            <input class="form-check-input d-none" type="checkbox" name="proximity_preferences" id="prox_hospital" value="hospital">
+                            <label class="form-check-label w-100 fs-13 text-muted-glow cursor-pointer" for="prox_hospital">
+                                <i class="bi bi-heart-pulse me-1"></i> Hospital
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-6 col-sm-4">
+                        <div class="form-check custom-checkbox-card p-2 rounded border border-secondary-glow text-center">
+                            <input class="form-check-input d-none" type="checkbox" name="proximity_preferences" id="prox_railway" value="railway">
+                            <label class="form-check-label w-100 fs-13 text-muted-glow cursor-pointer" for="prox_railway">
+                                <i class="bi bi-train-front me-1"></i> Railway
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-6 col-sm-4">
+                        <div class="form-check custom-checkbox-card p-2 rounded border border-secondary-glow text-center">
+                            <input class="form-check-input d-none" type="checkbox" name="proximity_preferences" id="prox_airport" value="airport">
+                            <label class="form-check-label w-100 fs-13 text-muted-glow cursor-pointer" for="prox_airport">
+                                <i class="bi bi-airplane me-1"></i> Airport
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-6 col-sm-4">
+                        <div class="form-check custom-checkbox-card p-2 rounded border border-secondary-glow text-center">
+                            <input class="form-check-input d-none" type="checkbox" name="proximity_preferences" id="prox_city" value="city_center">
+                            <label class="form-check-label w-100 fs-13 text-muted-glow cursor-pointer" for="prox_city">
+                                <i class="bi bi-building me-1"></i> City Center
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit preferences Button -->
+            <button type="submit" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider mb-3">
+                Save & Finish <i class="bi bi-check2-circle ms-1"></i>
+            </button>
+        </form>
+
+        <!-- Skip Action Trigger Form -->
+        <form method="POST" action="{% url 'onboarding_preferences' %}" id="skipForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="skip">
+            <div class="text-center mt-3 fs-13">
+                <a href="javascript:void(0);" onclick="confirmSkip(event);" class="text-muted-glow hover-white text-decoration-none fw-bold">
+                    Skip & Go to Dashboard <i class="bi bi-chevron-double-right ms-1"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.max-w-600 {
+    max-width: 600px;
+}
+.preferences-card {
+    backdrop-filter: blur(15px);
+}
+.condition-segmented-control {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.btn-segmented {
+    color: #94A3B8;
+    background: transparent;
+    border: none;
+    transition: all 0.2s;
+    font-weight: 600;
+}
+.btn-segmented:hover {
+    color: #E2E8F0;
+}
+.btn-check:checked + .btn-segmented {
+    background: #FF5E00 !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 0 8px rgba(255, 94, 0, 0.4);
+}
+[data-theme="light"] .btn-check:checked + .btn-segmented {
+    background: #F59E0B !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+.custom-checkbox-card {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.custom-checkbox-card:hover {
+    border-color: rgba(255, 94, 0, 0.4) !important;
+}
+.custom-checkbox-card input:checked + label {
+    color: #FF5E00 !important;
+    font-weight: bold;
+}
+[data-theme="light"] .custom-checkbox-card input:checked + label {
+    color: #F59E0B !important;
+    font-weight: bold;
+}
+.alert-danger {
+    color: #ff4a4a !important;
+    background-color: rgba(255, 74, 74, 0.08) !important;
+    border-color: rgba(255, 74, 74, 0.25) !important;
+}
+.alert-success {
+    color: #00ffc4 !important;
+    background-color: rgba(0, 255, 196, 0.08) !important;
+    border-color: rgba(0, 255, 196, 0.25) !important;
+}
+.form-control:focus {
+    background-color: rgba(17, 24, 39, 0.8) !important;
+    border-color: #FF5E00 !important;
+    box-shadow: 0 0 10px rgba(255, 94, 0, 0.3) !important;
+    color: #ffffff !important;
+}
+[data-theme="light"] .form-control:focus {
+    background-color: #FFFFFF !important;
+    border-color: #F59E0B !important;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
+    color: #1F2937 !important;
+}
+</style>
+
+<script>
+function confirmSkip(e) {
+    e.preventDefault();
+    if (confirm("Proceed with default preferences?\n\nDefault values:\n• Minimum Budget: 0 INR\n• Maximum Budget: 10 Lakhs (10,00,000 INR)")) {
+        document.getElementById('skipForm').submit();
+    }
+}
+
+// Hook up visual updates for proximity checkbox cards
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.custom-checkbox-card');
+    cards.forEach(card => {
+        const input = card.querySelector('input');
+        const label = card.querySelector('label');
+        
+        // Handle clicking the card div
+        card.addEventListener('click', function(e) {
+            if (e.target !== input && e.target !== label) {
+                input.checked = !input.checked;
+                triggerChange(input);
+            }
+        });
+        
+        input.addEventListener('change', function() {
+            if (input.checked) {
+                card.style.borderColor = '#FF5E00';
+            } else {
+                card.style.borderColor = '';
+            }
+        });
+    });
+});
+
+function triggerChange(element) {
+    const event = new Event('change', { bubbles: true });
+    element.dispatchEvent(event);
+}
+</script>
+{% endblock %}

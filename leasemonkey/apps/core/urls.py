@@ -12,6 +12,9 @@ urlpatterns = [
     path('notification/<int:notification_id>/read/',   views.mark_notification_read,     name='mark_notification_read'),
     path('notification/<int:notification_id>/delete/', views.delete_notification,        name='delete_notification'),
 
+    # Contact form
+    path('contact/submit/', views.submit_contact, name='submit_contact'),
+
     # One-time Google OAuth flow (admin only)
     path('google/authorize/',     google_auth_views.google_authorize,    name='google_authorize'),
     path('google/oauth2callback/', google_auth_views.google_oauth2callback, name='google_oauth2callback'),

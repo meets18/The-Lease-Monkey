@@ -8,3 +8,7 @@ python-dotenv==1.0.1
 sqlparse==0.5.5
 tzdata==2026.2
 
+# OCR Identity Validation
+pytesseract>=0.3.13
+rapidfuzz>=3.14.5
+pdf2image>=1.17.0

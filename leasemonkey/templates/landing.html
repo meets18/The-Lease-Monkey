@@ -280,7 +280,7 @@
                     </div>
                     <div>
                         <h5 class="text-white-50 fs-13 fw-bold mb-1 tracking-wide">EMAIL</h5>
-                        <p class="text-white mb-0">contact@leasemonkey.com</p>
+                        <p class="text-white mb-0">the1leasemonkey@gmail.com</p>
                     </div>
                 </div>
                 
@@ -480,8 +480,42 @@
         if (contactForm) {
             contactForm.addEventListener('submit', function(e) {
                 e.preventDefault();
-                alert('Thank you for contacting us! We will get back to you shortly.');
-                this.reset();
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const origText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = 'Sending... <i class="bi bi-hourglass-split ms-1"></i>';
+
+                const formData = {
+                    name: document.getElementById('name').value.trim(),
+                    email: document.getElementById('email').value.trim(),
+                    subject: document.getElementById('subject').value.trim(),
+                    message: document.getElementById('message').value.trim(),
+                };
+
+                fetch('/contact/submit/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '',
+                    },
+                    body: JSON.stringify(formData),
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('Error: ' + data.error);
+                    } else {
+                        alert(data.message || 'Thank you for contacting us!');
+                        contactForm.reset();
+                    }
+                })
+                .catch(() => {
+                    alert('Something went wrong. Please try again later.');
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = origText;
+                });
             });
         }
     });

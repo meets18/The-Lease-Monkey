@@ -36,4 +36,7 @@ urlpatterns = [
     path('purchase-request/verify-otp/', views.verify_otp, name='verify_otp'),
     path('purchase-request/<int:request_id>/action/', views.purchase_request_action, name='purchase_request_action'),
     path('plots/<slug:slug>/toggle-save/<str:plot_number>/', views.toggle_saved_plot, name='toggle_saved_plot'),
+
+    # ── Occupancy Registry ─────────────────────────────────────────────────────
+    path('occupancy-history/<slug:slug>/<str:plot_number>/', views.occupancy_history, name='occupancy_history'),
 ]

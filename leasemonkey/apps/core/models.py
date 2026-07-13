@@ -13,6 +13,9 @@ class Notification(models.Model):
         ('purchase_request_meeting',  'Meeting Scheduled'),
         ('purchase_request_rejected', 'Purchase Request Rejected'),
         ('purchase_request_approved', 'Purchase Request Approved'),
+        ('lo_registration_request',  'Landowner Registration Request'),
+        ('lo_registration_approved', 'Landowner Registration Approved'),
+        ('lo_registration_rejected', 'Landowner Registration Rejected'),
     ]
 
     recipient = models.ForeignKey(
@@ -37,6 +40,12 @@ class Notification(models.Model):
     plot_number = models.CharField(max_length=50, null=True, blank=True)
     plot_kind   = models.CharField(max_length=20, null=True, blank=True,
                                    help_text="'plot' or 'building'")
+    landowner_application = models.ForeignKey(
+        'accounts.LandownerApplication',
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='notifications'
+    )
 
     created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)

@@ -25,15 +25,26 @@
             <div class="compass-needle" id="compassNeedle"></div>
         </div>
     </div>
+
+    <!-- 3D Loading Overlay -->
+    <div id="loadingOverlay3d" class="loading-overlay-3d" style="display: none;">
+        <div class="loading-overlay-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">
+                <span id="loadingMessage3d">Loading 3D View...</span>
+                <span class="loading-sub" id="loadingSub3d">Preparing terrain</span>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Back to Catalog Directory Link -->
-<a href="{% url 'lands:directory' %}" class="btn-map-back shadow-lg" style="top: 76px; left: 20px; z-index: 10;">
+<a href="{% url 'lands:directory' %}" class="btn-map-back" style="z-index: 10;">
     <i class="bi bi-arrow-left"></i> Back to Catalog
 </a>
 
 <!-- Left Slide-In Detail Panel (Revealed on plot selection click) -->
-<div id="detailsPanel" class="map-sidebar glass-panel shadow-lg" style="top: 152px; left: 20px; display: none; height: auto; z-index: 10;">
+<div id="detailsPanel" class="map-sidebar glass-panel" style="top: 152px; left: 20px; display: none; height: auto; z-index: 10;">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex align-items-center gap-2">
             <h5 class="font-ranade text-white fw-bold mb-0">Plot <span id="detailNum">101</span> Specs</h5>
@@ -62,7 +73,7 @@
         <a id="btnEditPlot" href="{% url 'lands:plot_creator' slug=land.slug %}" class="btn btn-get-started w-100 text-uppercase fw-bold fs-11 py-2 text-center text-decoration-none d-block">
             Edit / Add Plots <i class="bi bi-pencil-square ms-1"></i>
         </a>
-        <button id="btnDeletePlot" class="btn btn-outline-danger w-100 text-uppercase fw-bold fs-11 py-2 text-center" onclick="handleDeletePlotClick();">
+        <button id="btnDeletePlot" class="btn btn-delete-plot w-100 text-uppercase fw-bold fs-11 py-2 text-center" onclick="handleDeletePlotClick();">
             Delete Plot <i class="bi bi-trash ms-1"></i>
         </button>
         {% else %}
@@ -78,87 +89,78 @@
     </div>
 </div>
 
-<!-- Bottom-Left Color Indicator Legend (Only shown when Status color is ON) -->
-<div id="legendPanel" class="glass-panel shadow-lg py-2 px-4 rounded-pill d-flex gap-3 align-items-center" style="position: absolute; bottom: 20px; left: 20px; z-index: 10; display: none;">
-    <div class="legend-item text-white fs-12 mb-0">
-        <span class="legend-dot dot-available"></span> Available
-    </div>
-    <div class="legend-item text-white fs-12 mb-0">
-        <span class="legend-dot dot-reserved"></span> Reserved
-    </div>
-    <div class="legend-item text-white fs-12 mb-0">
-        <span class="legend-dot dot-sold"></span> Booked
-    </div>
-    <div class="legend-item text-white fs-12 mb-0">
-        <span class="legend-dot dot-building"></span> Building
+<!-- Legend Card (compact floating card, shown when Status color is ON) -->
+<div id="legendPanel" class="legend-card" style="display: none;">
+    <div class="legend-grid">
+        <div class="legend-item">
+            <span class="legend-dot dot-available"></span> Available
+        </div>
+        <div class="legend-item">
+            <span class="legend-dot dot-reserved"></span> Reserved
+        </div>
+        <div class="legend-item">
+            <span class="legend-dot dot-sold"></span> Booked
+        </div>
+        <div class="legend-item">
+            <span class="legend-dot dot-building"></span> Building
+        </div>
     </div>
 </div>
 
-<!-- Bottom-Right Solace Control Panel overlay -->
-<div style="position: absolute; bottom: 20px; right: 20px; z-index: 10; display: flex; flex-direction: column; gap: 12px; width: 340px;">
+<!-- Bottom-Right Unified Control Dock -->
+<div class="control-dock">
     <!-- 1. Interactive Control Dock Row (Gallery, Info, Locate, Route) -->
-    <div class="d-flex gap-2 align-items-center justify-content-between">
-        <!-- Gallery button -->
-        <button id="btnGallery" class="btn-dock-button flex-grow-1 px-1" onclick="openGalleryOverlay();" title="View Property Gallery">
-            <i class="bi bi-images text-cyan-glow"></i>
-            <span class="fs-10 fw-bold text-white text-uppercase">Gallery</span>
+    <div class="d-flex gap-2 align-items-center">
+        <button id="btnGallery" class="dock-btn flex-1" onclick="openGalleryOverlay();" title="View Property Gallery">
+            <i class="bi bi-images"></i>
+            <span>Gallery</span>
         </button>
-
-        <!-- Info button -->
-        <button id="btnInfo" class="btn-dock-button flex-grow-1 px-1" onclick="openInfoOverlay();" title="View Property Details">
-            <i class="bi bi-info-circle text-cyan-glow"></i>
-            <span class="fs-10 fw-bold text-white text-uppercase">Info</span>
+        <button id="btnInfo" class="dock-btn flex-1" onclick="openInfoOverlay();" title="View Property Details">
+            <i class="bi bi-info-circle"></i>
+            <span>Info</span>
         </button>
-
-        <!-- Locate button -->
-        <button id="btnLocate" class="btn-dock-button flex-grow-1 px-1" onclick="openGoogleMapsRedirect();" title="Locate on Google Maps">
-            <i class="bi bi-geo-alt-fill text-cyan-glow"></i>
-            <span class="fs-10 fw-bold text-white text-uppercase">Locate</span>
+        <button id="btnLocate" class="dock-btn flex-1" onclick="openGoogleMapsRedirect();" title="Locate on Google Maps">
+            <i class="bi bi-geo-alt-fill"></i>
+            <span>Locate</span>
         </button>
-
-        <!-- GPS Route button (Visible only when map toggle/satellite is active) -->
-        <button id="btnRoute" class="btn-dock-button flex-grow-1 px-1" style="display: none;" onclick="triggerGpsRouting();" title="GPS Route Path">
-            <i class="bi bi-compass text-cyan-glow"></i>
-            <span class="fs-10 fw-bold text-white text-uppercase">Route</span>
+        <button id="btnRoute" class="dock-btn flex-1" style="display: none;" onclick="triggerGpsRouting();" title="GPS Route Path">
+            <i class="bi bi-compass"></i>
+            <span>Route</span>
         </button>
     </div>
+
+    <div class="dock-divider"></div>
 
     <!-- 2. Search Bar -->
-    <div class="search-input-group shadow-lg">
+    <div class="search-group">
         <i class="bi bi-search"></i>
-        <input type="text" id="plotSearchInput" class="search-field" placeholder="Search Plot" />
+        <input type="text" id="plotSearchInput" class="search-field" placeholder="Search plot number..." />
     </div>
 
-    <!-- 3. Control Row: Status Switch, Satellite Toggle and Home Reset -->
-    <div class="d-flex gap-2 align-items-center justify-content-between">
-        <!-- Status Switch -->
-        <div class="glass-pill-container d-flex align-items-center justify-content-between flex-grow-1 px-3 py-2 rounded-3 border border-secondary-glow bg-dark-glow" style="height: 42px;">
-            <span class="fs-11 fw-bold text-white text-uppercase">Status</span>
+    <div class="dock-divider"></div>
+
+    <!-- 3. Control Row: Status Switch, Satellite, 3D, Home -->
+    <div class="d-flex gap-2 align-items-center">
+        <div class="status-pill flex-1">
+            <span>Status</span>
             <div class="form-check form-switch mb-0">
                 <input class="form-check-input" type="checkbox" id="statusColorToggle" style="cursor: pointer;">
             </div>
         </div>
-
-        <!-- Satellite toggle circular button -->
-        <button id="btnSatelliteToggle" class="btn-utility-icon rounded-circle shadow-lg" style="width: 42px; height: 42px;" title="Toggle Satellite Backdrop">
+        <button id="btnSatelliteToggle" class="circle-btn" title="Toggle Satellite Backdrop">
             <i class="bi bi-layers-fill"></i>
         </button>
-
-        <!-- 3D View toggle circular button -->
-        <button id="btn3DToggle" class="btn-utility-icon rounded-circle shadow-lg text-uppercase fw-bold fs-10" style="width: 42px; height: 42px; font-family: 'Ranade', sans-serif;" title="Toggle 3D Perspective View">
-            3D
-        </button>
-
-        <!-- Home Locate circular button -->
-        <button id="btnHomeLocate" class="btn-utility-icon rounded-circle shadow-lg" style="width: 42px; height: 42px;" title="Reset View">
+        <button id="btn3DToggle" class="circle-btn" title="Toggle 3D Perspective View">3D</button>
+        <button id="btnHomeLocate" class="circle-btn" title="Reset View">
             <i class="bi bi-house-door-fill"></i>
         </button>
     </div>
 
+    <div class="dock-divider"></div>
 
-
+    <!-- 4. Reset View -->
     <div class="d-flex justify-content-end">
-        <a href="javascript:void(0);" onclick="resetFilters();" class="text-primary-glow fs-11 text-decoration-none fw-semibold">Reset View / Filters</a>
+        <a href="javascript:void(0);" onclick="resetFilters();" class="reset-link">Reset View / Filters</a>
     </div>
 </div>
 
@@ -622,18 +624,31 @@
         document.getElementById('lightboxOverlay').style.display = 'none';
     }
 
-    // Info Overlay control handlers
+    // Info Panel control handlers (floating inspector)
     function openInfoOverlay() {
         if (landConfig.slug === 'demo-land') {
             document.getElementById('infoDescriptionText').innerText = "This is a premium model demonstration property exhibiting standard layouts of Solace Layout model, including entry, exit gate alignments and internal road spacing constraints.";
         }
-        document.getElementById('infoOverlay').style.display = 'flex';
+        const panel = document.getElementById('infoPanel');
+        panel.style.display = 'block';
+        requestAnimationFrame(() => { panel.classList.add('info-visible'); });
     }
 
     function closeInfoOverlay() {
-        document.getElementById('infoOverlay').style.display = 'none';
-        toggleInfoEditing(false); // Reset to read-only when closed
+        const panel = document.getElementById('infoPanel');
+        panel.classList.remove('info-visible');
+        setTimeout(() => { panel.style.display = 'none'; }, 250);
+        toggleInfoEditing(false);
     }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const panel = document.getElementById('infoPanel');
+            if (panel && panel.classList.contains('info-visible')) {
+                closeInfoOverlay();
+            }
+        }
+    });
 
     function toggleInfoEditing(editActive) {
         const headerView = document.getElementById('infoHeaderView');
@@ -727,10 +742,9 @@
         }
         gpsMarker = null;
         
-        // Reset Route button icon & text
         const btn = document.getElementById('btnRoute');
         if (btn) {
-            btn.innerHTML = `<i class="bi bi-compass text-cyan-glow"></i><span class="fs-10 fw-bold text-white text-uppercase">Route</span>`;
+            btn.innerHTML = `<i class="bi bi-compass"></i><span>Route</span>`;
         }
     };
 
@@ -845,10 +859,9 @@
 
         map.fitBounds(routePath.getBounds(), { padding: [50, 50] });
 
-        // Update Route button to Clear
         const btn = document.getElementById('btnRoute');
         if (btn) {
-            btn.innerHTML = `<i class="bi bi-trash-fill text-danger"></i><span class="fs-10 fw-bold text-white text-uppercase">Clear</span>`;
+            btn.innerHTML = `<i class="bi bi-trash-fill text-danger"></i><span>Clear</span>`;
         }
     }
 
@@ -920,10 +933,9 @@
 
             map.fitBounds(routePath.getBounds(), { padding: [50, 50] });
 
-            // Update Route button to Clear
             const btn = document.getElementById('btnRoute');
             if (btn) {
-                btn.innerHTML = `<i class="bi bi-trash-fill text-danger"></i><span class="fs-10 fw-bold text-white text-uppercase">Clear</span>`;
+                btn.innerHTML = `<i class="bi bi-trash-fill text-danger"></i><span>Clear</span>`;
             }
         }
 
@@ -1036,93 +1048,104 @@
     </div>
 </div>
 
-<!-- Glassmorphic Info Modal Overlay -->
-<div id="infoOverlay" class="glass-modal-overlay" style="display: none;">
-    <div class="gallery-modal-content" id="infoModalContent">
-        <!-- Read-Only View Header -->
-        <div class="modal-header-custom d-flex justify-content-between align-items-center" id="infoHeaderView" style="display: flex !important;">
-            <h4 class="font-ranade fw-bold text-white mb-0"><i class="bi bi-info-circle text-cyan-glow me-2"></i>Property Details</h4>
-            <div class="d-flex align-items-center gap-3">
+    <!-- Info Panel → Floating Inspector -->
+    <div id="infoPanel" class="info-panel" style="display: none;">
+        <div class="info-panel-inner">
+        <!-- Read-Only Header -->
+        <div class="info-panel-header" id="infoHeaderView">
+            <div class="info-panel-title">
+                <i class="bi bi-info-circle"></i> Property Details
+            </div>
+            <div class="d-flex align-items-center gap-2">
                 {% if is_admin %}
-                <button type="button" class="btn btn-sm btn-outline-cyan font-ranade fw-bold fs-12 px-2.5 py-1" onclick="toggleInfoEditing(true)"><i class="bi bi-pencil-fill me-1"></i>Edit Info</button>
+                <button class="info-edit-btn-sm" onclick="toggleInfoEditing(true)" title="Edit info">
+                    <i class="bi bi-pencil"></i>
+                </button>
                 {% endif %}
-                <button type="button" class="btn-close-custom" onclick="closeInfoOverlay();"><i class="bi bi-x-lg"></i></button>
+                <button class="info-close-btn" onclick="closeInfoOverlay();" title="Close">&times;</button>
             </div>
         </div>
 
-        <!-- Edit Mode Header -->
-        <div class="modal-header-custom d-flex justify-content-between align-items-center" id="infoHeaderEdit" style="display: none !important;">
-            <h4 class="font-ranade fw-bold text-cyan-glow mb-0"><i class="bi bi-pencil-square me-2"></i>Edit Property Details</h4>
-            <button type="button" class="btn-close-custom" onclick="toggleInfoEditing(false);"><i class="bi bi-x-lg"></i></button>
+        <!-- Edit Header -->
+        <div class="info-panel-header" id="infoHeaderEdit" style="display: none !important;">
+            <div class="info-panel-title">
+                <i class="bi bi-pencil-square"></i> Edit Details
+            </div>
+            <button class="info-close-btn" onclick="toggleInfoEditing(false);">&times;</button>
         </div>
 
-        <!-- Read-Only View Body -->
-        <div class="modal-body-custom mt-3 font-opensans text-white-50" id="infoBodyView" style="display: block; overflow-y: auto; max-height: calc(80vh - 100px); padding-right: 6px;">
-            <div class="mb-3">
-                <h5 class="text-white fs-15 mb-1" id="lblInfoName">{{ land.name }}</h5>
-                <p class="fs-13 text-muted-glow"><i class="bi bi-geo-alt-fill me-1 text-cyan-glow"></i><span id="lblInfoLocation">{{ land.location }}</span></p>
-            </div>
-            
-            <div class="border-top border-secondary-glow pt-3 mb-3 fs-13">
-                <p class="text-white mb-2 fw-semibold">Description:</p>
-                <p class="lh-base" id="infoDescriptionText">{{ land.description|default:"No additional description supplied by landowner."|linebreaksbr }}</p>
+        <!-- Read-Only Body -->
+        <div class="info-panel-body" id="infoBodyView">
+            <div class="info-project-section">
+                <div class="info-project-name" id="lblInfoName">{{ land.name }}</div>
+                <div class="info-location-row">
+                    <i class="bi bi-geo-alt-fill"></i>
+                    <span id="lblInfoLocation">{{ land.location }}</span>
+                </div>
+                <div class="info-description" id="infoDescriptionText">{{ land.description|default:"No additional description supplied by landowner."|linebreaksbr }}</div>
             </div>
 
-            <div class="row g-2 border-top border-secondary-glow pt-3">
-                <div class="col-6">
-                    <div class="bg-dark-glow border border-secondary-glow rounded p-2 text-center">
-                        <span class="fs-11 text-secondary-glow text-uppercase d-block">Landowner</span>
-                        <strong class="text-white fs-13">{{ land.owner.username }}</strong>
+            <div class="info-divider"></div>
+
+            <div class="info-details-section">
+                <div class="info-section-title">Land Details</div>
+                <div class="info-details-grid">
+                    <div class="info-detail-card">
+                        <span class="info-detail-label">Landowner</span>
+                        <span class="info-detail-value">{{ land.owner.username }}</span>
                     </div>
-                </div>
-                <div class="col-6">
-                    <div class="bg-dark-glow border border-secondary-glow rounded p-2 text-center">
-                        <span class="fs-11 text-secondary-glow text-uppercase d-block">Total Area</span>
-                        <strong class="text-white fs-13">{{ land.area }} Acres</strong>
+                    <div class="info-detail-card">
+                        <span class="info-detail-label">Total Area</span>
+                        <span class="info-detail-value">{{ land.area }} Acres</span>
                     </div>
-                </div>
-                <div class="col-6">
-                    <div class="bg-dark-glow border border-secondary-glow rounded p-2 text-center">
-                        <span class="fs-11 text-secondary-glow text-uppercase d-block">Plots Count</span>
-                        <strong class="text-white fs-13">{{ land.plots.count }}</strong>
+                    <div class="info-detail-card">
+                        <span class="info-detail-label">Plots</span>
+                        <span class="info-detail-value">{{ land.plots.count }}</span>
                     </div>
-                </div>
-                <div class="col-6">
-                    <div class="bg-dark-glow border border-secondary-glow rounded p-2 text-center">
-                        <span class="fs-11 text-secondary-glow text-uppercase d-block">Avg Plot Price</span>
-                        <strong class="text-white fs-13" id="lblInfoPrice">INR {{ land.average_plot_price|floatformat:0 }}</strong>
+                    <div class="info-detail-card">
+                        <span class="info-detail-label">Avg Price</span>
+                        <span class="info-detail-value" id="lblInfoPrice">INR {{ land.average_plot_price|floatformat:0 }}</span>
                     </div>
                 </div>
             </div>
+
+            {% if is_admin %}
+            <div class="info-divider"></div>
+            <div class="info-panel-actions">
+                <button class="info-edit-btn" onclick="toggleInfoEditing(true)">
+                    <i class="bi bi-pencil"></i> Edit Info
+                </button>
+            </div>
+            {% endif %}
         </div>
 
-        <!-- Edit Form Body -->
-        <div class="modal-body-custom mt-3 font-opensans text-white-50" id="infoBodyEdit" style="display: none; overflow-y: auto; max-height: calc(80vh - 100px); padding-right: 6px;">
+        <!-- Edit Body -->
+        <div class="info-panel-body" id="infoBodyEdit" style="display: none;">
             <form id="frmEditLandInfo" onsubmit="event.preventDefault();" class="d-flex flex-column gap-3">
                 <div>
-                    <label class="form-label fs-12 text-secondary-glow mb-1">Land Name</label>
-                    <input type="text" id="txtEditName" class="form-control bg-dark border-secondary text-white fs-13" />
+                    <label class="info-edit-label">Land Name</label>
+                    <input type="text" id="txtEditName" class="info-edit-input" />
                 </div>
                 <div>
-                    <label class="form-label fs-12 text-secondary-glow mb-1">Location / Address</label>
-                    <input type="text" id="txtEditLocation" class="form-control bg-dark border-secondary text-white fs-13" />
+                    <label class="info-edit-label">Location / Address</label>
+                    <input type="text" id="txtEditLocation" class="info-edit-input" />
                 </div>
                 <div>
-                    <label class="form-label fs-12 text-secondary-glow mb-1">Average Plot Price (INR)</label>
-                    <input type="number" id="txtEditPrice" class="form-control bg-dark border-secondary text-white fs-13" />
+                    <label class="info-edit-label">Average Plot Price (INR)</label>
+                    <input type="number" id="txtEditPrice" class="info-edit-input" />
                 </div>
                 <div>
-                    <label class="form-label fs-12 text-secondary-glow mb-1">Description</label>
-                    <textarea id="txtEditDescription" class="form-control bg-dark border-secondary text-white fs-13" rows="6"></textarea>
+                    <label class="info-edit-label">Description</label>
+                    <textarea id="txtEditDescription" class="info-edit-input info-edit-textarea" rows="6"></textarea>
                 </div>
-                <div class="d-flex gap-2.5 mt-2">
-                    <button type="button" class="btn btn-action-primary w-50 py-2 fs-12 text-uppercase fw-bold text-white" onclick="saveInfoChanges()">Save Changes <i class="bi bi-check-lg ms-1"></i></button>
-                    <button type="button" class="btn btn-action-secondary w-50 py-2 fs-12 text-uppercase fw-bold text-white" onclick="toggleInfoEditing(false)">Cancel <i class="bi bi-x-circle ms-1"></i></button>
+                <div class="d-flex gap-2 mt-2">
+                    <button type="button" class="info-save-btn" onclick="saveInfoChanges()">Save Changes</button>
+                    <button type="button" class="info-cancel-btn" onclick="toggleInfoEditing(false)">Cancel</button>
                 </div>
             </form>
         </div>
+        </div>
     </div>
-</div>
 
 <style>
 /* Fullscreen Lock */
@@ -1130,7 +1153,7 @@ body {
     overflow: hidden;
 }
 .bg-dark-glow {
-    background: rgba(10, 18, 30, 0.85);
+    background: rgba(10, 18, 30, 0.78);
 }
 .btn-action-primary {
     background: linear-gradient(135deg, #00b2ff, #00ffc4) !important;
@@ -1150,6 +1173,21 @@ body {
 }
 .btn-action-secondary:hover {
     background: rgba(255, 255, 255, 0.1) !important;
+}
+/* Delete Plot — companion to Edit / Add Plots */
+.btn-delete-plot {
+    background: #DC2626 !important;
+    border: none !important;
+    color: #FFFFFF !important;
+    border-radius: 100px !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25) !important;
+}
+.btn-delete-plot:hover {
+    background: #B91C1C !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35) !important;
+    transform: translateY(-1px);
 }
 /* Custom Range Slider styling for Road thickness control */
 .custom-slider {
@@ -1187,30 +1225,49 @@ body {
     justify-content: center;
 }
 .form-switch .form-check-input {
-    background-color: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.3);
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: transparent;
+    width: 2.8em;
+    height: 1.5em;
+    cursor: pointer;
+    margin-top: 0;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255,255,255,0.5)'/%3e%3c/svg%3e") !important;
 }
 .form-switch .form-check-input:checked {
     background-color: var(--primary-cyan);
     border-color: var(--primary-cyan);
+    box-shadow: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23ffffff'/%3e%3c/svg%3e") !important;
+}
+.form-switch .form-check-input:focus {
+    box-shadow: none;
+    border-color: transparent;
 }
 /* Leaflet custom controls styling */
 .leaflet-control-zoom {
     border: none !important;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
-    background: rgba(10, 18, 30, 0.85) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+    background: rgba(12, 18, 30, 0.82) !important;
     border-radius: 8px !important;
     overflow: hidden;
+    backdrop-filter: blur(8px);
 }
 .leaflet-control-zoom a {
-    background: rgba(10, 18, 30, 0.85) !important;
-    color: #ffffff !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: transparent !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
     transition: all 0.2s ease;
+    width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 16px !important;
 }
 .leaflet-control-zoom a:hover {
-    background: rgba(0, 255, 196, 0.2) !important;
-    color: var(--primary-cyan) !important;
+    background: rgba(0, 255, 196, 0.1) !important;
+    color: #00ffd2 !important;
+}
+.leaflet-control-zoom a.leaflet-disabled {
+    color: rgba(255, 255, 255, 0.2) !important;
 }
 .compass-hud {
     position: absolute;
@@ -1218,22 +1275,22 @@ body {
     right: 20px;
     transform: translateY(-50%);
     z-index: 10;
-    width: 70px;
-    height: 70px;
+    width: 64px;
+    height: 64px;
     border-radius: 50%;
-    border: 1.5px solid rgba(0, 255, 196, 0.3);
-    backdrop-filter: blur(10px);
-    background: rgba(11, 14, 20, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    background: rgba(12, 18, 30, 0.6);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 15px rgba(0, 255, 196, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     transition: all 0.3s ease;
 }
 .compass-dial {
     position: relative;
-    width: 60px;
-    height: 60px;
+    width: 54px;
+    height: 54px;
     border-radius: 50%;
 }
 .direction-letter {
@@ -1280,13 +1337,13 @@ body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(10, 14, 22, 0.65);
-    backdrop-filter: blur(15px);
+    background: rgba(8, 12, 20, 0.7);
+    backdrop-filter: blur(8px);
     z-index: 2000;
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: fadeInOverlay 0.35s ease;
+    animation: fadeInOverlay 0.3s ease;
 }
 .glass-modal-content {
     background: rgba(18, 25, 38, 0.82);
@@ -1317,53 +1374,193 @@ body {
     transform: rotate(90deg);
 }
 
-/* Control dock rectangular buttons */
-.btn-dock-button {
-    background: #0c101b !important;
-    border: 1px solid rgba(255, 255, 255, 0.25) !important;
-    color: #ffffff !important;
-    height: 42px;
+/* ── Unified Control Dock ── */
+.control-dock {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    z-index: 10;
+    width: 360px;
+    background: rgba(12, 18, 30, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Dock Buttons ── */
+.dock-btn {
+    height: 46px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    border-radius: 10px !important;
-    transition: all 0.2s ease;
+    gap: 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.04);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
     cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6) !important;
+    transition: all 0.2s ease;
+    padding: 0 10px;
 }
-.btn-dock-button span {
-    color: #ffffff !important;
+.dock-btn i {
+    font-size: 19px;
+    color: rgba(0, 255, 196, 0.7);
+    transition: color 0.2s ease;
 }
-.btn-dock-button:hover {
-    background: rgba(0, 255, 196, 0.15) !important;
-    border-color: var(--primary-cyan) !important;
-    color: var(--primary-cyan) !important;
-    box-shadow: 0 0 12px rgba(0, 255, 196, 0.4) !important;
+.dock-btn span {
+    color: rgba(255, 255, 255, 0.85);
+    transition: color 0.2s ease;
 }
-.btn-dock-button:hover span {
-    color: var(--primary-cyan) !important;
+.dock-btn:hover {
+    background: rgba(0, 255, 196, 0.08);
+    border-color: rgba(0, 255, 196, 0.25);
+}
+.dock-btn:hover i { color: #00ffd2; }
+.dock-btn:hover span { color: #ffffff; }
+.flex-1 { flex: 1; }
+.dock-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
 }
 
-/* Cache-bypassing search field high contrast overlay styling */
+/* ── Search ── */
+.search-group {
+    position: relative;
+}
+.search-group i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 17px;
+    color: rgba(255, 255, 255, 0.35);
+    pointer-events: none;
+}
 .search-field {
     width: 100%;
-    padding: 10px 12px 10px 40px !important;
-    border-radius: 10px !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    background: rgba(10, 18, 30, 0.95) !important;
-    color: #ffffff !important;
-    font-size: 14px !important;
-    transition: all 0.3s ease !important;
+    height: 46px;
+    padding: 0 14px 0 44px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: #ffffff;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.25s ease;
 }
 .search-field::placeholder {
-    color: rgba(255, 255, 255, 0.6) !important;
+    color: rgba(255, 255, 255, 0.35);
+    font-weight: 400;
 }
 .search-field:focus {
-    outline: none !important;
+    border-color: rgba(0, 255, 196, 0.3);
+    background: rgba(0, 255, 196, 0.04);
+    box-shadow: 0 0 0 2px rgba(0, 255, 196, 0.06);
+}
+
+/* ── Status Pill ── */
+.status-pill {
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+}
+.status-pill span {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* ── Circle Buttons ── */
+.circle-btn {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+.circle-btn:hover {
+    border-color: rgba(0, 255, 196, 0.25);
+    background: rgba(0, 255, 196, 0.08);
+    color: #00ffd2;
+}
+.circle-btn.active-cyan-btn {
+    background: rgba(0, 255, 196, 0.12) !important;
     border-color: var(--primary-cyan) !important;
-    box-shadow: 0 0 10px rgba(0, 255, 196, 0.3) !important;
-    background: rgba(10, 18, 30, 0.98) !important;
+    color: var(--primary-cyan) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 196, 0.25) !important;
+}
+
+/* ── Reset Link ── */
+.reset-link {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.35);
+    text-decoration: none;
+    transition: color 0.2s ease;
+    letter-spacing: 0.02em;
+}
+.reset-link:hover {
+    color: rgba(0, 255, 196, 0.6);
+}
+
+/* ── Legend Card ── */
+.legend-card {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    z-index: 10;
+    background: rgba(12, 18, 30, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+.legend-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px 16px;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: nowrap;
+}
+.legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
 /* Gallery Modal Base Container */
@@ -1626,6 +1823,315 @@ body {
     100% { transform: scale(1.15); filter: brightness(1.3); }
 }
 
+/* ── Floating Info Inspector ── */
+.info-panel {
+    position: absolute;
+    top: 80px;
+    right: 24px;
+    z-index: 15;
+    width: 440px;
+    max-height: calc(100vh - 160px);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+}
+.info-panel.info-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+.info-panel-inner {
+    background: rgba(12, 18, 30, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: calc(100vh - 160px);
+}
+.info-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+}
+.info-panel-title {
+    font-family: 'Ranade', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.info-panel-title i { color: rgba(0, 255, 196, 0.7); font-size: 20px; }
+.info-close-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+.info-close-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.06);
+}
+.info-edit-btn-sm {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.5);
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+.info-edit-btn-sm:hover {
+    background: rgba(0, 255, 196, 0.1);
+    border-color: rgba(0, 255, 196, 0.25);
+    color: #00ffd2;
+}
+.info-panel-body {
+    padding: 0;
+    overflow-y: auto;
+    flex: 1;
+}
+.info-project-section {
+    padding: 18px 20px 8px;
+}
+.info-project-name {
+    font-family: 'Ranade', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+    margin-bottom: 10px;
+}
+.info-location-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 12px;
+}
+.info-location-row i {
+    color: rgba(0, 255, 196, 0.6);
+    font-size: 16px;
+}
+.info-description {
+    font-size: 15px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    margin-bottom: 4px;
+}
+.info-divider {
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.06), transparent);
+    margin: 8px 20px;
+}
+.info-details-section {
+    padding: 8px 20px 16px;
+}
+.info-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 12px;
+}
+.info-details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.info-detail-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: background 0.2s ease;
+}
+.info-detail-card:hover {
+    background: rgba(255, 255, 255, 0.07);
+}
+.info-detail-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.4);
+}
+.info-detail-value {
+    font-size: 17px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+}
+.info-panel-actions {
+    padding: 0 20px 16px;
+}
+.info-edit-btn {
+    width: 100%;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 255, 196, 0.2);
+    background: rgba(0, 255, 196, 0.06);
+    color: rgba(0, 255, 196, 0.8);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.info-edit-btn:hover {
+    background: rgba(0, 255, 196, 0.12);
+    border-color: rgba(0, 255, 196, 0.4);
+    color: #00ffd2;
+}
+
+/* Edit mode form styles */
+#infoBodyEdit {
+    padding: 20px;
+}
+.info-edit-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 6px;
+}
+.info-edit-input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: #ffffff;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease;
+    box-sizing: border-box;
+}
+.info-edit-input:focus {
+    border-color: rgba(0, 255, 196, 0.3);
+}
+.info-edit-textarea {
+    resize: vertical;
+    min-height: 100px;
+    font-family: inherit;
+}
+.info-save-btn {
+    flex: 1;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 255, 196, 0.25);
+    background: rgba(0, 255, 196, 0.1);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.info-save-btn:hover {
+    background: rgba(0, 255, 196, 0.18);
+    border-color: rgba(0, 255, 196, 0.4);
+}
+.info-cancel-btn {
+    flex: 1;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.info-cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* ── 3D Loading Overlay ── */
+.loading-overlay-3d {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 100;
+    background: rgba(8, 12, 20, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    pointer-events: none;
+}
+.loading-overlay-3d.loading-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+.loading-overlay-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.08);
+    border-top-color: rgba(0, 255, 196, 0.7);
+    border-radius: 50%;
+    animation: spin3d 0.8s linear infinite;
+}
+.loading-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+.loading-text span:first-child {
+    font-family: 'Ranade', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+}
+.loading-sub {
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.4);
+}
+@keyframes spin3d {
+    to { transform: rotate(360deg); }
+}
+
 /* Force map UI text to stay white in light mode, protecting against global styles.css overrides */
 [data-theme="light"] .text-white {
     color: #ffffff !important;
@@ -1637,7 +2143,7 @@ body {
 [data-theme="light"] .plot-number-tooltip-3d,
 [data-theme="light"] .plot-number-tooltip div,
 [data-theme="light"] .plot-number-tooltip-3d div {
-    color: #000000 !important;
+    color: #1a1a1a !important;
 }
 /* Allow navbar to still invert properly if needed */
 [data-theme="light"] #navbar .text-white {

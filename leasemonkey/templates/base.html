@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 
 <head>
     <meta charset="UTF-8">
@@ -19,24 +19,13 @@
     <!-- Custom styling -->
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <style>
-        .btn-browse-nav {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.15) !important;
-            color: var(--text-primary) !important;
-            padding: 8px 18px;
-            font-size: 0.78rem;
-            font-weight: 700;
-            border-radius: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            transition: all 0.25s ease;
-            text-align: center;
-            min-width: 140px;
-        }
-        .btn-browse-nav:hover {
-            background: rgba(0, 255, 196, 0.1) !important;
-            border-color: var(--primary-cyan, #00ffc4) !important;
-            box-shadow: 0 0 10px rgba(0, 255, 196, 0.25);
+        /* Browse Lands & Login — standardized navbar CTAs */
+        .btn-browse-nav,
+        .btn-login-nav {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -75,7 +64,9 @@
                 <!-- Auth items inside mobile drawer only -->
                 {% if user.is_authenticated %}
                 <li class="d-lg-none"><hr class="text-white-50 my-3"></li>
+                {% if user.role != 'ADMIN' and not user.is_superuser %}
                 <li class="d-lg-none"><a href="{% url 'profile' %}" class="mobile-profile-item"><i class="bi bi-person"></i> My Profile</a></li>
+                {% endif %}
                 <li class="d-lg-none"><a href="{% url 'logout' %}" class="mobile-profile-item"><i class="bi bi-box-arrow-right"></i> Log Out</a></li>
                 {% else %}
                 <li class="d-lg-none mt-3"><a href="/accounts/login/" class="btn-login-nav">Login / Register</a></li>
@@ -95,9 +86,11 @@
                         {% endif %}
                     </button>
                     <div class="profile-dropdown-menu" id="profileDropdown">
+                        {% if user.role != 'ADMIN' and not user.is_superuser %}
                         <a href="{% url 'profile' %}" class="dropdown-item-profile">
                             <i class="bi bi-person"></i> My Profile
                         </a>
+                        {% endif %}
                         {% if user.role == 'BUYER' %}
                         <a href="{% url 'buyer_dashboard' %}" class="dropdown-item-profile">
                             <i class="bi bi-grid-1x2-fill"></i> Dashboard
@@ -120,10 +113,6 @@
                 {% else %}
                 <a href="/accounts/login/" class="btn-login-nav d-none d-lg-inline-block">Login / Register</a>
                 {% endif %}
-                <button id="themeToggle" class="btn btn-sm btn-theme-toggle d-none d-lg-inline-flex align-items-center justify-content-center" title="Toggle theme" aria-label="Toggle light/dark mode">
-                    <i class="bi bi-sun-fill theme-icon-light"></i>
-                    <i class="bi bi-moon-fill theme-icon-dark"></i>
-                </button>
                 <div class="menu-toggle" id="menuToggle">
                     <span></span>
                     <span></span>
@@ -204,28 +193,6 @@
                 // Close on ESC
                 document.addEventListener('keydown', function(e) {
                     if (e.key === 'Escape') closeDropdown();
-                });
-            }
-
-            // ─── Theme Toggle ─────────────────────────────────────────────
-            const themeToggle = document.getElementById('themeToggle');
-            const htmlEl = document.documentElement;
-
-            function setTheme(theme) {
-                htmlEl.setAttribute('data-theme', theme);
-                localStorage.setItem('theme', theme);
-            }
-
-            // Load saved theme
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme) {
-                setTheme(savedTheme);
-            }
-
-            if (themeToggle) {
-                themeToggle.addEventListener('click', () => {
-                    const current = htmlEl.getAttribute('data-theme');
-                    setTheme(current === 'dark' ? 'light' : 'dark');
                 });
             }
         });

@@ -4,12 +4,60 @@ from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.conf import settings
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView
 from .models import Notification
 
 
 class LandingPageView(TemplateView):
     template_name = "landing.html"
+
+
+import re
+
+
+@csrf_exempt
+def submit_contact(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+    try:
+        data = json.loads(request.body) if request.body else {}
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
+        subject = data.get('subject', '').strip()
+        message = data.get('message', '').strip()
+
+        errors = []
+        if not name:
+            errors.append('Name is required.')
+        if not email:
+            errors.append('Email is required.')
+        elif not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+            errors.append('Invalid email address.')
+        if not subject:
+            errors.append('Subject is required.')
+        if not message:
+            errors.append('Message is required.')
+
+        if errors:
+            return JsonResponse({'error': '; '.join(errors)}, status=400)
+
+        full_message = (
+            f"Name: {name}\n"
+            f"Email: {email}\n"
+            f"Subject: {subject}\n"
+            f"Message:\n{message}\n"
+        )
+        send_mail(
+            subject=f'[Lease Monkey Contact] {subject}',
+            message=full_message,
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=['the1leasemonkey@gmail.com'],
+            fail_silently=False,
+        )
+        return JsonResponse({'status': 'sent', 'message': 'Thank you for contacting us! We will get back to you shortly.'})
+    except Exception as e:
+        return JsonResponse({'error': f'Failed to send message: {str(e)}'}, status=500)
 
 
 class PrivacyPolicyView(TemplateView):

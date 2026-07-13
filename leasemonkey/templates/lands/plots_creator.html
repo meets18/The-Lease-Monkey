@@ -24,249 +24,320 @@
     </div>
 
     <!-- Left Controls Panel Overlay -->
-    <div class="creator-card glass-panel shadow-2xl p-4 text-white font-opensans" style="position: absolute; top: 95px; left: 20px; z-index: 1000; width: 340px; max-height: calc(100vh - 120px); overflow-y: auto;">
-        <div class="border-bottom border-secondary-glow pb-3 mb-3">
-            <h4 class="font-ranade fw-bold text-white mb-1"><i class="bi bi-grid-3x3-gap-fill text-cyan-glow me-2"></i>Plot Creator</h4>
-            <p class="text-muted-glow fs-13 mb-0">Create individual plots inside <strong>{{ land.name }}</strong>.</p>
-        </div>        <!-- Segmented Mode Control Tabs -->
-        <div class="btn-group btn-group-sm w-100 mb-3" role="group" aria-label="Creator Workspace Modes">
-            <button type="button" id="tabPlots" class="btn btn-outline-cyan active" onclick="setWorkspaceMode('plots')">Plots</button>
-            <button type="button" id="tabBuildings" class="btn btn-outline-cyan" onclick="setWorkspaceMode('buildings')">Buildings</button>
-            <button type="button" id="tabRoads" class="btn btn-outline-cyan" onclick="setWorkspaceMode('roads')">Roads</button>
-            <button type="button" id="tabGates" class="btn btn-outline-cyan" onclick="setWorkspaceMode('gates')">Gates</button>
+    <div class="pcreator-card" style="position: absolute; top: 95px; left: 20px; z-index: 1000; width: 360px; max-height: calc(100vh - 120px); overflow-y: auto; overscroll-behavior: contain;">
+        <!-- Header -->
+        <div class="pcreator-header">
+            <h4 class="pcreator-title">Plot Creator</h4>
+            <p class="pcreator-subtitle">Create individual plots inside <strong>{{ land.name }}</strong>.</p>
         </div>
 
-        <!-- 1. PLOTS FORM SECTION -->
+        <div class="pcreator-divider"></div>
+
+        <!-- Property Section -->
+        <div class="pcreator-section">
+            <div class="pcreator-section-label"><i class="bi bi-info-circle me-1"></i> Property</div>
+            <div class="pcreator-prop-grid">
+                <div class="pcreator-prop-item">
+                    <span class="pcreator-prop-label">Land Name</span>
+                    <strong class="pcreator-prop-value">{{ land.name }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="pcreator-divider"></div>
+
+        <!-- Drawing Tools Section -->
+        <div class="pcreator-section">
+            <div class="pcreator-section-label"><i class="bi bi-pencil-square me-1"></i> Drawing Tools</div>
+            <div class="pcreator-segmented" role="group" aria-label="Creator Workspace Modes">
+                <button type="button" id="tabPlots" class="pcreator-seg-btn active" onclick="setWorkspaceMode('plots')">Plots</button>
+                <button type="button" id="tabRoads" class="pcreator-seg-btn" onclick="setWorkspaceMode('roads')">Roads</button>
+                <button type="button" id="tabGates" class="pcreator-seg-btn" onclick="setWorkspaceMode('gates')">Gates</button>
+                <button type="button" id="tabBuildings" class="pcreator-seg-btn" onclick="setWorkspaceMode('buildings')">Buildings</button>
+            </div>
+        </div>
+
+        <!-- ═══ 1. PLOTS — Plot Details ═══ -->
         <div id="sectionPlots" class="workspace-section">
-            <!-- Add Plot Form -->
-            <form id="frmAddPlot" autocomplete="off" onsubmit="event.preventDefault();">
-                <div class="mb-2">
-                    <label for="plot_number" class="form-label fs-12 text-secondary-glow mb-1">Plot Number / Identifier</label>
-                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_number" placeholder="e.g. 101, P5">
-                </div>
-
-                <div class="row">
-                    <div class="col-6 mb-2">
-                        <label for="plot_area" class="form-label fs-12 text-secondary-glow mb-1">Area (sq ft)</label>
-                        <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_area" placeholder="e.g. 1,500">
+            <div class="pcreator-section">
+                <div class="pcreator-section-label"><i class="bi bi-layout-text-window me-1"></i> Plot Details</div>
+                <form id="frmAddPlot" autocomplete="off" onsubmit="event.preventDefault();">
+                    <div class="pcreator-field">
+                        <label for="plot_number" class="pcreator-label">Plot Number / Identifier</label>
+                        <input type="text" class="pcreator-input" id="plot_number" placeholder="e.g. 101, P5">
                     </div>
-                    <div class="col-6 mb-2" id="plotPriceField">
-                        <label for="plot_price" class="form-label fs-12 text-secondary-glow mb-1">Lease Price (INR)</label>
-                        <input type="number" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="plot_price" placeholder="e.g. 4500000">
+                    <div class="pcreator-row">
+                        <div class="pcreator-field flex-grow-1">
+                            <label for="plot_area" class="pcreator-label">Area (sq ft)</label>
+                            <input type="text" class="pcreator-input" id="plot_area" placeholder="e.g. 1,500">
+                        </div>
+                        <div class="pcreator-field flex-grow-1" id="plotPriceField">
+                            <label for="plot_price" class="pcreator-label">Lease Price (INR)</label>
+                            <input type="number" class="pcreator-input" id="plot_price" placeholder="e.g. 4500000">
+                        </div>
                     </div>
-                </div>
+                    <div class="pcreator-field">
+                        <label for="plot_status" class="pcreator-label">Status</label>
+                        <select class="pcreator-input pcreator-select" id="plot_status">
+                            <option value="available" selected>Available</option>
+                            <option value="reserved">Reserved</option>
+                            <option value="sold">Booked</option>
+                        </select>
+                    </div>
+                    <div id="plotBuyerInfo" class="pcreator-deallot" style="display: none;">
+                        <div><strong>Allotted To:</strong> <span id="lblPlotBuyer"></span></div>
+                        <button type="button" onclick="deallotSelectedPlot()" class="pcreator-btn-danger-sm">De-allot User</button>
+                    </div>
+                    <div class="pcreator-draw-info">
+                        <i class="bi bi-cursor-fill"></i>
+                        <span id="drawingInstructions">Click corner points on the map to trace this plot's outline.</span>
+                    </div>
+                </form>
+            </div>
 
-                <div class="mb-3">
-                    <label for="plot_status" class="form-label fs-12 text-secondary-glow mb-1">Status</label>
-                    <select class="form-select form-select-sm bg-dark border-secondary text-white fs-13" id="plot_status">
-                        <option value="available" selected>Available</option>
-                        <option value="reserved">Reserved</option>
-                    <option value="sold">Booked</option>
-                    </select>
-                </div>
-                
-                <!-- De-allot section (hidden by default) -->
-                <div id="plotBuyerInfo" class="alert alert-warning border border-warning bg-dark-glow text-white fs-11 mb-3 py-2" style="display: none;">
-                    <div class="mb-2"><strong>Allotted To:</strong> <span id="lblPlotBuyer"></span></div>
-                    <button type="button" onclick="deallotSelectedPlot()" class="btn btn-sm btn-danger w-100 fs-12 fw-bold">De-allot User</button>
-                </div>
+            <div class="pcreator-divider"></div>
 
-                <!-- Drawing State Banner -->
-                <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-11 mb-3 py-2 text-center" role="alert">
-                    <i class="bi bi-cursor-fill text-cyan-glow me-1"></i>
-                    <span id="drawingInstructions">Click corner points directly on the map to trace this plot's outline.</span>
-                </div>
-
-                <!-- Staging actions -->
-                <div class="d-flex gap-2 mb-3">
-                    <button type="button" onclick="undoPlotPoint();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
+            <div class="pcreator-section">
+                <div class="pcreator-section-label"><i class="bi bi-gear me-1"></i> Actions</div>
+                <div class="pcreator-btn-row">
+                    <button type="button" onclick="undoPlotPoint();" class="pcreator-btn-secondary">
                         <i class="bi bi-arrow-counterclockwise"></i> Undo
                     </button>
-                    <button type="button" onclick="clearPlotPoints();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
-                        <i class="bi-trash"></i> Reset
+                    <button type="button" onclick="clearPlotPoints();" class="pcreator-btn-secondary">
+                        <i class="bi bi-trash3"></i> Reset
                     </button>
                 </div>
-
-                <button type="button" id="btnSavePlot" onclick="submitPlotRecord();" class="btn btn-action-primary w-100 py-2 fs-12 text-uppercase fw-bold mb-2">
+                <button type="button" id="btnSavePlot" onclick="submitPlotRecord();" class="pcreator-btn-secondary-action">
                     Save Plot <i class="bi bi-plus-lg ms-1"></i>
                 </button>
-                <button type="button" id="btnCancelEdit" onclick="cancelEditingMode();" class="btn btn-action-secondary w-100 py-2 fs-12 text-uppercase fw-bold mb-3" style="display: none;">
-                    Cancel Edit <i class="bi bi-x-circle ms-1"></i>
+                <button type="button" id="btnCancelEdit" onclick="cancelEditingMode();" class="pcreator-btn-tertiary" style="display: none;">
+                    <i class="bi bi-x-circle me-1"></i> Cancel Edit
                 </button>
-            </form>
+            </div>
 
-            <!-- Dynamic Staged/Saved Plots Count -->
-            <div class="border-top border-secondary-glow pt-3 mt-2">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="fs-13 text-secondary-glow fw-bold mb-0">Plotted Layouts</h5>
-                    <span class="badge bg-admin-glow fs-11" id="lblStagedCount">Total: 0</span>
+            <div class="pcreator-divider"></div>
+
+            <div class="pcreator-section">
+                <div class="pcreator-section-label"><i class="bi bi-layer-stack me-1"></i> Layout Overview</div>
+                <div class="pcreator-list-section">
+                    <div class="pcreator-list-header">
+                        <span class="pcreator-list-title">Plotted Layouts</span>
+                        <span class="pcreator-list-badge" id="lblStagedCount">Total: 0</span>
+                    </div>
+                    <div id="stagedPlotsList" class="pcreator-list" style="max-height: 150px;">
+                        <div class="pcreator-list-empty">No plots added yet. Trace one above!</div>
+                    </div>
                 </div>
-                
-                <!-- List scroll container -->
-                <div id="stagedPlotsList" class="d-flex flex-column gap-1.5 max-h-180 overflow-y-auto pr-1 text-white-50 fs-12.5" style="max-height: 150px;">
-                    <div class="text-center py-2 text-muted-glow fs-12">No plots added yet. Trace one above!</div>
+                <div class="pcreator-actions" style="margin-top: 12px;">
+                    <a href="{% url 'admin_dashboard' %}" class="pcreator-btn-primary">
+                        Finish & Save Layout <i class="bi bi-check-all ms-1"></i>
+                    </a>
+                    <a href="{% url 'admin_dashboard' %}" onclick="return confirm('Are you sure you want to exit the workspace? Any unsaved plot modifications will be lost.');" class="pcreator-btn-ghost">
+                        Exit Workspace <i class="bi bi-box-arrow-right ms-1"></i>
+                    </a>
                 </div>
             </div>
         </div>
 
-        <!-- 4. BUILDINGS FORM SECTION -->
+        <!-- ═══ 4. BUILDINGS — Plot Details ═══ -->
         <div id="sectionBuildings" class="workspace-section" style="display: none;">
-            <form id="frmAddBuilding" autocomplete="off" onsubmit="event.preventDefault();">
-                <div class="mb-2">
-                    <label for="building_number" class="form-label fs-12 text-secondary-glow mb-1">Building Identifier / ID</label>
-                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="building_number" placeholder="e.g. B1, Clubhouse">
-                </div>
-
-                <div class="mb-2">
-                    <label for="building_area" class="form-label fs-12 text-secondary-glow mb-1">Footprint Area (sq ft)</label>
-                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="building_area" placeholder="e.g. 2,500">
-                </div>
-
-                <div class="mb-3">
-                    <div class="d-flex align-items-center justify-content-between mb-1">
-                        <label for="building_height_slider" class="form-label fs-12 text-secondary-glow mb-0">Building Height (Floors)</label>
-                        <span id="buildingHeightLabel" class="fs-11 fw-bold text-cyan-glow">3 Floors</span>
+            <div class="pcreator-section">
+                <div class="pcreator-section-label"><i class="bi bi-layout-text-window me-1"></i> Building Details</div>
+                <form id="frmAddBuilding" autocomplete="off" onsubmit="event.preventDefault();">
+                    <div class="pcreator-field">
+                        <label for="building_number" class="pcreator-label">Building Identifier / ID</label>
+                        <input type="text" class="pcreator-input" id="building_number" placeholder="e.g. B1, Clubhouse">
                     </div>
-                    <input type="range" class="form-range custom-slider" id="building_height_slider" min="1" max="15" step="1" value="3" style="cursor: pointer;" oninput="document.getElementById('buildingHeightLabel').innerText = this.value + ' Floors';">
-                </div>
+                    <div class="pcreator-field">
+                        <label for="building_area" class="pcreator-label">Footprint Area (sq ft)</label>
+                        <input type="text" class="pcreator-input" id="building_area" placeholder="e.g. 2,500">
+                    </div>
+                    <div class="pcreator-field">
+                        <div class="pcreator-slider-header">
+                            <label for="building_height_slider" class="pcreator-label mb-0">Building Height (Floors)</label>
+                            <span id="buildingHeightLabel" class="pcreator-slider-val">3 Floors</span>
+                        </div>
+                        <input type="range" class="pcreator-range" id="building_height_slider" min="1" max="15" step="1" value="3" style="cursor: pointer;" oninput="document.getElementById('buildingHeightLabel').innerText = this.value + ' Floors';">
+                    </div>
+                    <div class="pcreator-draw-info">
+                        <i class="bi bi-cursor-fill"></i>
+                        <span id="buildingDrawingInstructions">Click corner points on the map to trace this building footprint.</span>
+                    </div>
+                </form>
+            </div>
 
-                <!-- Drawing State Banner -->
-                <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-11 mb-3 py-2 text-center" role="alert">
-                    <i class="bi bi-cursor-fill text-cyan-glow me-1"></i>
-                    <span id="buildingDrawingInstructions">Click corner points directly on the map to trace this building footprint outline.</span>
-                </div>
+            <div class="pcreator-divider"></div>
 
-                <!-- Staging actions -->
-                <div class="d-flex gap-2 mb-3">
-                    <button type="button" onclick="undoBuildingPoint();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
+            <div class="pcreator-section">
+                <div class="pcreator-section-label"><i class="bi bi-gear me-1"></i> Actions</div>
+                <div class="pcreator-btn-row">
+                    <button type="button" onclick="undoBuildingPoint();" class="pcreator-btn-secondary">
                         <i class="bi bi-arrow-counterclockwise"></i> Undo
                     </button>
-                    <button type="button" onclick="clearBuildingPoints();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
-                        <i class="bi-trash"></i> Reset
+                    <button type="button" onclick="clearBuildingPoints();" class="pcreator-btn-secondary">
+                        <i class="bi bi-trash3"></i> Reset
                     </button>
                 </div>
-
-                <button type="button" id="btnSaveBuilding" onclick="submitBuildingRecord();" class="btn btn-action-primary w-100 py-2 fs-12 text-uppercase fw-bold mb-2">
+                <button type="button" id="btnSaveBuilding" onclick="submitBuildingRecord();" class="pcreator-btn-secondary-action">
                     Save Building <i class="bi bi-plus-lg ms-1"></i>
                 </button>
-                <button type="button" id="btnCancelBuildingEdit" onclick="cancelBuildingEditingMode();" class="btn btn-action-secondary w-100 py-2 fs-12 text-uppercase fw-bold mb-3" style="display: none;">
-                    Cancel Edit <i class="bi bi-x-circle ms-1"></i>
+                <button type="button" id="btnCancelBuildingEdit" onclick="cancelBuildingEditingMode();" class="pcreator-btn-tertiary" style="display: none;">
+                    <i class="bi bi-x-circle me-1"></i> Cancel Edit
                 </button>
-            </form>
+            </div>
 
-            <!-- Dynamic Saved Buildings Count -->
-            <div class="border-top border-secondary-glow pt-3 mt-2">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="fs-13 text-secondary-glow fw-bold mb-0">Mapped Buildings</h5>
-                    <span class="badge bg-admin-glow fs-11" id="lblBuildingsCount">Total: 0</span>
+            <div class="pcreator-divider"></div>
+
+            <div class="pcreator-section">
+                <div class="pcreator-section-label"><i class="bi bi-layer-stack me-1"></i> Layout Overview</div>
+                <div class="pcreator-list-section">
+                    <div class="pcreator-list-header">
+                        <span class="pcreator-list-title">Mapped Buildings</span>
+                        <span class="pcreator-list-badge" id="lblBuildingsCount">Total: 0</span>
+                    </div>
+                    <div id="savedBuildingsList" class="pcreator-list" style="max-height: 150px;">
+                        <div class="pcreator-list-empty">No buildings mapped yet. Trace one above!</div>
+                    </div>
                 </div>
-                
-                <!-- List scroll container -->
-                <div id="savedBuildingsList" class="d-flex flex-column gap-1.5 max-h-180 overflow-y-auto pr-1 text-white-50 fs-12.5" style="max-height: 150px;">
-                    <div class="text-center py-2 text-muted-glow fs-12">No buildings mapped yet. Trace one above!</div>
+                <div class="pcreator-actions" style="margin-top: 12px;">
+                    <a href="{% url 'admin_dashboard' %}" class="pcreator-btn-primary">
+                        Finish & Save Layout <i class="bi bi-check-all ms-1"></i>
+                    </a>
+                    <a href="{% url 'admin_dashboard' %}" onclick="return confirm('Are you sure you want to exit the workspace? Any unsaved plot modifications will be lost.');" class="pcreator-btn-ghost">
+                        Exit Workspace <i class="bi bi-box-arrow-right ms-1"></i>
+                    </a>
                 </div>
             </div>
         </div>
 
-        <!-- 2. ROADS FORM SECTION -->
+        <!-- ═══ 2. ROADS — Plot Details ═══ -->
         <div id="sectionRoads" class="workspace-section" style="display: none;">
-            <form id="frmAddRoad" autocomplete="off" onsubmit="event.preventDefault();">
-                <div class="mb-2">
-                    <label for="road_name" class="form-label fs-12 text-secondary-glow mb-1">Road Name / Label</label>
-                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="road_name" placeholder="e.g. 9 Meter Road, Main Access Road">
-                </div>
-                <div class="mb-2">
-                    <label for="road_width" class="form-label fs-12 text-secondary-glow mb-1">Road Width (meters)</label>
-                    <input type="number" step="0.5" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="road_width" value="9.0" oninput="updateRoadPolyline();">
-                </div>
-                <div class="mb-3">
-                    <div class="d-flex align-items-center justify-content-between mb-1">
-                        <label for="road_thickness_slider" class="form-label fs-12 text-secondary-glow mb-0">Visual Width Scale</label>
-                        <span id="roadThicknessScaleLabel" class="fs-11 fw-bold text-cyan-glow">1.0x</span>
+            <div class="pcreator-section">
+                <div class="pcreator-section-label"><i class="bi bi-layout-text-window me-1"></i> Road Details</div>
+                <form id="frmAddRoad" autocomplete="off" onsubmit="event.preventDefault();">
+                    <div class="pcreator-field">
+                        <label for="road_name" class="pcreator-label">Road Name / Label</label>
+                        <input type="text" class="pcreator-input" id="road_name" placeholder="e.g. 9 Meter Road, Main Access Road">
                     </div>
-                    <input type="range" class="form-range custom-slider" id="road_thickness_slider" min="0.2" max="2.5" step="0.1" value="1.0" style="cursor: pointer;" oninput="document.getElementById('roadThicknessScaleLabel').innerText = parseFloat(this.value).toFixed(1) + 'x'; updateRoadPolyline();">
-                </div>
+                    <div class="pcreator-field">
+                        <label for="road_width" class="pcreator-label">Road Width (meters)</label>
+                        <input type="number" step="0.5" class="pcreator-input" id="road_width" value="9.0" oninput="updateRoadPolyline();">
+                    </div>
+                    <div class="pcreator-field">
+                        <div class="pcreator-slider-header">
+                            <label for="road_thickness_slider" class="pcreator-label mb-0">Visual Width Scale</label>
+                            <span id="roadThicknessScaleLabel" class="pcreator-slider-val">1.0x</span>
+                        </div>
+                        <input type="range" class="pcreator-range" id="road_thickness_slider" min="0.2" max="2.5" step="0.1" value="1.0" style="cursor: pointer;" oninput="document.getElementById('roadThicknessScaleLabel').innerText = parseFloat(this.value).toFixed(1) + 'x'; updateRoadPolyline();">
+                    </div>
+                    <div class="pcreator-draw-info">
+                        <i class="bi bi-cursor-fill"></i>
+                        <span id="roadDrawingInstructions">Click map coordinates inside the land to trace the road's centerline.</span>
+                    </div>
+                </form>
+            </div>
 
-                <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-11 mb-3 py-2 text-center" role="alert">
-                    <i class="bi bi-cursor-fill text-cyan-glow me-1"></i>
-                    <span id="roadDrawingInstructions">Click map coordinates inside the land to trace the road's centerline path.</span>
-                </div>
+            <div class="pcreator-divider"></div>
 
-                <div class="d-flex gap-2 mb-3">
-                    <button type="button" onclick="undoRoadPoint();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
+            <div class="pcreator-section">
+                <div class="pcreator-section-label"><i class="bi bi-gear me-1"></i> Actions</div>
+                <div class="pcreator-btn-row">
+                    <button type="button" onclick="undoRoadPoint();" class="pcreator-btn-secondary">
                         <i class="bi bi-arrow-counterclockwise"></i> Undo
                     </button>
-                    <button type="button" onclick="clearRoadPoints();" class="btn btn-action-secondary w-50 py-1.5 fs-12 text-uppercase fw-bold">
-                        <i class="bi-trash"></i> Reset
+                    <button type="button" onclick="clearRoadPoints();" class="pcreator-btn-secondary">
+                        <i class="bi bi-trash3"></i> Reset
                     </button>
                 </div>
-
-                <button type="button" id="btnSaveRoad" onclick="submitRoadRecord();" class="btn btn-action-primary w-100 py-2 fs-12 text-uppercase fw-bold mb-3">
+                <button type="button" id="btnSaveRoad" onclick="submitRoadRecord();" class="pcreator-btn-secondary-action">
                     Save Road <i class="bi bi-plus-lg ms-1"></i>
                 </button>
-            </form>
+            </div>
 
-            <div class="border-top border-secondary-glow pt-3 mt-2">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="fs-13 text-secondary-glow fw-bold mb-0">Mapped Roads</h5>
-                    <span class="badge bg-admin-glow fs-11" id="lblRoadsCount">Total: 0</span>
+            <div class="pcreator-divider"></div>
+
+            <div class="pcreator-section">
+                <div class="pcreator-section-label"><i class="bi bi-layer-stack me-1"></i> Layout Overview</div>
+                <div class="pcreator-list-section">
+                    <div class="pcreator-list-header">
+                        <span class="pcreator-list-title">Mapped Roads</span>
+                        <span class="pcreator-list-badge" id="lblRoadsCount">Total: 0</span>
+                    </div>
+                    <div id="savedRoadsList" class="pcreator-list" style="max-height: 150px;">
+                        <div class="pcreator-list-empty">No roads mapped yet. Trace one above!</div>
+                    </div>
                 </div>
-                <div id="savedRoadsList" class="d-flex flex-column gap-1.5 max-h-180 overflow-y-auto pr-1 text-white-50 fs-12.5" style="max-height: 150px;">
-                    <div class="text-center py-2 text-muted-glow fs-12">No roads mapped yet. Trace one above!</div>
+                <div class="pcreator-actions" style="margin-top: 12px;">
+                    <a href="{% url 'admin_dashboard' %}" class="pcreator-btn-primary">
+                        Finish & Save Layout <i class="bi bi-check-all ms-1"></i>
+                    </a>
+                    <a href="{% url 'admin_dashboard' %}" onclick="return confirm('Are you sure you want to exit the workspace? Any unsaved plot modifications will be lost.');" class="pcreator-btn-ghost">
+                        Exit Workspace <i class="bi bi-box-arrow-right ms-1"></i>
+                    </a>
                 </div>
             </div>
         </div>
 
-        <!-- 3. GATES FORM SECTION -->
+        <!-- ═══ 3. GATES — Plot Details ═══ -->
         <div id="sectionGates" class="workspace-section" style="display: none;">
-            <form id="frmAddGate" autocomplete="off" onsubmit="event.preventDefault();">
-                <div class="mb-2">
-                    <label for="gate_name" class="form-label fs-12 text-secondary-glow mb-1">Gate / Entry-Exit Point Name</label>
-                    <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white fs-13" id="gate_name" placeholder="e.g. Main Entry Gate, East Exit">
-                </div>
-                <div class="mb-3">
-                    <label for="gate_type" class="form-label fs-12 text-secondary-glow mb-1">Point Type</label>
-                    <select class="form-select form-select-sm bg-dark border-secondary text-white fs-13" id="gate_type">
-                        <option value="entry" selected>Entry Point</option>
-                        <option value="exit">Exit Point</option>
-                        <option value="both">Entry & Exit Point</option>
-                    </select>
-                </div>
+            <div class="pcreator-section">
+                <div class="pcreator-section-label"><i class="bi bi-layout-text-window me-1"></i> Gate Details</div>
+                <form id="frmAddGate" autocomplete="off" onsubmit="event.preventDefault();">
+                    <div class="pcreator-field">
+                        <label for="gate_name" class="pcreator-label">Gate / Entry-Exit Point Name</label>
+                        <input type="text" class="pcreator-input" id="gate_name" placeholder="e.g. Main Entry Gate, East Exit">
+                    </div>
+                    <div class="pcreator-field">
+                        <label for="gate_type" class="pcreator-label">Point Type</label>
+                        <select class="pcreator-input pcreator-select" id="gate_type">
+                            <option value="entry" selected>Entry Point</option>
+                            <option value="exit">Exit Point</option>
+                            <option value="both">Entry & Exit Point</option>
+                        </select>
+                    </div>
+                    <div class="pcreator-draw-info">
+                        <i class="bi bi-geo-alt-fill"></i>
+                        <span id="gateInstructions">Click on the map boundary outline to set the gate coordinates.</span>
+                    </div>
+                </form>
+            </div>
 
-                <div class="alert alert-info border border-secondary-glow bg-dark-glow text-white fs-11 mb-3 py-2 text-center" role="alert">
-                    <i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i>
-                    <span id="gateInstructions">Click on the map boundary outline to set the coordinates of this entry/exit gate.</span>
-                </div>
+            <div class="pcreator-divider"></div>
 
-                <div class="d-flex gap-2 mb-3">
-                    <button type="button" onclick="clearGatePoint();" class="btn btn-action-secondary w-100 py-1.5 fs-12 text-uppercase fw-bold">
-                        <i class="bi-trash"></i> Reset Point
+            <div class="pcreator-section">
+                <div class="pcreator-section-label"><i class="bi bi-gear me-1"></i> Actions</div>
+                <div class="pcreator-btn-row">
+                    <button type="button" onclick="clearGatePoint();" class="pcreator-btn-secondary flex-grow-1">
+                        <i class="bi bi-trash3"></i> Reset Point
                     </button>
                 </div>
-
-                <button type="button" id="btnSaveGate" onclick="submitGateRecord();" class="btn btn-action-primary w-100 py-2 fs-12 text-uppercase fw-bold mb-3">
+                <button type="button" id="btnSaveGate" onclick="submitGateRecord();" class="pcreator-btn-secondary-action">
                     Save Gate Point <i class="bi bi-plus-lg ms-1"></i>
                 </button>
-            </form>
+            </div>
 
-            <div class="border-top border-secondary-glow pt-3 mt-2">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="fs-13 text-secondary-glow fw-bold mb-0">Entrance / Exit Gates</h5>
-                    <span class="badge bg-admin-glow fs-11" id="lblGatesCount">Total: 0</span>
+            <div class="pcreator-divider"></div>
+
+            <div class="pcreator-section">
+                <div class="pcreator-section-label"><i class="bi bi-layer-stack me-1"></i> Layout Overview</div>
+                <div class="pcreator-list-section">
+                    <div class="pcreator-list-header">
+                        <span class="pcreator-list-title">Entrance / Exit Gates</span>
+                        <span class="pcreator-list-badge" id="lblGatesCount">Total: 0</span>
+                    </div>
+                    <div id="savedGatesList" class="pcreator-list" style="max-height: 150px;">
+                        <div class="pcreator-list-empty">No gates mapped yet. Place one above!</div>
+                    </div>
                 </div>
-                <div id="savedGatesList" class="d-flex flex-column gap-1.5 max-h-180 overflow-y-auto pr-1 text-white-50 fs-12.5" style="max-height: 150px;">
-                    <div class="text-center py-2 text-muted-glow fs-12">No gates mapped yet. Place one above!</div>
+                <div class="pcreator-actions" style="margin-top: 12px;">
+                    <a href="{% url 'admin_dashboard' %}" class="pcreator-btn-primary">
+                        Finish & Save Layout <i class="bi bi-check-all ms-1"></i>
+                    </a>
+                    <a href="{% url 'admin_dashboard' %}" onclick="return confirm('Are you sure you want to exit the workspace? Any unsaved plot modifications will be lost.');" class="pcreator-btn-ghost">
+                        Exit Workspace <i class="bi bi-box-arrow-right ms-1"></i>
+                    </a>
                 </div>
             </div>
-        </div>
-
-        <div class="border-top border-secondary-glow pt-3 mt-3 d-flex flex-column gap-2">
-            <a href="{% url 'admin_dashboard' %}" class="btn btn-action-primary-glow w-100 py-2.5 fs-13 text-uppercase fw-bold text-decoration-none d-block text-center text-white">
-                Finish & Save Layout <i class="bi bi-check-all ms-1"></i>
-            </a>
-            <a href="{% url 'admin_dashboard' %}" onclick="return confirm('Are you sure you want to exit the workspace? Any unsaved plot modifications will be lost.');" class="btn btn-action-secondary w-100 py-2 fs-13 text-uppercase fw-bold text-decoration-none d-block text-center text-white">
-                Exit Workspace <i class="bi bi-box-arrow-right ms-1"></i>
-            </a>
         </div>
     </div>
 </div>
@@ -761,17 +832,19 @@
         }
 
         listEl.innerHTML = plotsOnly.map(plot => `
-            <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-glow bg-dark-glow mb-1.5" style="cursor: pointer;" onclick="selectPlotForEditing('${plot.number}');" title="Click to Edit Plot">
-                <div>
-                    <strong class="text-white">Plot ${plot.number}</strong>
-                    <span class="text-muted-glow fs-11 ms-2">(${plot.area})</span>
+            <div class="pcreator-plot-card" onclick="selectPlotForEditing('${plot.number}');" title="Click to edit">
+                <div class="pcreator-plot-top">
+                    <span class="pcreator-plot-number">Plot ${plot.number}</span>
+                    <span class="pcreator-plot-status" style="color: ${STATUS_COLORS[plot.status]}">${plot.status.toUpperCase()}</span>
                 </div>
-                <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation();">
-                    <span class="fs-11 fw-bold" style="color: ${STATUS_COLORS[plot.status]}">${plot.status.toUpperCase()}</span>
-                    <span class="text-cyan-glow fw-bold fs-11">INR ${(Number(plot.price)/100000).toFixed(1)}L</span>
-                    <button type="button" onclick="deleteStagedPlot('${plot.number}', 'plot');" class="btn btn-sm btn-outline-danger border-0 p-1 lh-1" title="Delete Plot">
-                        <i class="bi bi-trash-fill fs-12"></i>
-                    </button>
+                <div class="pcreator-plot-bottom">
+                    <span class="pcreator-plot-area">${plot.area} sq ft</span>
+                    <div class="pcreator-plot-actions" onclick="event.stopPropagation();">
+                        <span class="pcreator-plot-price">₹${(Number(plot.price)/100000).toFixed(1)}L</span>
+                        <button type="button" onclick="deleteStagedPlot('${plot.number}', 'plot');" class="pcreator-plot-delete" title="Delete Plot">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         `).join('');
@@ -1278,16 +1351,19 @@
         }
 
         listDiv.innerHTML = buildings.map(b => `
-            <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-glow bg-dark-glow mb-1.5" style="cursor: pointer;" onclick="selectBuildingForEditing('${b.number}');" title="Click to Edit Building">
-                <div>
-                    <strong class="text-white">${b.number}</strong>
-                    <span class="text-muted-glow fs-11 ms-2">(${b.area})</span>
+            <div class="pcreator-plot-card" onclick="selectBuildingForEditing('${b.number}');" title="Click to edit">
+                <div class="pcreator-plot-top">
+                    <span class="pcreator-plot-number">${b.number}</span>
+                    <span class="pcreator-plot-status" style="color: #60A5FA;">Building</span>
                 </div>
-                <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation();">
-                    <span class="fs-11 fw-bold text-cyan-glow">${b.height || 1} Floors</span>
-                    <button type="button" onclick="deleteStagedPlot('${b.number}', 'building');" class="btn btn-sm btn-outline-danger border-0 p-1 lh-1" title="Delete Building">
-                        <i class="bi bi-trash-fill fs-12"></i>
-                    </button>
+                <div class="pcreator-plot-bottom">
+                    <span class="pcreator-plot-area">${b.area}</span>
+                    <div class="pcreator-plot-actions" onclick="event.stopPropagation();">
+                        <span class="pcreator-plot-price">${b.height || 1} Floors</span>
+                        <button type="button" onclick="deleteStagedPlot('${b.number}', 'building');" class="pcreator-plot-delete" title="Delete Building">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         `).join('');
@@ -1501,15 +1577,19 @@
         listDiv.innerHTML = '';
         existingRoads.forEach(road => {
             const card = document.createElement('div');
-            card.className = 'd-flex justify-content-between align-items-center bg-dark-glow border border-secondary-glow rounded px-2.5 py-1.5 mb-1.5 text-white fs-12.5';
+            card.className = 'pcreator-plot-card';
             card.innerHTML = `
-                <div>
-                    <span class="fw-bold text-cyan-glow">${road.name}</span>
-                    <div class="text-muted-glow fs-11 mt-0.5">${road.width}m width</div>
+                <div class="pcreator-plot-top">
+                    <span class="pcreator-plot-number">${road.name}</span>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1 line-height-1" onclick="deleteRoad(${road.id});" title="Delete Road">
-                    <i class="bi bi-trash fs-13"></i>
-                </button>
+                <div class="pcreator-plot-bottom">
+                    <span class="pcreator-plot-area">${road.width}m width</span>
+                    <div class="pcreator-plot-actions">
+                        <button type="button" class="pcreator-plot-delete" onclick="deleteRoad(${road.id});" title="Delete Road">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
+                </div>
             `;
             listDiv.appendChild(card);
         });
@@ -1732,15 +1812,20 @@
             }
 
             const card = document.createElement('div');
-            card.className = 'd-flex justify-content-between align-items-center bg-dark-glow border border-secondary-glow rounded px-2.5 py-1.5 mb-1.5 text-white fs-12.5';
+            card.className = 'pcreator-plot-card';
             card.innerHTML = `
-                <div>
-                    <span class="fw-bold text-cyan-glow">${gate.name}</span>
-                    <div class="text-muted-glow fs-11 mt-0.5"><span class="badge badge-point-${badgeType}">${badgeLabel}</span></div>
+                <div class="pcreator-plot-top">
+                    <span class="pcreator-plot-number">${gate.name}</span>
+                    <span class="badge badge-point-${badgeType}">${badgeLabel}</span>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-danger border-0 p-1 line-height-1" onclick="deleteGate(${gate.id});" title="Delete Gate">
-                    <i class="bi bi-trash fs-13"></i>
-                </button>
+                <div class="pcreator-plot-bottom">
+                    <span class="pcreator-plot-area">${gate.point_type}</span>
+                    <div class="pcreator-plot-actions">
+                        <button type="button" class="pcreator-plot-delete" onclick="deleteGate(${gate.id});" title="Delete Gate">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
+                </div>
             `;
             listDiv.appendChild(card);
         });
@@ -1776,67 +1861,579 @@
 </script>
 
 <style>
-.creator-card {
-    border: 1px solid rgba(0, 255, 196, 0.15);
-    backdrop-filter: blur(15px);
+/* ─── Plot Creator Card ─────────────────────────────────────── */
+.pcreator-card {
+    background: #FFFFFF;
     border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.10);
+    padding: 24px;
+    font-family: 'Open Sans', sans-serif;
+    color: #222831;
 }
-.btn-action-primary {
-    background: linear-gradient(135deg, #00b2ff, #00ffc4);
+.pcreator-card::-webkit-scrollbar { width: 4px; }
+.pcreator-card::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }
+.pcreator-header { margin-bottom: 8px; }
+.pcreator-title {
+    font-family: 'Ranade', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #222831;
+    margin: 0 0 6px;
+}
+.pcreator-subtitle {
+    font-size: 13px;
+    color: #6B7280;
+    margin: 0;
+}
+.pcreator-divider {
+    height: 1px;
+    background: #E5E7EB;
+    margin: 20px 0;
+}
+.pcreator-section { margin-bottom: 4px; }
+.pcreator-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9CA3AF;
+    margin-bottom: 14px;
+}
+.pcreator-section-label i {
+    font-size: 12px;
+    margin-right: 4px;
+}
+
+/* ─── Property Grid ─────────────────────────────────────────── */
+.pcreator-prop-grid { display: flex; flex-direction: column; gap: 8px; }
+.pcreator-prop-item { display: flex; justify-content: space-between; align-items: center; }
+.pcreator-prop-label { font-size: 13px; color: #6B7280; }
+.pcreator-prop-value { font-size: 14px; font-weight: 600; color: #222831; }
+
+/* ─── Segmented Controls ────────────────────────────────────── */
+.pcreator-segmented {
+    display: flex;
+    border-radius: 8px;
+    background: #F3F4F6;
+    padding: 3px;
+    gap: 2px;
+}
+.pcreator-seg-btn {
+    flex: 1;
     border: none;
-color: #1E293B;
-    transition: all 0.3s ease;
+    background: transparent;
+    color: #6B7280;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
 }
-.btn-action-primary:hover:not(:disabled) {
-    box-shadow: 0 0 15px rgba(0, 255, 196, 0.5);
+.pcreator-seg-btn:hover {
+    color: #374151;
 }
-.btn-action-primary-glow {
-    background: linear-gradient(135deg, rgba(0, 255, 196, 0.15), rgba(0, 178, 255, 0.15));
-    border: 1px solid rgba(0, 255, 196, 0.35);
-    transition: all 0.3s ease;
+.pcreator-seg-btn.active {
+    background: #FFFFFF;
+    color: var(--accent-orange, #F59E0B);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
-.btn-action-primary-glow:hover {
-    background: linear-gradient(135deg, #00ffc4, #00b2ff);
-    color: #1E293B !important;
-    box-shadow: 0 0 15px rgba(0, 255, 196, 0.5);
+
+/* ─── Selected Object Instruction Card ──────────────────────── */
+.pcreator-instruction-card {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
 }
-.btn-action-secondary {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #ffffff;
-    transition: all 0.25s ease;
+.pcreator-instruction-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
 }
-.btn-action-secondary:hover {
-    background: rgba(255, 255, 255, 0.1);
+.pcreator-instruction-icon i {
+    font-size: 14px;
+    color: #9CA3AF;
 }
-.custom-slider {
-    -webkit-appearance: none;
+.pcreator-instruction-content {
+    flex: 1;
+    min-width: 0;
+}
+.pcreator-instruction-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #374151;
+    display: block;
+    margin-bottom: 6px;
+}
+.pcreator-instruction-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.pcreator-instruction-list li {
+    font-size: 11px;
+    color: #6B7280;
+    line-height: 1.4;
+}
+.pcreator-instruction-list li strong {
+    color: #374151;
+    font-weight: 600;
+}
+
+/* ─── Selected Object Detail Card ───────────────────────────── */
+.pcreator-selected-info {
+    padding: 12px;
+    background: #FFFBEB;
+    border: 1px solid #FDE68A;
+    border-radius: 10px;
+}
+.pcreator-selected-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #FDE68A;
+}
+.pcreator-selected-badge {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #D97706;
+    background: rgba(217, 119, 6, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+.pcreator-selected-id {
+    font-size: 14px;
+    font-weight: 700;
+    color: #222831;
+    font-family: 'Ranade', sans-serif;
+}
+.pcreator-selected-details {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.pcreator-selected-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+}
+.pcreator-selected-row span {
+    color: #6B7280;
+}
+.pcreator-selected-row strong {
+    color: #222831;
+    font-weight: 600;
+}
+
+/* ─── Form Fields ───────────────────────────────────────────── */
+.pcreator-field {
+    margin-bottom: 16px;
+}
+.pcreator-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 7px;
+}
+.pcreator-input {
     width: 100%;
-    height: 6px;
-    border-radius: 3px;
-    background: rgba(255, 255, 255, 0.15) !important;
+    background: #FFFFFF;
+    border: 1px solid #D1D5DB;
+    border-radius: 8px;
+    color: #222831;
+    padding: 10px 14px;
+    height: 42px;
+    font-size: 14px;
+    font-family: 'Open Sans', sans-serif;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    box-sizing: border-box;
     outline: none;
-    transition: background 0.3s ease;
-    margin: 8px 0;
 }
-.custom-slider::-webkit-slider-thumb {
+.pcreator-input:focus {
+    border-color: var(--accent-orange, #F59E0B);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+}
+.pcreator-input::placeholder {
+    color: #9CA3AF;
+}
+.pcreator-select {
     -webkit-appearance: none;
     appearance: none;
+    background: #FFFFFF url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%239CA3AF' d='M1 1l5 5 5-5' stroke='%239CA3AF' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+    padding-right: 32px;
+    cursor: pointer;
+}
+.pcreator-select option {
+    background: #FFFFFF;
+    color: #222831;
+    padding: 8px;
+}
+.pcreator-row {
+    display: flex;
+    gap: 10px;
+}
+.pcreator-row .pcreator-field {
+    flex: 1;
+}
+
+/* ─── Slider ────────────────────────────────────────────────── */
+.pcreator-slider-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+.pcreator-slider-val {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent-orange, #F59E0B);
+}
+.pcreator-range {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    background: #E5E7EB;
+    outline: none;
+    margin: 6px 0;
+}
+.pcreator-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: #00ffd2;
+    background: var(--accent-orange, #F59E0B);
     cursor: pointer;
-    box-shadow: 0 0 10px rgba(0, 255, 210, 0.8);
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
     transition: transform 0.1s ease;
 }
-.custom-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.25);
+.pcreator-range::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
 }
-.mb-1.5 {
+
+/* ─── De-allot Section ──────────────────────────────────────── */
+.pcreator-deallot {
+    background: #FEF3C7;
+    border: 1px solid #FDE68A;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #92400E;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.pcreator-deallot strong { font-weight: 600; }
+.pcreator-btn-danger-sm {
+    background: #FEF2F2;
+    border: 1px solid #FCA5A5;
+    color: #DC2626;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+.pcreator-btn-danger-sm:hover {
+    background: #FEE2E2;
+    border-color: #EF4444;
+}
+
+/* ─── Drawing Info Banner ───────────────────────────────────── */
+.pcreator-draw-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #F0F9FF;
+    border: 1px solid #BAE6FD;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #0369A1;
+    margin-bottom: 12px;
+}
+.pcreator-draw-info i {
+    font-size: 13px;
+    color: #38BDF8;
+    flex-shrink: 0;
+}
+
+/* ─── Buttons ───────────────────────────────────────────────── */
+.pcreator-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 11px 20px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent-orange, #F59E0B);
+    color: #FFFFFF;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
+    text-decoration: none;
+    text-align: center;
+    box-sizing: border-box;
+}
+.pcreator-btn-primary:hover {
+    background: #D97706;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+    transform: translateY(-1px);
+    color: #FFFFFF;
+    text-decoration: none;
+}
+.pcreator-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.pcreator-btn-secondary-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 10px 20px;
+    border: 1px solid #D1D5DB;
+    border-radius: 8px;
+    background: #FFFFFF;
+    color: #374151;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
     margin-bottom: 6px;
 }
-/* Rotated numbers label styling */
+.pcreator-btn-secondary-action:hover {
+    background: #F9FAFB;
+    border-color: #9CA3AF;
+}
+.pcreator-btn-tertiary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #6B7280;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+}
+.pcreator-btn-tertiary:hover {
+    color: #374151;
+    background: #F3F4F6;
+}
+.pcreator-btn-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.pcreator-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 1;
+    padding: 9px 14px;
+    border: 1px solid #D1D5DB;
+    border-radius: 8px;
+    background: #FFFFFF;
+    color: #374151;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+.pcreator-btn-secondary:hover {
+    background: #F9FAFB;
+    border-color: #9CA3AF;
+    color: #374151;
+    text-decoration: none;
+}
+.pcreator-btn-ghost {
+    display: block;
+    text-align: center;
+    padding: 8px;
+    font-size: 12px;
+    color: #9CA3AF;
+    text-decoration: none;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+}
+.pcreator-btn-ghost:hover {
+    color: #374151;
+    background: #F3F4F6;
+    text-decoration: none;
+}
+
+/* ─── List Sections / Plot Cards ────────────────────────────── */
+.pcreator-list-section {
+    border-top: 1px solid #E5E7EB;
+    padding-top: 16px;
+    margin-top: 16px;
+}
+.pcreator-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.pcreator-list-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6B7280;
+}
+.pcreator-list-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent-orange, #F59E0B);
+    background: rgba(245, 158, 11, 0.08);
+    padding: 2px 10px;
+    border-radius: 20px;
+}
+.pcreator-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+}
+.pcreator-list-empty {
+    text-align: center;
+    padding: 12px 0;
+    color: #9CA3AF;
+    font-size: 12px;
+}
+.pcreator-plot-card {
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.pcreator-plot-card:hover {
+    border-color: #D1D5DB;
+    background: #FFFFFF;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+.pcreator-plot-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+.pcreator-plot-number {
+    font-size: 13px;
+    font-weight: 700;
+    color: #222831;
+    font-family: 'Ranade', sans-serif;
+}
+.pcreator-plot-status {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.pcreator-plot-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.pcreator-plot-area {
+    font-size: 12px;
+    color: #6B7280;
+}
+.pcreator-plot-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.pcreator-plot-price {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-orange, #F59E0B);
+}
+.pcreator-plot-delete {
+    background: none;
+    border: none;
+    color: #9CA3AF;
+    padding: 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+}
+.pcreator-plot-delete i {
+    font-size: 12px;
+}
+.pcreator-plot-delete:hover {
+    color: #DC2626;
+    background: rgba(220, 38, 38, 0.06);
+}
+
+/* ─── Actions Section ───────────────────────────────────────── */
+.pcreator-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* ─── Preserved Map Overlay Styles ──────────────────────────── */
+.pcreator-range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-orange, #F59E0B);
+    cursor: pointer;
+    border: none;
+}
+.mb-1\\.5 { margin-bottom: 6px; }
 .plot-number-tooltip {
     background: transparent !important;
     border: none !important;
@@ -1852,10 +2449,6 @@ color: #1E293B;
     align-items: center;
     justify-content: center;
 }
-.pr-1 {
-    padding-right: 4px;
-}
-/* Compass HUD Overlay style */
 .compass-hud {
     position: absolute;
     top: 50%;
@@ -1865,14 +2458,13 @@ color: #1E293B;
     width: 70px;
     height: 70px;
     border-radius: 50%;
-    border: 1.5px solid rgba(0, 255, 196, 0.3);
-    backdrop-filter: blur(10px);
-    background: rgba(11, 14, 20, 0.65);
+    border: 1.5px solid rgba(0, 0, 0, 0.1);
+    background: #FFFFFF;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 15px rgba(0, 255, 196, 0.1);
-    transition: all 0.3s ease;
+    transition: opacity 0.3s ease;
 }
 .compass-dial {
     position: relative;
@@ -1884,22 +2476,21 @@ color: #1E293B;
     position: absolute;
     font-size: 9px;
     font-weight: 800;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(0, 0, 0, 0.5);
     font-family: 'Ranade', sans-serif;
     transform: translate(-50%, -50%);
 }
-.direction-letter.n { top: 8%; left: 50%; color: #ff3e3e; }
+.direction-letter.n { top: 8%; left: 50%; color: #DC2626; }
 .direction-letter.e { top: 50%; left: 92%; }
 .direction-letter.s { top: 92%; left: 50%; }
 .direction-letter.w { top: 50%; left: 8%; }
-
 .compass-needle {
     position: absolute;
     top: 50%;
     left: 50%;
     width: 4px;
     height: 40px;
-    background: linear-gradient(to bottom, #ff3e3e 50%, #00ffd2 50%);
+    background: linear-gradient(to bottom, #DC2626 50%, var(--accent-orange, #F59E0B) 50%);
     transform: translate(-50%, -50%) rotate(0deg);
     transform-origin: 50% 50%;
     transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -1912,11 +2503,10 @@ color: #1E293B;
     left: calc(50% - 3px);
     width: 6px;
     height: 6px;
-    background: #ffffff;
+    background: #FFFFFF;
     border-radius: 50%;
-    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.15);
 }
-/* Road center line text tooltip styling */
 .road-label-tooltip {
     background: transparent !important;
     border: none !important;
@@ -1926,19 +2516,17 @@ color: #1E293B;
     user-select: none !important;
 }
 .road-name-text {
-    color: rgba(255, 255, 255, 0.95);
+    color: #1F2937;
     font-family: 'Ranade', sans-serif;
     font-weight: 800;
     font-size: 10px;
     letter-spacing: 2px;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-    background: rgba(10, 15, 25, 0.85);
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.92);
     padding: 2px 8px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 4px;
 }
-
-/* Gate Marker styling */
 .gate-marker-tooltip {
     background: transparent !important;
     border: none !important;
@@ -1949,12 +2537,12 @@ color: #1E293B;
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    background: #0c0f19;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #FFFFFF;
+    border: 1px solid #D1D5DB;
     border-radius: 20px;
     padding: 3px 10px;
-    color: #ffffff;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+    color: #374151;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
     white-space: nowrap;
 }
 .gate-pin i {
@@ -1968,80 +2556,176 @@ color: #1E293B;
     letter-spacing: 1px;
     text-transform: uppercase;
 }
-
-/* Sidebar Gate Badges */
 .badge-point-entry {
-    background-color: rgba(0, 255, 210, 0.15) !important;
-    color: #00ffd2 !important;
-    border: 0.5px solid rgba(0, 255, 210, 0.4);
+    background-color: rgba(245, 158, 11, 0.1) !important;
+    color: var(--accent-orange, #F59E0B) !important;
+    border: 0.5px solid rgba(245, 158, 11, 0.3);
 }
 .badge-point-exit {
-    background-color: rgba(255, 108, 0, 0.15) !important;
-    color: #ff6c00 !important;
-    border: 0.5px solid rgba(255, 108, 0, 0.4);
+    background-color: rgba(239, 68, 68, 0.1) !important;
+    color: #DC2626 !important;
+    border: 0.5px solid rgba(239, 68, 68, 0.3);
 }
 .badge-point-both {
-    background-color: rgba(0, 178, 255, 0.15) !important;
-    color: #00b2ff !important;
-    border: 0.5px solid rgba(0, 178, 255, 0.4);
+    background-color: rgba(59, 130, 246, 0.1) !important;
+    color: #2563EB !important;
+    border: 0.5px solid rgba(59, 130, 246, 0.3);
 }
-
 @keyframes pulseGate {
     0% { transform: scale(1); filter: brightness(1); }
     100% { transform: scale(1.15); filter: brightness(1.3); }
 }
-[data-theme="light"] .creator-card {
-    border-color: #E8ECF2 !important;
-    background: #FFFFFF !important;
-    backdrop-filter: none !important;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08) !important;
+
+/* ─── Dark Mode Overrides ───────────────────────────────────── */
+[data-theme="dark"] .pcreator-card {
+    background: #1E293B;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
 }
-[data-theme="light"] .btn-action-primary {
-    background: #F59E0B !important;
+[data-theme="dark"] .pcreator-title { color: #FFFFFF; }
+[data-theme="dark"] .pcreator-subtitle { color: #94A3B8; }
+[data-theme="dark"] .pcreator-divider { background: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .pcreator-section-label { color: #64748B; }
+[data-theme="dark"] .pcreator-prop-label { color: #94A3B8; }
+[data-theme="dark"] .pcreator-prop-value { color: #FFFFFF; }
+[data-theme="dark"] .pcreator-segmented { background: rgba(15, 23, 42, 0.6); }
+[data-theme="dark"] .pcreator-seg-btn { color: #94A3B8; }
+[data-theme="dark"] .pcreator-seg-btn:hover { color: #E2E8F0; }
+[data-theme="dark"] .pcreator-seg-btn.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: #FBBF24;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] .pcreator-instruction-card {
+    background: rgba(15, 23, 42, 0.5);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .pcreator-instruction-icon {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .pcreator-instruction-icon i { color: #64748B; }
+[data-theme="dark"] .pcreator-instruction-title { color: #E2E8F0; }
+[data-theme="dark"] .pcreator-instruction-list li { color: #94A3B8; }
+[data-theme="dark"] .pcreator-instruction-list li strong { color: #E2E8F0; }
+[data-theme="dark"] .pcreator-selected-info {
+    background: rgba(251, 191, 36, 0.08);
+    border-color: rgba(251, 191, 36, 0.2);
+}
+[data-theme="dark"] .pcreator-selected-header { border-color: rgba(251, 191, 36, 0.15); }
+[data-theme="dark"] .pcreator-selected-id { color: #FFFFFF; }
+[data-theme="dark"] .pcreator-selected-row span { color: #94A3B8; }
+[data-theme="dark"] .pcreator-selected-row strong { color: #E2E8F0; }
+[data-theme="dark"] .pcreator-label { color: #CBD5E1; }
+[data-theme="dark"] .pcreator-input {
+    background: rgba(15, 23, 42, 0.6);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #E2E8F0;
+}
+[data-theme="dark"] .pcreator-input:focus {
+    border-color: #FBBF24;
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15);
+}
+[data-theme="dark"] .pcreator-input::placeholder { color: #64748B; }
+[data-theme="dark"] .pcreator-select {
+    background: rgba(15, 23, 42, 0.6) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2364748B' d='M1 1l5 5 5-5' stroke='%2364748B' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+}
+[data-theme="dark"] .pcreator-select option {
+    background: #1E293B;
+    color: #E2E8F0;
+}
+[data-theme="dark"] .pcreator-range { background: rgba(255, 255, 255, 0.15); }
+[data-theme="dark"] .pcreator-deallot {
+    background: rgba(251, 191, 36, 0.1);
+    border-color: rgba(251, 191, 36, 0.2);
+    color: #FBBF24;
+}
+[data-theme="dark"] .pcreator-draw-info {
+    background: rgba(14, 165, 233, 0.1);
+    border-color: rgba(14, 165, 233, 0.2);
+    color: #7DD3FC;
+}
+[data-theme="dark"] .pcreator-draw-info i { color: #38BDF8; }
+[data-theme="dark"] .pcreator-btn-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #E2E8F0;
+}
+[data-theme="dark"] .pcreator-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+[data-theme="dark"] .pcreator-btn-ghost { color: #64748B; }
+[data-theme="dark"] .pcreator-btn-ghost:hover {
+    color: #E2E8F0;
+    background: rgba(255, 255, 255, 0.05);
+}
+[data-theme="dark"] .pcreator-btn-secondary-action {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #E2E8F0;
+}
+[data-theme="dark"] .pcreator-btn-secondary-action:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+[data-theme="dark"] .pcreator-btn-tertiary { color: #64748B; }
+[data-theme="dark"] .pcreator-btn-tertiary:hover {
+    color: #E2E8F0;
+    background: rgba(255, 255, 255, 0.05);
+}
+[data-theme="dark"] .pcreator-list-section { border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .pcreator-list-title { color: #64748B; }
+[data-theme="dark"] .pcreator-list-empty { color: #64748B; }
+[data-theme="dark"] .pcreator-plot-card {
+    background: rgba(15, 23, 42, 0.5);
+    border-color: rgba(255, 255, 255, 0.06);
+}
+[data-theme="dark"] .pcreator-plot-card:hover {
+    background: rgba(15, 23, 42, 0.7);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+[data-theme="dark"] .pcreator-plot-number { color: #FFFFFF; }
+[data-theme="dark"] .pcreator-plot-area { color: #94A3B8; }
+[data-theme="dark"] .pcreator-plot-delete { color: #64748B; }
+[data-theme="dark"] .pcreator-plot-delete:hover {
+    color: #F87171;
+    background: rgba(248, 113, 113, 0.1);
+}
+[data-theme="dark"] .compass-hud {
+    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(11, 14, 20, 0.65);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+}
+[data-theme="dark"] .direction-letter { color: rgba(255, 255, 255, 0.5); }
+[data-theme="dark"] .gate-pin {
+    background: #0c0f19;
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #FFFFFF;
+}
+[data-theme="dark"] .badge-point-entry {
+    background-color: rgba(0, 255, 210, 0.15) !important;
+    color: #00ffd2 !important;
+    border-color: rgba(0, 255, 210, 0.4);
+}
+[data-theme="dark"] .badge-point-exit {
+    background-color: rgba(255, 108, 0, 0.15) !important;
+    color: #ff6c00 !important;
+    border-color: rgba(255, 108, 0, 0.4);
+}
+[data-theme="dark"] .badge-point-both {
+    background-color: rgba(0, 178, 255, 0.15) !important;
+    color: #00b2ff !important;
+    border-color: rgba(0, 178, 255, 0.4);
+}
+[data-theme="dark"] .plot-number-tooltip {
     color: #FFFFFF !important;
-    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25) !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
-[data-theme="light"] .btn-action-primary:hover:not(:disabled) {
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
-}
-[data-theme="light"] .btn-action-primary-glow {
-    background: #FFFFFF !important;
-    border-color: #E8ECF2 !important;
-    color: #1F2937 !important;
-}
-[data-theme="light"] .btn-action-primary-glow:hover {
-    background: #F59E0B !important;
-    color: #FFFFFF !important;
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
-}
-[data-theme="light"] .btn-action-secondary {
-    background: #FFFFFF !important;
-    border-color: #E8ECF2 !important;
-    color: #1F2937 !important;
-}
-[data-theme="light"] .btn-action-secondary:hover {
-    background: #F8FAFC !important;
-}
-[data-theme="light"] .gate-pin {
-    background: #FFFFFF !important;
-    border-color: #E8ECF2 !important;
-    color: #1F2937 !important;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
-}
-[data-theme="light"] .badge-point-entry {
-    background-color: #DCFCE7 !important;
-    color: #166534 !important;
-    border-color: #22C55E !important;
-}
-[data-theme="light"] .badge-point-exit {
-    background-color: #FEF3C7 !important;
-    color: #92400E !important;
-    border-color: #F59E0B !important;
-}
-[data-theme="light"] .badge-point-both {
-    background-color: #DBEAFE !important;
-    color: #1D4ED8 !important;
-    border-color: #3B82F6 !important;
+[data-theme="dark"] .road-name-text {
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    background: rgba(10, 15, 25, 0.85);
+    border-color: rgba(255, 255, 255, 0.15);
 }
 </style>
 {% endblock %}

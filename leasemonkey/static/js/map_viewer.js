@@ -343,7 +343,7 @@ function getThemeColors() {
     reserved: isLight ? '#F59E0B' : '#8e9aa8',
     sold: isLight ? '#DC2626' : '#C7483F',
     building: isLight ? '#cbd5e1' : '#ffffff',
-    uniform: '#eaddca'
+    uniform: '#f0e6d6'
   };
 }
 const COLORS = getThemeColors();
@@ -416,28 +416,31 @@ function initMap() {
   }
 
   let boundaryStyle = {
-    color: '#282b30',
-    weight: 3,
-    opacity: 0.8,
+    color: '#3a3d44',
+    weight: 1.5,
+    opacity: 0.6,
     fillColor: '#151922',
     fillOpacity: 0.95
   };
 
   if (typeof landConfig !== 'undefined' && landConfig.slug !== 'demo-land') {
     boundaryStyle = {
-      color: '#00ffd2', // Neon cyan border
-      weight: 3.5,
-      opacity: 0.9,
-      fillColor: '#151922', // Solid dark fill to match dummy land
-      fillOpacity: 0.95 // Solid opacity to match dummy land
+      color: '#00ffd2',
+      weight: 2,
+      opacity: 0.65,
+      fillColor: '#151922',
+      fillOpacity: 0.92
     };
   }
 
   boundaryPolygon = L.polygon(landBoundaryCoords, boundaryStyle).addTo(map);
 
-  // Auto zoom map to fit boundary polygon bounding box perfectly
+  // Fit entire project boundary within viewport, accounting for navbar and controls
   if (typeof landConfig !== 'undefined' && landConfig.slug !== 'demo-land') {
-    map.fitBounds(boundaryPolygon.getBounds());
+    map.fitBounds(boundaryPolygon.getBounds(), {
+      paddingTopLeft: [20, 70],
+      paddingBottomRight: [370, 240]
+    });
   }
 
   // Add road label in the central corridor between North and South plot rows
@@ -475,11 +478,11 @@ function initMap() {
     const isBuildingPlot = statusColorKey === 'building';
 
     const polygon = L.polygon(plot.coordinates, {
-      color: isBuildingPlot ? '#718096' : '#3d4045',
-      weight: isBuildingPlot ? 1.0 : 1.5,
-      opacity: 0.8,
+      color: isBuildingPlot ? '#718096' : '#55585e',
+      weight: isBuildingPlot ? 1.0 : 1.0,
+      opacity: 0.7,
       fillColor: isBuildingPlot ? '#e2e8f0' : getPlotColor(statusColorKey),
-      fillOpacity: isBuildingPlot ? 0.95 : (colorCodingActive ? 0.8 : 0.9),
+      fillOpacity: isBuildingPlot ? 0.95 : (colorCodingActive ? 0.75 : 0.85),
       interactive: !isBuildingPlot
     }).addTo(map);
 
@@ -503,9 +506,9 @@ function initMap() {
       // Hover Mouseover
       polygon.on('mouseover', function(e) {
         this.setStyle({
-          fillOpacity: colorCodingActive ? 0.75 : 0.98,
-          weight: 3,
-          color: '#00b8ff' // highlight blue on hover
+          fillOpacity: colorCodingActive ? 0.7 : 0.95,
+          weight: 2,
+          color: '#00b8ff'
         });
       });
 
@@ -513,15 +516,14 @@ function initMap() {
       polygon.on('mouseout', function(e) {
         if (selectedMapPolygon !== this) {
           this.setStyle({
-            fillOpacity: colorCodingActive ? 0.8 : 0.9,
-            weight: 1.5,
-            color: '#3d4045'
+            fillOpacity: colorCodingActive ? 0.75 : 0.85,
+            weight: 1.0,
+            color: '#55585e'
           });
         } else {
-          // Keep selected highlight style
           this.setStyle({
-            fillOpacity: colorCodingActive ? 0.75 : 0.98,
-            weight: 3.5,
+            fillOpacity: colorCodingActive ? 0.7 : 0.95,
+            weight: 2.5,
             color: '#00b8ff'
           });
         }
@@ -546,19 +548,19 @@ function selectMapPlot(polygon) {
   if (selectedMapPolygon) {
     selectedMapPolygon.setStyle({
       fillColor: getPlotColor(selectedMapPolygon.statusColorKey),
-      fillOpacity: colorCodingActive ? 0.8 : 0.9,
-      weight: 1.5,
-      color: '#3d4045'
+      fillOpacity: colorCodingActive ? 0.75 : 0.85,
+      weight: 1.0,
+      color: '#55585e'
     });
   }
 
   selectedMapPolygon = polygon;
 
   polygon.setStyle({
-    fillColor: '#00b8ff', // fill blue on click
-    fillOpacity: 0.8,
-    weight: 3.5,
-    color: '#00b8ff' // highlight outline blue on click
+    fillColor: '#00b8ff',
+    fillOpacity: 0.75,
+    weight: 2.5,
+    color: '#00b8ff'
   });
 
   populateDetailsPanel(polygon.plotData, polygon.statusColorKey);
@@ -619,14 +621,16 @@ function setupToggleControls() {
       if (polygon === selectedMapPolygon) {
         polygon.setStyle({
           fillColor: '#00b8ff',
-          fillOpacity: 0.8,
+          fillOpacity: 0.75,
           color: '#00b8ff',
-          weight: 3.5
+          weight: 2.5
         });
       } else {
         polygon.setStyle({
           fillColor: getPlotColor(polygon.statusColorKey),
-          fillOpacity: colorCodingActive ? 0.8 : 0.9
+          fillOpacity: colorCodingActive ? 0.75 : 0.85,
+          weight: 1.0,
+          color: '#55585e'
         });
       }
     });
@@ -694,12 +698,57 @@ function setupToggleControls() {
     });
   });
 
-  // 3D View Toggler button (OFF/ON)
+  // 3D View Toggler button (OFF/ON) with cinematic loading transition
   const btn3D = document.getElementById('btn3DToggle');
   if (btn3D) {
     btn3D.addEventListener('click', () => {
       is3DActive = !is3DActive;
+
+      const overlay = document.getElementById('loadingOverlay3d');
+      const msgEl = document.getElementById('loadingMessage3d');
+      const subEl = document.getElementById('loadingSub3d');
+
+      if (!overlay) { update3DBuildingsView(); return; }
+
+      // Show overlay, disable map interaction
+      overlay.style.display = 'flex';
+      requestAnimationFrame(() => { overlay.classList.add('loading-visible'); });
+
+      map.dragging.disable();
+      map.touchZoom.disable();
+      map.doubleClickZoom.disable();
+      map.scrollWheelZoom.disable();
+      map.boxZoom.disable();
+      map.keyboard.disable();
+
+      if (map.tap) map.tap.disable();
+
+      if (is3DActive) {
+        msgEl.textContent = 'Loading 3D View...';
+        subEl.textContent = 'Preparing terrain';
+      } else {
+        msgEl.textContent = 'Returning to 2D View...';
+        subEl.textContent = 'Rendering layout';
+      }
+
+      // Run transition behind overlay
       update3DBuildingsView();
+
+      // Reveal when rendering is committed — use double rAF to catch paint
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          overlay.classList.remove('loading-visible');
+          setTimeout(() => { overlay.style.display = 'none'; }, 350);
+
+          map.dragging.enable();
+          map.touchZoom.enable();
+          map.doubleClickZoom.enable();
+          map.scrollWheelZoom.enable();
+          map.boxZoom.enable();
+          map.keyboard.enable();
+          if (map.tap) map.tap.enable();
+        });
+      });
     });
   }
 }
@@ -764,13 +813,13 @@ function triggerSearch(query) {
     map.setView(matched.getBounds().getCenter(), 19);
     selectMapPlot(matched);
     
-    // Outline pulse animation in Leaflet
+    // Outline pulse animation
     let isPulse = true;
     let count = 0;
     const pulseInterval = setInterval(() => {
       matched.setStyle({
-        fillOpacity: isPulse ? 0.8 : 0.2,
-        weight: isPulse ? 6 : 1.5,
+        fillOpacity: isPulse ? 0.75 : 0.2,
+        weight: isPulse ? 4 : 1.0,
         color: '#00b8ff'
       });
       isPulse = !isPulse;
@@ -778,8 +827,8 @@ function triggerSearch(query) {
       if (count >= 6) {
         clearInterval(pulseInterval);
         matched.setStyle({
-          fillOpacity: colorCodingActive ? 0.75 : 0.98,
-          weight: 3.5,
+          fillOpacity: colorCodingActive ? 0.7 : 0.95,
+          weight: 2.5,
           color: '#00b8ff'
         });
       }
@@ -798,9 +847,9 @@ function resetFilters() {
   if (selectedMapPolygon) {
     selectedMapPolygon.setStyle({
       fillColor: getPlotColor(selectedMapPolygon.statusColorKey),
-      fillOpacity: colorCodingActive ? 0.8 : 0.9,
-      weight: 1.5,
-      color: '#3d4045'
+      fillOpacity: colorCodingActive ? 0.75 : 0.85,
+      weight: 1.0,
+      color: '#55585e'
     });
     selectedMapPolygon = null;
   }
@@ -822,9 +871,9 @@ function closeDetailsPanel() {
   if (selectedMapPolygon) {
     selectedMapPolygon.setStyle({
       fillColor: getPlotColor(selectedMapPolygon.statusColorKey),
-      fillOpacity: colorCodingActive ? 0.8 : 0.9,
-      weight: 1.5,
-      color: '#3d4045'
+      fillOpacity: colorCodingActive ? 0.75 : 0.85,
+      weight: 1.0,
+      color: '#55585e'
     });
     selectedMapPolygon = null;
   }
@@ -877,32 +926,32 @@ function renderRoadOnMap(road) {
   const currentZoom = map.getZoom();
   const roadWidth = road.width || road.width_meters || 9.0;
 
-  // ── Thin dark shadow outline (sits behind, gives road body) ──────────────
+  // ── Thin dark shadow outline ────────────────────────────────────────────
   const outline = L.polyline(road.coordinates, {
-    color: '#1e2024',
+    color: '#2a2d33',
     weight: calculateRoadOutlineWeight(roadWidth, currentZoom),
-    opacity: 1.0,
+    opacity: 0.9,
     interactive: false,
     lineCap: 'butt',
     lineJoin: 'miter'
   }).addTo(map);
 
-  // ── Solid road surface (clean dark gray, matching Solace style) ──────────
+  // ── Solid road surface (softer warm grey) ────────────────────────────────
   const polyline = L.polyline(road.coordinates, {
-    color: '#3a3d40',
+    color: '#484b50',
     weight: calculateRoadWeight(roadWidth, currentZoom),
-    opacity: 1.0,
+    opacity: 0.85,
     interactive: false,
     lineCap: 'butt',
     lineJoin: 'miter'
   }).addTo(map);
 
-  // ── Clean lane dividing strip (makes the road immediately recognizable) ──
+  // ── Clean lane dividing strip ────────────────────────────────────────────
   const stripe = L.polyline(road.coordinates, {
-    color: '#6c727a',
+    color: '#7a8088',
     weight: calculateRoadStripeWeight(currentZoom),
-    dashArray: '5, 10',
-    opacity: 0.6,
+    dashArray: '6, 12',
+    opacity: 0.45,
     interactive: false
   }).addTo(map);
 

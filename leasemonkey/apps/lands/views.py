@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from .models import Land, Plot, Building, LandImage, Road, EntryExitPoint, SavedPlot
+from .models import Land, Plot, Building, LandImage, Road, EntryExitPoint, SavedPlot, OccupancyRecord
 
 User = get_user_model()
 
@@ -539,6 +539,7 @@ def update_plot(request, slug, plot_number):
 @login_required
 def deallot_plot(request, slug, plot_number):
     """De-allot a plot from a buyer by rejecting their approved purchase request."""
+    from django.utils import timezone
     land = get_object_or_404(Land, slug=slug)
     
     if request.user != land.owner and not request.user.is_superuser:
@@ -575,6 +576,17 @@ def deallot_plot(request, slug, plot_number):
         if plot:
             plot.status = 'available'
             plot.save()
+            
+        # Terminate occupancy record
+        from apps.lands.models import OccupancyRecord
+        active_record = OccupancyRecord.objects.filter(
+            land=land, plot_number=plot_number, status='active'
+        ).first()
+        if active_record:
+            active_record.status = 'terminated'
+            active_record.deallotted_at = timezone.now()
+            active_record.deallotment_reason = reason
+            active_record.save()
             
         # Send Notification to Buyer
         Notification.objects.create(
@@ -1065,8 +1077,8 @@ def submit_purchase_request(request, slug, plot_number):
         full_name = data.get('full_name', '').strip()
         aadhaar_number = data.get('aadhaar_number', '').strip()
         pan_number = data.get('pan_number', '').strip().upper()
-        email = data.get('email', '').strip()
-        phone_number = data.get('phone_number', '').strip()
+        email = request.user.email
+        phone_number = request.user.phone_number or ''
         proposed_amount = data.get('proposed_amount')
         
         if not (full_name and aadhaar_number and pan_number and email and phone_number and proposed_amount):
@@ -1280,6 +1292,16 @@ def purchase_request_action(request, request_id):
                 plot.status = 'sold'
                 plot.save()
                 
+            # Create occupancy record
+            from apps.lands.models import OccupancyRecord
+            OccupancyRecord.objects.create(
+                land=pr.land,
+                plot_number=pr.plot_number,
+                buyer=pr.buyer,
+                status='active',
+                allotted_at=timezone.now()
+            )
+                
             # Reject all other pending/meeting_scheduled requests for this plot
             other_requests = PurchaseRequest.objects.filter(
                 land=pr.land, plot_number=pr.plot_number, status__in=['pending', 'meeting_scheduled']
@@ -1388,3 +1410,26 @@ def toggle_saved_plot(request, slug, plot_number):
     else:
         SavedPlot.objects.create(user=request.user, land=land, plot_number=plot_number)
         return JsonResponse({'status': 'saved'})
+
+
+def occupancy_history(request, slug, plot_number):
+    """Returns JSON list of occupancy records for a given plot."""
+    land = get_object_or_404(Land, slug=slug)
+    records = OccupancyRecord.objects.filter(
+        land=land, plot_number=plot_number
+    ).select_related('buyer').order_by('-allotted_at')
+
+    data = {
+        'records': [
+            {
+                'buyer_name': r.buyer.username,
+                'status': r.status,
+                'status_label': 'Active' if r.status == 'active' else 'De-allotted',
+                'allotted_at': r.allotted_at.strftime('%d %b %Y at %I:%M %p'),
+                'deallotted_at': r.deallotted_at.strftime('%d %b %Y at %I:%M %p') if r.deallotted_at else None,
+                'deallotment_reason': r.deallotment_reason,
+            }
+            for r in records
+        ]
+    }
+    return JsonResponse(data)

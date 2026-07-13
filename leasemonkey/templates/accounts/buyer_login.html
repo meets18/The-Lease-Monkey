@@ -1,17 +1,40 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Buyer Login — The Lease Monkey{% endblock %}
+{% block title %}Buyer Portal — The Lease Monkey{% endblock %}
 
 {% block content %}
 <div class="container d-flex align-items-center justify-content-center min-vh-100 py-5" style="position: relative; z-index: 10;">
     <div class="login-card p-4 p-md-5 rounded-4 border border-secondary-glow bg-dark-glow shadow-lg max-w-500 w-100 mt-4">
+        <!-- Back Button -->
+        <div class="mb-3">
+            <a href="{% url 'portal_selection' %}" class="text-muted-glow hover-white text-decoration-none fs-13">
+                <i class="bi bi-arrow-left me-1"></i> Back
+            </a>
+        </div>
+
         <!-- Brand Header -->
         <div class="text-center mb-4">
             <i class="bi bi-wallet2 text-primary-glow fs-1 mb-2 d-inline-block"></i>
             <h2 class="font-ranade text-white fw-bold mb-1 fs-26">BUYER PORTAL</h2>
-            <p class="text-muted-glow fs-13">Enter email & password to manage lease bookings</p>
+            <p class="text-muted-glow fs-13">Manage lease bookings and browse plots</p>
         </div>
+
+        <!-- Tab Navigation -->
+        <ul class="nav nav-pills nav-justified mb-4 gap-2" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if active_tab != 'register' %}active{% endif %} text-uppercase fw-bold fs-12 py-2"
+                        id="loginTabBtn" data-bs-toggle="pill" data-bs-target="#loginForm" type="button" role="tab">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Login
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if active_tab == 'register' %}active{% endif %} text-uppercase fw-bold fs-12 py-2"
+                        id="registerTabBtn" data-bs-toggle="pill" data-bs-target="#registerForm" type="button" role="tab">
+                    <i class="bi bi-person-plus me-1"></i> Register
+                </button>
+            </li>
+        </ul>
 
         <!-- Messages / Errors -->
         {% if messages %}
@@ -24,50 +47,100 @@
             </div>
         {% endif %}
 
-        <!-- Login Form -->
-        <form method="POST" action="{% url 'buyer_login' %}" autocomplete="off">
-            {% csrf_token %}
-            <!-- Login Identifier Field -->
-            <div class="mb-3">
-                <label for="username" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Username, Email, or Phone</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-dark-glow border-secondary-glow text-muted-glow"><i class="bi bi-person"></i></span>
-                    <input type="text" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" id="username" name="username" required placeholder="buyer123, name@domain.com, or phone">
-                </div>
+        <!-- Tab Content -->
+        <div class="tab-content">
+            <!-- ======================== LOGIN TAB ======================== -->
+            <div class="tab-pane fade {% if active_tab != 'register' %}show active{% endif %}" id="loginForm" role="tabpanel">
+                <form method="POST" action="{% url 'buyer_login' %}" autocomplete="off">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="username" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Username, Email, or Phone</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark-glow border-secondary-glow text-muted-glow"><i class="bi bi-person"></i></span>
+                            <input type="text" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" id="username" name="username" required placeholder="buyer123, name@domain.com, or phone">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="password" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark-glow border-secondary-glow text-muted-glow"><i class="bi bi-key"></i></span>
+                            <input type="password" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" id="password" name="password" required placeholder="••••••••">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider mb-3">
+                        Login Account <i class="bi bi-box-arrow-in-right ms-1"></i>
+                    </button>
+
+                    <div class="text-center mt-3 fs-13">
+                        <a href="{% url 'forgot_password' %}" class="text-muted-glow text-decoration-none hover-white">
+                            <i class="bi bi-key me-1"></i> Forgot Password?
+                        </a>
+                    </div>
+                </form>
             </div>
 
-            <!-- Password Field -->
-            <div class="mb-4">
-                <label for="password" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Password</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-dark-glow border-secondary-glow text-muted-glow"><i class="bi bi-key"></i></span>
-                    <input type="password" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" id="password" name="password" required placeholder="••••••••">
-                </div>
-            </div>
+            <!-- ===================== REGISTER TAB ===================== -->
+            <div class="tab-pane fade {% if active_tab == 'register' %}show active{% endif %}" id="registerForm" role="tabpanel">
+                <form method="POST" action="{% url 'buyer_register' %}" autocomplete="off">
+                    {% csrf_token %}
+                    <div class="row g-3 mb-3">
+                        <div class="col-12">
+                            <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Full Name</label>
+                            <input type="text" name="first_name" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" value="{{ reg_name|default:'' }}" required placeholder="Your full name">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Email Address</label>
+                            <input type="email" name="email" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" value="{{ reg_email|default:'' }}" required placeholder="you@example.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Username</label>
+                            <input type="text" name="username" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" value="{{ reg_username|default:'' }}" required placeholder="Choose a username">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Date of Birth</label>
+                            <input type="date" name="dob" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" value="{{ reg_dob|default:'' }}" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Phone Number</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-dark-glow border-secondary-glow text-muted-glow fs-14 px-2">
+                                    <select name="phone_country_code" class="bg-transparent border-0 text-white fs-13" style="outline:none;">
+                                        <option value="+91" class="text-dark">+91</option>
+                                        <option value="+1" class="text-dark">+1</option>
+                                        <option value="+44" class="text-dark">+44</option>
+                                        <option value="+61" class="text-dark">+61</option>
+                                        <option value="+971" class="text-dark">+971</option>
+                                    </select>
+                                </span>
+                                <input type="tel" name="phone_number" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" value="{{ reg_phone|default:'' }}" required placeholder="9876543210">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Password</label>
+                            <input type="password" name="password" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" required placeholder="Min 12 chars">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Confirm Password</label>
+                            <input type="password" name="confirm_password" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" required placeholder="Re-enter password">
+                        </div>
+                    </div>
 
-            <!-- Submit Button -->
-            <button type="submit" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider mb-3">
-                Login Account <i class="bi bi-box-arrow-in-right ms-1"></i>
-            </button>
-
-            <!-- Links -->
-            <div class="text-center mt-3 fs-13">
-                <a href="{% url 'portal_selection' %}" class="text-muted-glow hover-white text-decoration-none">
-                    <i class="bi bi-arrow-left me-1"></i> Change Access Portal
-                </a>
+                    <button type="submit" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider mb-3">
+                        Create Account <i class="bi bi-person-plus ms-1"></i>
+                    </button>
+                </form>
             </div>
-        </form>
+        </div>
+
+
     </div>
 </div>
 
 <style>
-.max-w-500 {
-    max-width: 500px;
-}
-.login-card {
-    backdrop-filter: blur(15px);
-    transition: transform 0.3s ease;
-}
+.max-w-500 { max-width: 500px; }
+.login-card { backdrop-filter: blur(15px); transition: transform 0.3s ease; }
 .alert-danger {
     color: #ff4a4a !important;
     background-color: rgba(255, 74, 74, 0.08) !important;
@@ -78,9 +151,7 @@
     background-color: rgba(0, 255, 196, 0.08) !important;
     border-color: rgba(0, 255, 196, 0.25) !important;
 }
-.input-group-text {
-    border-right: none !important;
-}
+.input-group-text { border-right: none !important; }
 .form-control:focus {
     background-color: rgba(17, 24, 39, 0.8) !important;
     border-color: #00B2FF !important;
@@ -93,5 +164,40 @@
     box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
     color: #1F2937 !important;
 }
+/* Tab pill styles matching the portal selection theme */
+.nav-pills .nav-link {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #9ca3af;
+    border-radius: 6px;
+    transition: all 0.25s ease;
+}
+.nav-pills .nav-link:hover {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+}
+.nav-pills .nav-link.active {
+    background: linear-gradient(135deg, #FF5E00, #00B2FF) !important;
+    border-color: transparent !important;
+    color: #fff !important;
+    box-shadow: 0 4px 14px rgba(255, 94, 0, 0.3);
+}
+[data-theme="light"] .nav-pills .nav-link {
+    background: #F3F4F6;
+    border-color: #D1D5DB;
+    color: #6B7280;
+}
+[data-theme="light"] .nav-pills .nav-link:hover {
+    background: #E5E7EB;
+    color: #374151;
+}
+[data-theme="light"] .nav-pills .nav-link.active {
+    background: #F59E0B !important;
+    border-color: #F59E0B !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+}
+/* Smaller select inside input-group */
+.input-group select option { color: #1F2937; background: #fff; }
 </style>
 {% endblock %}
