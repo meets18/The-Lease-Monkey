@@ -30,7 +30,7 @@ Lease Monkey Platform Guide:
 
 Instructions:
 - Keep answers clear, concise, and friendly.
-- If you do not know the answer, do not make up facts. Instruct the user that you can log a support ticket for the administrator.
+- If you do not know the answer, do not make up facts. Just friendly state that you do not know and suggest they check back later.
 """
 
 @csrf_exempt
@@ -67,11 +67,7 @@ def send_chat_message(request):
         message_text=message_text
     )
 
-    # 3. Analyze query for problem/escalation keywords
-    escalation_keywords = ['problem', 'error', 'broken', 'fail', 'bug', 'support', 'admin', 'human', 'operator', 'ticket', 'not working', 'glitch']
-    has_escalation_intent = any(kw in message_text.lower() for kw in escalation_keywords)
-
-    # 4. Check if recommendations are explicitly requested
+    # 3. Check if recommendations are explicitly requested
     recommendation_keywords = ['recommend', 'suggest', 'match', 'find', 'budget', 'preference', 'best fit', 'options', 'which plot', 'suitable']
     is_recommendation_requested = any(kw in message_text.lower() for kw in recommendation_keywords)
 
@@ -79,88 +75,109 @@ def send_chat_message(request):
     prompt = message_text
     system_prompt = SYSTEM_GUIDE_PROMPT
 
-    if is_recommendation_requested:
-        # Load active available plots
-        available_plots = Plot.objects.filter(status='available')[:10]  # Limit to avoid huge context payload
-        plots_list = []
-        for p in available_plots:
-            plots_list.append(
-                f"Plot Number: {p.plot_number}, Land: {p.land.name}, Location: {p.land.location}, Price: {p.price} INR, Area: {p.area}, Facing: {p.facing}"
-            )
-        plots_context = "\n".join(plots_list)
+    # Load all active available plots to find the closest matches
+    available_plots = Plot.objects.filter(status='available').select_related('land')
+    
+    # Simple scoring to find the top plots matching query words and user preferences
+    query_words = set(re.findall(r'\w+', message_text.lower()))
+    scored_plots = []
+    
+    pref = None
+    if user:
+        try:
+            pref = UserPreferences.objects.get(user=user)
+        except UserPreferences.DoesNotExist:
+            pass
 
-        # Load user preferences if available
+    for p in available_plots:
+        score = 0
+        # 1. Location match from message query text (e.g. "Sitapura", "Malviya Nagar", etc.)
+        p_location_lower = p.land.location.lower()
+        p_land_name_lower = p.land.name.lower()
+        for qw in query_words:
+            if len(qw) > 3:
+                if qw in p_location_lower:
+                    score += 15
+                if qw in p_land_name_lower:
+                    score += 15
+        
+        # 2. Match with user profile preferences
+        if pref:
+            if pref.min_budget and p.price >= pref.min_budget:
+                score += 3
+            if pref.max_budget and p.price <= pref.max_budget:
+                score += 3
+            elif pref.max_budget and p.price > pref.max_budget:
+                score -= 2
+                
+            desc_lower = p.land.description.lower() if p.land.description else ""
+            if pref.proximity_preferences:
+                for prox in pref.proximity_preferences:
+                    if prox.lower() in desc_lower:
+                        score += 2
+        
+        scored_plots.append((score, p))
+    
+    # Sort plots by score descending
+    scored_plots.sort(key=lambda x: x[0], reverse=True)
+    top_plots = [item[1] for item in scored_plots[:15]]
+    
+    # Format the top matching plots for the AI guide/context
+    plots_list = []
+    for p in top_plots:
+        plots_list.append(
+            f"Plot Number: {p.plot_number}, Land: {p.land.name}, Location: {p.land.location}, Price: {p.price} INR, Area: {p.area}, Facing: {p.facing}"
+        )
+    plots_context = "\n".join(plots_list)
+
+    if is_recommendation_requested or any(loc in message_text.lower() for loc in ['sitapura', 'jaipur', 'location', 'where', 'find land', 'any land']):
+        # If they ask about locations or recommend plots, provide matched context
         pref_context = "No profile preferences configured yet."
-        if user:
-            try:
-                pref = UserPreferences.objects.get(user=user)
-                pref_context = (
-                    f"User Budget Range: {pref.min_budget or 0} to {pref.max_budget or 'No limit'} INR\n"
-                    f"Acreage Range: {pref.min_acres or 0} to {pref.max_acres or 'No limit'} acres\n"
-                    f"Property Condition Preference: {pref.get_property_condition_display()}\n"
-                    f"Proximity Preferences: {', '.join(pref.proximity_preferences)}"
-                )
-            except UserPreferences.DoesNotExist:
-                pass
-
+        if pref:
+            pref_context = (
+                f"User Budget Range: {pref.min_budget or 0} to {pref.max_budget or 'No limit'} INR\n"
+                f"Acreage Range: {pref.min_acres or 0} to {pref.max_acres or 'No limit'} acres\n"
+                f"Property Condition Preference: {pref.get_property_condition_display()}\n"
+                f"Proximity Preferences: {', '.join(pref.proximity_preferences)}"
+            )
+        
         system_prompt += f"\n\nCONTEXT FOR RECOMMENDATIONS:\nAvailable Plots:\n{plots_context}\n\nUser Profile Preferences:\n{pref_context}\n"
-        system_prompt += "\nINSTRUCTION: Recommends plots matching user profile preferences from the context. Do not make up plots."
+        system_prompt += "\nINSTRUCTION: Recommend at least 5 plots closest to the user's preferences/location query from the context if possible. For each recommended plot, explicitly state both the Plot Number and the Land Name (e.g. 'Plot P3 in LaLaLand'). Do not make up plots."
 
     ticket_created = False
     ai_response_text = ""
 
-    # If the user explicitly asks about a problem, skip Ollama or handle it directly
-    if has_escalation_intent:
-        SupportTicket.objects.create(
-            user=user,
-            chat_session=session,
-            user_query=message_text
+    # Call local Ollama instance
+    try:
+        response = requests.post(
+            'http://localhost:11434/api/generate',
+            json={
+                'model': 'llama3.2:latest',
+                'prompt': prompt,
+                'system': system_prompt,
+                'stream': False
+            },
+            timeout=120.0
         )
-        ticket_created = True
-        ai_response_text = (
-            "I'm sorry to hear you're experiencing an issue. I have escalated this problem directly to "
-            "our system administrator. They will review your query and get back to you shortly."
-        )
-    else:
-        # Call local Ollama instance
-        try:
-            response = requests.post(
-                'http://localhost:11434/api/generate',
-                json={
-                    'model': 'llama3.2:latest',
-                    'prompt': prompt,
-                    'system': system_prompt,
-                    'stream': False
-                },
-                timeout=120.0
+        if response.status_code == 200:
+            OLLAMA_ERROR_COUNT = 0 # reset error count
+            ai_response_text = response.json().get('response', '').strip()
+        else:
+            logger.error(f"Ollama returned status code {response.status_code}")
+            raise requests.exceptions.RequestException("Ollama returned non-200 status code")
+    except requests.exceptions.RequestException as e:
+        OLLAMA_ERROR_COUNT += 1
+        logger.error(f"Ollama request error (count={OLLAMA_ERROR_COUNT}): {e}")
+        
+        # If multiple consecutive errors, degrade and show friendly offline response
+        if OLLAMA_ERROR_COUNT >= 2:
+            ai_response_text = (
+                "Our AI assistant is temporarily offline due to heavy load. Please try again shortly."
             )
-            if response.status_code == 200:
-                OLLAMA_ERROR_COUNT = 0 # reset error count
-                ai_response_text = response.json().get('response', '').strip()
-            else:
-                logger.error(f"Ollama returned status code {response.status_code}")
-                raise requests.exceptions.RequestException("Ollama returned non-200 status code")
-        except requests.exceptions.RequestException as e:
-            OLLAMA_ERROR_COUNT += 1
-            logger.error(f"Ollama request error (count={OLLAMA_ERROR_COUNT}): {e}")
-            
-            # If multiple consecutive errors, degrade and escalate immediately
-            if OLLAMA_ERROR_COUNT >= 2:
-                ai_response_text = (
-                    "Our AI engine is currently experiencing heavy load or is offline. "
-                    "I have automatically created a support ticket with your query for the administrator."
-                )
-                SupportTicket.objects.create(
-                    user=user,
-                    chat_session=session,
-                    user_query=message_text
-                )
-                ticket_created = True
-            else:
-                ai_response_text = (
-                    "Our AI assistant is temporarily offline. Please try again shortly or let me know if "
-                    "you'd like me to escalate your query to our support admin."
-                )
+        else:
+            ai_response_text = (
+                "Our AI assistant is temporarily offline. Please try again shortly."
+            )
 
     # Scan for recommended plots and append structured summary HTML
     try:
@@ -170,7 +187,15 @@ def send_chat_message(request):
             # Match word pattern, e.g. "A1" or "P3"
             pattern = r'\b' + re.escape(p.plot_number) + r'\b'
             if re.search(pattern, ai_response_text, re.IGNORECASE):
-                matched_plots.append(p)
+                # Verify that this is the specific land mentioned, OR the plot number is unique
+                land_name_clean = p.land.name.lower()
+                is_land_mentioned = (land_name_clean in ai_response_text.lower())
+                
+                # Check uniqueness of plot number across available plots
+                is_unique_number = not available_plots.exclude(id=p.id).filter(plot_number=p.plot_number).exists()
+                
+                if is_land_mentioned or is_unique_number:
+                    matched_plots.append(p)
         
         if matched_plots:
             summary_html = "<div class='ai-rec-summary mt-3 p-3 rounded bg-dark border-orange-glow'>"

@@ -39,4 +39,10 @@ urlpatterns = [
 
     # ── Occupancy Registry ─────────────────────────────────────────────────────
     path('occupancy-history/<slug:slug>/<str:plot_number>/', views.occupancy_history, name='occupancy_history'),
+
+    # ── Site Layout Verification ────────────────────────────────────────────────
+    path('layout/upload/', views.upload_site_layout, name='upload_site_layout'),
+    path('admin/layout/<int:layout_id>/review/', views.admin_review_layout, name='admin_review_layout'),
+    path('admin/layout/<int:layout_id>/approve/', views.admin_approve_layout, name='admin_approve_layout'),
+    path('admin/layout/<int:layout_id>/reject/', views.admin_reject_layout, name='admin_reject_layout'),
 ]

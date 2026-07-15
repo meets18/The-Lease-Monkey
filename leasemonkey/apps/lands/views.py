@@ -207,6 +207,7 @@ def land_creator(request):
         'location': land.location,
         'price': land.average_plot_price,
         'other_lands_json': json.dumps(other_lands_list),
+        'google_maps_api_key': os.getenv('GOOGLE_MAPS_API_KEY', ''),
     }
     return render(request, 'lands/creator.html', context)
 
@@ -1433,3 +1434,173 @@ def occupancy_history(request, slug, plot_number):
         ]
     }
     return JsonResponse(data)
+
+
+@login_required(login_url='portal_selection')
+def upload_site_layout(request):
+    """Processes site layout uploads from the landowner's dashboard status card."""
+    if request.user.role != 'LAND_OWNER':
+        raise PermissionDenied("Only landowners can upload site layouts.")
+        
+    if request.method == 'POST':
+        property_name = request.POST.get('property_name', '').strip()
+        layout_file = request.FILES.get('layout_file')
+        notes = request.POST.get('notes', '').strip()
+        
+        if not property_name or not layout_file:
+            messages.error(request, "Property name and layout file are required.")
+            return redirect('landowner_dashboard')
+            
+        from apps.lands.models import SiteLayoutPlan
+        SiteLayoutPlan.objects.create(
+            owner=request.user,
+            property_name=property_name,
+            layout_file=layout_file,
+            notes=notes,
+            status='uploaded'
+        )
+        messages.success(request, "Site layout successfully uploaded and pending review.")
+    return redirect('landowner_dashboard')
+
+
+@login_required
+def admin_review_layout(request, layout_id):
+    """Allows administrators to mark an uploaded site layout as Under Review."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+        
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+        
+    from apps.lands.models import SiteLayoutPlan
+    layout = get_object_or_404(SiteLayoutPlan, pk=layout_id)
+    layout.status = 'under_review'
+    layout.save()
+    messages.success(request, f"Layout for '{layout.property_name}' is now under review.")
+    return redirect('admin_dashboard')
+
+
+@login_required
+def admin_approve_layout(request, layout_id):
+    """Allows administrators to approve a site layout and notify the landowner that it is live."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+        
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+        
+    from apps.lands.models import SiteLayoutPlan
+    layout = get_object_or_404(SiteLayoutPlan, pk=layout_id)
+    layout.status = 'approved'
+    layout.save()
+    
+    # 1. Send system notification to the landowner
+    from apps.core.models import Notification
+    Notification.objects.create(
+        recipient=layout.owner,
+        sender=request.user,
+        notif_type='lo_registration_approved',
+        title='🎉 Property Published',
+        message=(
+            f'Congratulations!\n\n'
+            f'Your property "{layout.property_name}" has been successfully verified '
+            f'and is now LIVE on Lease Monkey.\n\n'
+            f'Plots are now available for buyers to browse and send requests.'
+        )
+    )
+    
+    # 2. Send email to the landowner
+    from django.core.mail import send_mail
+    from django.conf import settings
+    
+    send_mail(
+        subject='Your property is now live on Lease Monkey',
+        message=(
+            f'Hello {layout.owner.first_name or layout.owner.username},\n\n'
+            f'Good news!\n\n'
+            f'Your property\n\n'
+            f'{layout.property_name}\n\n'
+            f'has been verified by our team and is now live on Lease Monkey.\n\n'
+            f'Buyers can now:\n'
+            f'• View available plots\n'
+            f'• Submit requests\n'
+            f'• Schedule meetings\n\n'
+            f'You can monitor all activity from your dashboard.\n\n'
+            f'Thank you for choosing Lease Monkey.\n\n'
+            f'— The Lease Monkey Team'
+        ),
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[layout.owner.email],
+        fail_silently=True,
+    )
+    
+    messages.success(request, f"Layout for '{layout.property_name}' approved. Landowner notified.")
+    return redirect('admin_dashboard')
+
+
+@login_required
+def admin_reject_layout(request, layout_id):
+    """Allows administrators to reject a site layout and notify the landowner."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+        
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+        
+    import json
+    # Handle both JSON content type and normal form data
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body)
+            reason = data.get('reason', '').strip()
+        except Exception:
+            reason = ''
+    else:
+        reason = request.POST.get('reason', '').strip()
+        
+    from apps.lands.models import SiteLayoutPlan
+    layout = get_object_or_404(SiteLayoutPlan, pk=layout_id)
+    layout.status = 'rejected'
+    if reason:
+        layout.notes = f"{layout.notes or ''}\n\nRejection Reason: {reason}".strip()
+    layout.save()
+    
+    # 1. Send system notification to the landowner
+    from apps.core.models import Notification
+    Notification.objects.create(
+        recipient=layout.owner,
+        sender=request.user,
+        notif_type='lo_registration_rejected',
+        title='❌ Site Layout Rejected',
+        message=(
+            f'Your site layout submission for "{layout.property_name}" has been rejected.\n\n'
+            f'Reason: {reason or "No reason provided."}\n\n'
+            f'Please upload a corrected layout diagram from your dashboard.'
+        )
+    )
+    
+    # 2. Send email to the landowner
+    from django.core.mail import send_mail
+    from django.conf import settings
+    
+    send_mail(
+        subject='Site Layout Rejected — Lease Monkey',
+        message=(
+            f'Hello {layout.owner.first_name or layout.owner.username},\n\n'
+            f'We regret to inform you that your site layout submission for property:\n\n'
+            f'{layout.property_name}\n\n'
+            f'has been rejected by our verification team.\n\n'
+            f'Reason: {reason or "No reason provided."}\n\n'
+            f'Please log in to your dashboard to upload a new site layout.\n\n'
+            f'— The Lease Monkey Team'
+        ),
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[layout.owner.email],
+        fail_silently=True,
+    )
+    
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+        return JsonResponse({'status': 'success', 'message': 'Layout rejected successfully.'})
+        
+    messages.success(request, f"Layout for '{layout.property_name}' rejected. Landowner notified.")
+    return redirect('admin_dashboard')

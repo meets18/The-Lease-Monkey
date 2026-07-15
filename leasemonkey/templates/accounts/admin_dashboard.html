@@ -29,6 +29,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkLayouts" onclick="switchTab('layouts');" class="sidebar-link">
+                        <i class="bi bi-file-earmark-text-fill"></i> Layout Submissions
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="javascript:void(0);" id="tabLinkNotifs" onclick="switchTab('notifs');" class="sidebar-link">
                         <i class="bi bi-bell-fill"></i> Notifications
                         {% if unread_count %}<span class="admin-notif-badge ms-auto">{{ unread_count }}</span>{% endif %}
@@ -129,7 +134,8 @@
                             <th scope="col" class="py-3">Email Address</th>
                             <th scope="col" class="py-3">Phone Number</th>
                             <th scope="col" class="py-3">Status</th>
-                            <th scope="col" class="py-3 text-end px-3">Land Assets</th>
+                            <th scope="col" class="py-3">Land Assets</th>
+                            <th scope="col" class="py-3 text-end px-3">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="fs-14">
@@ -144,8 +150,13 @@
                                             {{ owner.status }}
                                         </span>
                                     </td>
-                                    <td class="py-3 text-end px-3 fw-bold text-cyan-glow">
+                                    <td class="py-3 fw-bold text-cyan-glow">
                                         {{ owner.lands.count }} Land(s)
+                                    </td>
+                                    <td class="py-3 text-end px-3">
+                                        <button onclick="confirmDeleteLandowner('{{ owner.username|escapejs }}');" class="btn btn-sm btn-danger px-2.5 py-1 fs-11 fw-bold text-uppercase bg-danger-glow" style="border: 1px solid rgba(220, 38, 38, 0.2);">
+                                            <i class="bi bi-trash-fill"></i> Delete
+                                        </button>
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -291,6 +302,112 @@
             </div>
         </section>
 
+        <!-- SITE LAYOUTS QUEUE SECTION -->
+        <section id="sectionLayouts" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Site Layout Submissions</h2>
+                <p class="text-muted-glow fs-14 mb-0">Review and approve site layout diagrams uploaded by landowners to digitize their plots.</p>
+            </div>
+            
+            <div class="pr-grid font-opensans">
+                {% if site_layouts %}
+                    {% for layout in site_layouts %}
+                    <div class="pr-card-wrapper">
+                        <div class="pr-card" id="layout-card-{{ layout.id }}" onclick="toggleLayoutCard({{ layout.id }})" tabindex="0" role="button">
+                            <div class="pr-card-body">
+                                <div class="pr-top-row">
+                                    <div class="pr-buyer text-white font-ranade">{{ layout.owner.username }}</div>
+                                    <div class="pr-expand-icon">
+                                        <i class="bi bi-chevron-down text-white-50" id="layout-icon-{{ layout.id }}"></i>
+                                    </div>
+                                </div>
+                                <div class="pr-plot text-cyan-glow">Property: {{ layout.property_name }}</div>
+                                <div class="pr-meta pr-meta-loc text-muted-glow">
+                                    <a href="{{ layout.layout_file.url }}" target="_blank" class="text-cyan-glow text-decoration-none" onclick="event.stopPropagation();">
+                                        <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> View Layout Document
+                                    </a>
+                                </div>
+                                <div class="pr-divider"></div>
+                                <div class="pr-bottom-row">
+                                    <div class="pr-amount fs-12 text-white-50">Notes: {{ layout.notes|default:"-"|truncatechars:50 }}</div>
+                                    <div>
+                                        {% if layout.status == 'uploaded' %}
+                                        <span class="pr-badge status-pending">Uploaded</span>
+                                        {% elif layout.status == 'under_review' %}
+                                        <span class="pr-badge status-meeting">Under Review</span>
+                                        {% elif layout.status == 'approved' %}
+                                        <span class="pr-badge status-approved">Approved</span>
+                                        {% elif layout.status == 'rejected' %}
+                                        <span class="pr-badge status-rejected">Rejected</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pr-expanded" id="layout-body-{{ layout.id }}">
+                                <div class="pr-expanded-inner text-white">
+                                    <div class="pr-col">
+                                        <div class="pr-col-title text-secondary-glow fs-11 font-ranade fw-bold">Submission Details</div>
+                                        <div class="pr-field">
+                                            <span class="pr-field-label">Land Owner</span>
+                                            <span class="pr-field-value">{{ layout.owner.username }} ({{ layout.owner.email }})</span>
+                                        </div>
+                                        <div class="pr-field">
+                                            <span class="pr-field-label">Property Name</span>
+                                            <span class="pr-field-value fw-bold text-white">{{ layout.property_name }}</span>
+                                        </div>
+                                        <div class="pr-field">
+                                            <span class="pr-field-label">Notes</span>
+                                            <span class="pr-field-value">{{ layout.notes|default:"No notes provided."|linebreaksbr }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="pr-col">
+                                        <div class="pr-col-title text-secondary-glow fs-11 font-ranade fw-bold">Status History</div>
+                                        <div class="pr-field">
+                                            <span class="pr-field-label">Current Status</span>
+                                            <span class="pr-field-value text-capitalize">{{ layout.status }}</span>
+                                        </div>
+                                        <div class="pr-field">
+                                            <span class="pr-field-label">Uploaded On</span>
+                                            <span class="pr-field-value">{{ layout.created_at|date:"d M Y, h:i A" }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="pr-actions">
+                                    {% if layout.status == 'uploaded' %}
+                                        <form method="POST" action="{% url 'lands:admin_review_layout' layout.pk %}" onclick="event.stopPropagation();" class="d-inline flex-grow-1">
+                                            {% csrf_token %}
+                                            <button type="submit" class="pr-btn pr-btn-primary w-100">Review</button>
+                                        </form>
+                                        <button class="pr-btn pr-btn-danger flex-grow-1" onclick="event.stopPropagation(); confirmRejectLayout({{ layout.pk }});">Reject</button>
+                                    {% elif layout.status == 'under_review' %}
+                                        <form method="POST" action="{% url 'lands:admin_approve_layout' layout.pk %}" onclick="event.stopPropagation();" class="d-inline flex-grow-1">
+                                            {% csrf_token %}
+                                            <button type="submit" class="pr-btn pr-btn-primary w-100">Approve &amp; Publish</button>
+                                        </form>
+                                        <button class="pr-btn pr-btn-danger flex-grow-1" onclick="event.stopPropagation(); confirmRejectLayout({{ layout.pk }});">Reject</button>
+                                    {% elif layout.status == 'approved' %}
+                                        <div class="text-success-glow fw-bold fs-12 px-3 py-1 bg-success-glow bg-opacity-10 border border-success-glow rounded-pill d-inline-flex align-items-center">
+                                            <i class="bi bi-check2-circle me-1"></i> Verified &amp; Published
+                                        </div>
+                                    {% elif layout.status == 'rejected' %}
+                                        <div class="text-danger-glow fw-bold fs-12 px-3 py-1 bg-danger-glow bg-opacity-10 border border-danger-glow rounded-pill d-inline-flex align-items-center">
+                                            <i class="bi bi-x-circle me-1"></i> Rejected
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-5 text-center w-100">
+                        <i class="bi bi-file-earmark-x fs-1 text-muted-glow d-block mb-3"></i>
+                        <p class="text-muted-glow fs-15 mb-0">No site layout submissions yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+
     </main>
 </div>
 
@@ -405,6 +522,7 @@
         const tabMap = {
             lands:  { section: 'sectionLands',         link: 'tabLinkLands'   },
             owners: { section: 'sectionOwners',        link: 'tabLinkOwners'  },
+            layouts: { section: 'sectionLayouts',      link: 'tabLinkLayouts' },
             notifs: { section: 'sectionNotifications', link: 'tabLinkNotifs'  },
             applications: { section: 'sectionApplications', link: 'tabLinkApplications' },
         };
@@ -412,6 +530,31 @@
             document.getElementById(tabMap[t].section).style.display = (t === tabName) ? 'block' : 'none';
             document.getElementById(tabMap[t].link).classList.toggle('active', t === tabName);
         });
+    }
+
+    // ─── Landowner Deletion Action ─────────────────────────────────────────
+    function confirmDeleteLandowner(username) {
+        if (confirm(`Are you sure you want to permanently delete landowner "${username}"? All their registered lands and plots will also be deleted. This action is irreversible.`)) {
+            fetch(`/accounts/admin/delete-landowner/${username}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrf()
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'deleted') {
+                    alert(data.message);
+                    window.location.reload();
+                } else {
+                    alert(data.error || 'Failed to delete landowner.');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Network error while deleting landowner.');
+            });
+        }
     }
 
     // ─── Notification Actions ──────────────────────────────────────────────
@@ -634,6 +777,54 @@
             hiddenContainer.appendChild(fileInput);
         });
     });
+
+    // ─── Expand/Collapse Site Layout Cards ──────────────────────────────────
+    function toggleLayoutCard(id) {
+        const body = document.getElementById('layout-body-' + id);
+        const icon = document.getElementById('layout-icon-' + id);
+        if (!body) return;
+        if (body.classList.contains('expanded')) {
+            body.classList.remove('expanded');
+            body.style.maxHeight = '0';
+            if (icon) icon.style.transform = 'rotate(0deg)';
+        } else {
+            body.classList.add('expanded');
+            body.style.maxHeight = body.scrollHeight + 'px';
+            if (icon) icon.style.transform = 'rotate(180deg)';
+        }
+    }
+
+    // ─── Reject Site Layout Action ─────────────────────────────────────────
+    function confirmRejectLayout(layoutId) {
+        const reason = prompt("Please enter the reason for rejecting this site layout (an email and notification will be sent to the landowner):");
+        if (reason === null) return;
+        if (reason.trim() === '') {
+            alert("A reason is required to reject the layout.");
+            return;
+        }
+        
+        fetch(`/lands/admin/layout/${layoutId}/reject/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf()
+            },
+            body: JSON.stringify({ reason: reason.trim() })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert(data.error || 'Failed to reject layout.');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Network error while rejecting layout.');
+        });
+    }
 </script>
 
 <style>
@@ -941,6 +1132,305 @@
     background: #F59E0B !important;
     color: #FFFFFF !important;
     box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3) !important;
+}
+
+/* ── Site Layout Submissions Expandable Cards ─────────────────────────────── */
+.pr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+}
+
+.pr-card-wrapper {
+    width: 100%;
+}
+
+.pr-card {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                box-shadow 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.pr-card:hover {
+    transform: translateY(-6px);
+}
+
+.pr-card-body {
+    padding: 20px 22px 18px;
+}
+
+.pr-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.pr-buyer {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    font-size: 1.2rem;
+    line-height: 1.3;
+}
+
+.pr-expand-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.pr-expand-icon i {
+    font-size: 1.15rem;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease;
+}
+
+.pr-plot {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.pr-meta {
+    font-size: 0.88rem;
+    margin-bottom: 2px;
+}
+
+.pr-meta-loc {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.pr-meta-loc i {
+    font-size: 0.8rem;
+}
+
+.pr-divider {
+    height: 1px;
+    margin: 14px 0 12px;
+}
+
+.pr-bottom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.pr-amount {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    white-space: nowrap;
+}
+
+.pr-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+.pr-badge.status-pending {
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.pr-badge.status-meeting {
+    background: rgba(253, 126, 20, 0.12);
+    color: #fd7e14;
+    border: 1px solid rgba(253, 126, 20, 0.25);
+}
+
+.pr-badge.status-approved {
+    background: rgba(0, 255, 196, 0.1);
+    color: #00ffd2;
+    border: 1px solid rgba(0, 255, 196, 0.2);
+}
+
+.pr-badge.status-rejected {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.pr-expanded {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pr-expanded.expanded {
+    max-height: 600px;
+}
+
+.pr-expanded-inner {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 18px 22px 14px;
+    display: flex;
+    gap: 32px;
+}
+
+.pr-col {
+    flex: 1;
+    min-width: 0;
+}
+
+.pr-col-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    margin-bottom: 12px;
+}
+
+.pr-field {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 7px;
+}
+
+.pr-field-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    min-width: 100px;
+    flex-shrink: 0;
+}
+
+.pr-field-value {
+    font-size: 0.85rem;
+    color: #e2e8f0;
+    font-weight: 500;
+}
+
+.pr-field-amount {
+    color: #00ffd2;
+    font-weight: 700;
+}
+
+.pr-field-danger {
+    color: #ef4444;
+}
+
+.pr-actions {
+    display: flex;
+    gap: 12px;
+    padding: 4px 22px 20px;
+}
+
+.pr-btn {
+    flex: 1;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: none;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: 'Open Sans', sans-serif;
+}
+
+.pr-btn-primary {
+    background: linear-gradient(135deg, rgba(0, 178, 255, 0.15), rgba(0, 255, 196, 0.15));
+    border: 1px solid rgba(0, 255, 196, 0.3);
+    color: #00ffd2;
+}
+
+.pr-btn-primary:hover {
+    background: linear-gradient(135deg, #00b2ff, #00ffc4);
+    color: #1E293B !important;
+    box-shadow: 0 0 15px rgba(0, 255, 196, 0.4);
+}
+
+.pr-btn-danger {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #ef4444;
+}
+
+.pr-btn-danger:hover {
+    background: #ef4444;
+    color: #ffffff !important;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+}
+
+/* ── Dark theme (default) ────────────────────────────────── */
+[data-theme="dark"] .pr-card {
+    background: #1E293B;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .pr-card:hover {
+    box-shadow:
+        0 16px 40px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(0, 178, 255, 0.15);
+}
+
+[data-theme="dark"] .pr-divider {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* ── Light theme override ────────────────────────────────── */
+[data-theme="light"] .pr-card {
+    background: #FFFFFF;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .pr-card:hover {
+    box-shadow:
+        0 16px 40px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="light"] .pr-divider {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .pr-expanded-inner {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .pr-field-value {
+    color: #1e293b;
+}
+
+[data-theme="light"] .pr-btn-primary {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.15));
+    border: 1px solid rgba(217, 119, 6, 0.3);
+    color: #b45309;
+}
+
+[data-theme="light"] .pr-btn-primary:hover {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #ffffff !important;
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+}
+
+[data-theme="light"] .pr-field-amount {
+    color: #d97706;
+}
+
+[data-theme="light"] .pr-card-wrapper .text-cyan-glow {
+    color: #d97706 !important;
+}
+
+@media (max-width: 991px) {
+    .pr-grid { grid-template-columns: 1fr; gap: 20px; }
+    .pr-expanded-inner { flex-direction: column; gap: 20px; }
 }
 </style>
 

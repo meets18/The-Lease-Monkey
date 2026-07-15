@@ -510,3 +510,131 @@ class OCRValidationTests(TestCase):
             self.assertIn("Tesseract path not found", ocr_rec.error_message)
 
 
+class LandownerOnboardingAndManagementTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.landowner = User.objects.create_user(
+            username='rajesh_sharma',
+            email='rajesh@example.com',
+            password='testpassword123',
+            role=User.LAND_OWNER,
+            first_name='Rajesh',
+            last_name='Sharma',
+            is_first_login=True
+        )
+        self.admin = User.objects.create_superuser(
+            username='admin_user',
+            email='admin@test.com',
+            password='adminpassword123'
+        )
+
+    def test_landowner_onboarding_redirection(self):
+        """Verify new landowners are redirected to onboarding page on first dashboard request."""
+        self.client.force_login(self.landowner)
+        response = self.client.get(reverse('landowner_dashboard'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('onboarding_landowner'), response.url)
+
+    def test_onboarding_skip(self):
+        """Verify landowners can skip onboarding, which toggles is_first_login to False."""
+        self.client.force_login(self.landowner)
+        response = self.client.post(reverse('onboarding_landowner'), data={'action': 'skip'})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('landowner_dashboard'), response.url)
+        
+        self.landowner.refresh_from_db()
+        self.assertFalse(self.landowner.is_first_login)
+
+    def test_onboarding_upload_layout(self):
+        """Verify landowners can successfully submit a layout, which sets status to uploaded."""
+        self.client.force_login(self.landowner)
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        dummy_pdf = SimpleUploadedFile("layout.pdf", b"pdf content", content_type="application/pdf")
+        
+        response = self.client.post(reverse('onboarding_landowner'), data={
+            'action': 'upload',
+            'property_name': 'Green Valley Extension',
+            'layout_file': dummy_pdf,
+            'notes': 'All plots are east-facing.'
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('landowner_dashboard'), response.url)
+        
+        self.landowner.refresh_from_db()
+        self.assertFalse(self.landowner.is_first_login)
+        
+        from apps.lands.models import SiteLayoutPlan
+        layout = SiteLayoutPlan.objects.filter(owner=self.landowner).first()
+        self.assertIsNotNone(layout)
+        self.assertEqual(layout.property_name, 'Green Valley Extension')
+        self.assertEqual(layout.status, 'uploaded')
+        self.assertEqual(layout.notes, 'All plots are east-facing.')
+
+    def test_admin_layout_status_progression(self):
+        """Verify layout status progression from uploaded to under review and approved."""
+        from apps.lands.models import SiteLayoutPlan
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        dummy_png = SimpleUploadedFile("layout.png", b"png content", content_type="image/png")
+        
+        layout = SiteLayoutPlan.objects.create(
+            owner=self.landowner,
+            property_name='Green Valley Extension',
+            layout_file=dummy_png,
+            notes='Review requested',
+            status='uploaded'
+        )
+        
+        # Log in as Admin
+        self.client.force_login(self.admin)
+        
+        # 1. Mark under review
+        response = self.client.post(reverse('lands:admin_review_layout', args=[layout.pk]))
+        self.assertEqual(response.status_code, 302)
+        layout.refresh_from_db()
+        self.assertEqual(layout.status, 'under_review')
+        
+        # 2. Approve & Publish
+        from django.core import mail
+        response = self.client.post(reverse('lands:admin_approve_layout', args=[layout.pk]))
+        self.assertEqual(response.status_code, 302)
+        layout.refresh_from_db()
+        self.assertEqual(layout.status, 'approved')
+        
+        # Check system notification was sent to landowner
+        from apps.core.models import Notification
+        notif = Notification.objects.filter(recipient=self.landowner).first()
+        self.assertIsNotNone(notif)
+        self.assertEqual(notif.title, '🎉 Property Published')
+        self.assertIn('Green Valley Extension', notif.message)
+        
+        # Check email was sent to landowner
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, 'Your property is now live on Lease Monkey')
+        self.assertIn('Green Valley Extension', mail.outbox[0].body)
+
+    def test_admin_delete_landowner_cascades(self):
+        """Verify admin can delete landowner account, cascading delete to their lands and plots."""
+        from apps.lands.models import Land
+        land = Land.objects.create(
+            name='Green Farms',
+            owner=self.landowner,
+            location='Malviya Nagar',
+            area=5.0,
+            average_plot_price=500000.00
+        )
+        
+        # Log in as Admin
+        self.client.force_login(self.admin)
+        
+        # Send delete request
+        response = self.client.post(reverse('admin_delete_landowner', args=[self.landowner.username]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'deleted')
+        
+        # Check user is deleted
+        self.assertFalse(User.objects.filter(username=self.landowner.username).exists())
+        
+        # Check land is deleted (cascaded)
+        self.assertFalse(Land.objects.filter(pk=land.pk).exists())
+
+

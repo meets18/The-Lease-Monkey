@@ -212,6 +212,24 @@ class OccupancyRecord(models.Model):
     def __str__(self):
         return f"{self.plot_number} - {self.buyer.username} ({self.status})"
 
+class SiteLayoutPlan(models.Model):
+    STATUS_CHOICES = [
+        ('not_uploaded', 'Not Uploaded'),
+        ('uploaded', 'Uploaded'),
+        ('under_review', 'Under Review'),
+        ('approved', 'Approved'),
+    ]
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='site_layouts')
+    property_name = models.CharField(max_length=200)
+    layout_file = models.FileField(upload_to='site_layouts/')
+    notes = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='uploaded')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Layout for {self.property_name} ({self.get_status_display()})"
+
 # Signal handlers to clean up physical storage files on model instance deletions
 from django.db.models.signals import post_delete
 from django.dispatch import receiver

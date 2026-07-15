@@ -27,6 +27,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkLayouts" onclick="switchTab('layouts');"
+                        class="sidebar-link">
+                        <i class="bi bi-file-earmark-text-fill"></i> Site Layout
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="javascript:void(0);" id="tabLinkBuyers" onclick="switchTab('buyers');"
                         class="sidebar-link">
                         <i class="bi bi-people-fill"></i> Buyers
@@ -134,6 +140,105 @@
                         {% endif %}
                     </tbody>
                 </table>
+            </div>
+        </section>
+
+        <!-- ── SITE LAYOUT TAB ──────────────────────────────────────────────── -->
+        <section id="sectionLayouts" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Site Layout</h2>
+                <p class="text-muted-glow fs-14 mb-0">Upload and monitor property site layouts to digitize your plot details for prospective buyers.</p>
+            </div>
+
+            <div class="row g-4">
+                <!-- Upload Form Card -->
+                <div class="col-xl-5">
+                    <div class="card bg-dark-glow border border-secondary-glow rounded-3 text-white shadow-lg p-4 font-opensans">
+                        <h4 class="h5 font-ranade text-white fw-bold mb-3"><i class="bi bi-file-earmark-arrow-up text-amber-glow me-1"></i> Submit New Layout</h4>
+                        
+                        <form method="POST" action="{% url 'lands:upload_site_layout' %}" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label for="formPropertyName" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Property Name</label>
+                                <input type="text" class="form-control bg-dark border border-secondary-glow text-white fs-14 py-2" id="formPropertyName" name="property_name" placeholder="e.g. Green Valley Extension" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Layout Document</label>
+                                <div class="file-upload-wrapper text-center border-dashed rounded p-4 position-relative" style="border: 2px dashed rgba(255,255,255,0.15); background: rgba(0,0,0,0.2); cursor: pointer;" onclick="document.getElementById('formLayoutFile').click();">
+                                    <i class="bi bi-cloud-arrow-up fs-2 text-cyan-glow mb-2 d-block"></i>
+                                    <span class="fs-13 fw-bold text-white d-block mb-1">Choose layout file</span>
+                                    <span class="fs-11 text-white-50 d-block">PDF, JPG, PNG (Max 10MB)</span>
+                                    <input type="file" id="formLayoutFile" name="layout_file" accept=".pdf, .jpg, .jpeg, .png" class="d-none" required onchange="handleFileSelected(this);">
+                                    <div id="fileUploadFeedback" class="fs-12 text-success-glow fw-bold mt-2 d-none"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label for="formNotes" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Notes (Optional)</label>
+                                <textarea class="form-control bg-dark border border-secondary-glow text-white fs-14 py-2" id="formNotes" name="notes" rows="3" placeholder="e.g. Please mark plot boundaries starting from the main highway entrance..."></textarea>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider">
+                                Upload Layout <i class="bi bi-upload ms-1"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Submissions Queue List -->
+                <div class="col-xl-7">
+                    <div class="card bg-dark-glow border border-secondary-glow rounded-3 text-white shadow-lg p-4 font-opensans h-100">
+                        <h4 class="h5 font-ranade text-white fw-bold mb-3"><i class="bi bi-clock-history text-amber-glow me-1"></i> Submission History</h4>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-dark align-middle mb-0 table-modern">
+                                <thead>
+                                    <tr class="text-secondary-glow fs-12 border-bottom border-secondary-glow">
+                                        <th class="py-2.5 px-3">Property Name</th>
+                                        <th class="py-2.5">Date Uploaded</th>
+                                        <th class="py-2.5">File</th>
+                                        <th class="py-2.5">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="fs-13">
+                                    {% if site_layouts %}
+                                        {% for layout in site_layouts %}
+                                        <tr class="border-bottom border-dark-glow">
+                                            <td class="py-3 px-3 fw-bold text-white font-ranade">{{ layout.property_name }}</td>
+                                            <td class="py-3 text-muted-glow">{{ layout.created_at|date:"d M Y at h:i A" }}</td>
+                                            <td class="py-3">
+                                                <a href="{{ layout.layout_file.url }}" target="_blank" class="text-cyan-glow text-decoration-none">
+                                                    <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> Download
+                                                </a>
+                                            </td>
+                                            <td class="py-3">
+                                                {% if layout.status == 'uploaded' %}
+                                                    <span class="badge bg-success-glow text-uppercase fs-9">🟢 Uploaded</span>
+                                                    <small class="d-block text-white-50 fs-9 mt-1">Pending review</small>
+                                                {% elif layout.status == 'under_review' %}
+                                                    <span class="badge bg-warning-glow text-uppercase fs-9">🟠 Under Review</span>
+                                                    <small class="d-block text-white-50 fs-9 mt-1">Digitizing plots</small>
+                                                {% elif layout.status == 'approved' %}
+                                                    <span class="badge bg-info-glow text-uppercase fs-9">🟢 Approved</span>
+                                                    <small class="d-block text-white-50 fs-9 mt-1">Property is Live</small>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="4" class="py-5 text-center text-muted-glow">
+                                                <i class="bi bi-file-earmark-text fs-2 d-block mb-2 text-white-50"></i>
+                                                No layouts submitted yet.
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -563,8 +668,8 @@
 <script>
     // ─── Tab Switching ─────────────────────────────────────────────────────────
     function switchTab(tabName) {
-        const tabs = { lands: 'sectionLands', buyers: 'sectionBuyers', purchaseRequests: 'sectionPurchaseRequests', requests: 'sectionRequests', notifs: 'sectionNotifs' };
-        const links = { lands: 'tabLinkLands', buyers: 'tabLinkBuyers', purchaseRequests: 'tabLinkPurchaseRequests', requests: 'tabLinkRequests', notifs: 'tabLinkNotifs' };
+        const tabs = { lands: 'sectionLands', layouts: 'sectionLayouts', buyers: 'sectionBuyers', purchaseRequests: 'sectionPurchaseRequests', requests: 'sectionRequests', notifs: 'sectionNotifs' };
+        const links = { lands: 'tabLinkLands', layouts: 'tabLinkLayouts', buyers: 'tabLinkBuyers', purchaseRequests: 'tabLinkPurchaseRequests', requests: 'tabLinkRequests', notifs: 'tabLinkNotifs' };
         Object.keys(tabs).forEach(t => {
             document.getElementById(tabs[t]).style.display = (t === tabName) ? 'block' : 'none';
             const linkEl = document.getElementById(links[t]);
@@ -572,6 +677,16 @@
                 linkEl.classList.toggle('active', t === tabName);
             }
         });
+    }
+
+    function handleFileSelected(input) {
+        const feedback = document.getElementById('fileUploadFeedback');
+        if (input.files && input.files.length > 0) {
+            feedback.innerHTML = `<i class="bi bi-check-circle-fill text-success-glow me-1"></i> Selected: ${input.files[0].name}`;
+            feedback.classList.remove('d-none');
+        } else {
+            feedback.classList.add('d-none');
+        }
     }
 
     // ─── Purchase Request Actions ──────────────────────────────────────────────
@@ -1442,4 +1557,38 @@
         box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
     }
 </style>
+
+<!-- Upload Layout Modal -->
+<div class="modal fade" id="uploadLayoutModal" tabindex="-1" aria-labelledby="uploadLayoutModalLabel" aria-hidden="true" style="position: relative; z-index: 1050;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark-glow border border-secondary-glow text-white rounded-3">
+            <div class="modal-header border-bottom border-secondary-glow">
+                <h5 class="modal-title font-ranade fw-bold" id="uploadLayoutModalLabel">Upload Site Layout</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{% url 'lands:upload_site_layout' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body font-opensans">
+                    <div class="mb-3">
+                        <label for="modalPropertyName" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Property Name</label>
+                        <input type="text" class="form-control bg-dark border border-secondary-glow text-white fs-14 py-2" id="modalPropertyName" name="property_name" placeholder="e.g. Green Valley Extension" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalLayoutFile" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Site Layout File</label>
+                        <input type="file" class="form-control bg-dark border border-secondary-glow text-white fs-14 py-2" id="modalLayoutFile" name="layout_file" accept=".pdf, .jpg, .jpeg, .png" required>
+                        <small class="text-muted-glow fs-11 mt-1 d-block">Accepted formats: PDF, JPG, PNG.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalNotes" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Notes (Optional)</label>
+                        <textarea class="form-control bg-dark border border-secondary-glow text-white fs-14 py-2" id="modalNotes" name="notes" rows="3" placeholder="Notes for plotting team..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-secondary-glow">
+                    <button type="button" class="btn btn-outline-secondary border-secondary-glow text-muted-glow fs-12 fw-bold text-uppercase py-2 px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-get-started fs-12 fw-bold text-uppercase py-2 px-3">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}

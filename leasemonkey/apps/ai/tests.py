@@ -98,25 +98,8 @@ class AiAssistantTests(TestCase):
             self.assertIn('Plot Number: A1', sent_payload['system'])
             self.assertIn('User Budget Range: 0 to 600000.00 INR', sent_payload['system'])
 
-    def test_escalation_triggers(self):
-        """Test that problem reports/bugs immediately generate a SupportTicket."""
-        self.client.force_login(self.user)
-        url = reverse('ai:send_chat_message')
-        
-        response = self.client.post(
-            url,
-            data=json.dumps({'message': 'I have a problem with payment, it failed with an error.'}),
-            content_type='application/json'
-        )
-        
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()['ticket_created'])
-        self.assertEqual(SupportTicket.objects.count(), 1)
-        self.assertEqual(SupportTicket.objects.first().user, self.user)
-        self.assertEqual(SupportTicket.objects.first().user_query, 'I have a problem with payment, it failed with an error.')
-
     def test_graceful_degradation_and_ollama_errors(self):
-        """Test that multiple consecutive Ollama request exceptions trigger support tickets."""
+        """Test that multiple consecutive Ollama request exceptions return offline message without creating tickets."""
         self.client.force_login(self.user)
         url = reverse('ai:send_chat_message')
         
@@ -130,6 +113,7 @@ class AiAssistantTests(TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertFalse(response.json()['ticket_created'])
             self.assertEqual(response.json()['consecutive_errors'], 1)
+            self.assertIn("temporarily offline", response.json()['response'])
             
             # Second error
             response2 = self.client.post(
@@ -138,9 +122,10 @@ class AiAssistantTests(TestCase):
                 content_type='application/json'
             )
             self.assertEqual(response2.status_code, 200)
-            self.assertTrue(response2.json()['ticket_created'])
+            self.assertFalse(response2.json()['ticket_created'])
             self.assertEqual(response2.json()['consecutive_errors'], 2)
-            self.assertEqual(SupportTicket.objects.count(), 1)
+            self.assertIn("offline due to heavy load", response2.json()['response'])
+            self.assertEqual(SupportTicket.objects.count(), 0)
 
     def test_resolve_support_ticket(self):
         """Test that the admin resolve ticket view updates ticket status."""

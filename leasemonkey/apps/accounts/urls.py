@@ -12,6 +12,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('profile/', views.profile, name='profile'),
     path('profile/landowner/', views.landowner_profile, name='landowner_profile'),
+    path('onboarding/landowner/', views.onboarding_landowner, name='onboarding_landowner'),
     path('preferences/', views.preferences, name='preferences'),
     path('profile/send-otp/', views.send_profile_otp, name='send_profile_otp'),
     path('profile/verify-otp/', views.verify_profile_otp, name='verify_profile_otp'),
@@ -27,6 +28,7 @@ urlpatterns = [
     path('profile/send-delete-otp/', views.send_delete_otp, name='send_delete_otp'),
     path('profile/delete-account/', views.delete_account, name='delete_account'),
     path('admin/delete-buyer/<str:username>/', views.admin_delete_buyer, name='admin_delete_buyer'),
+    path('admin/delete-landowner/<str:username>/', views.admin_delete_landowner, name='admin_delete_landowner'),
 
     # Landowner Registration Endpoints
     path('register/landowner/', views.landowner_register_step1, name='landowner_register_step1'),

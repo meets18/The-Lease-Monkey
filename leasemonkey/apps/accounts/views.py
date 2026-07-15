@@ -191,7 +191,11 @@ def landowner_dashboard(request):
         if not request.user.is_superuser:
             raise PermissionDenied("You do not have access to this portal.")
 
-    from apps.lands.models import Land, OccupancyRecord
+    # Redirect to onboarding if first login
+    if request.user.role == User.LAND_OWNER and request.user.is_first_login:
+        return redirect('onboarding_landowner')
+
+    from apps.lands.models import Land, OccupancyRecord, SiteLayoutPlan
     from apps.core.models import Notification, PurchaseRequest
 
     lands = list(Land.objects.filter(owner=request.user).prefetch_related('plots', 'images'))
@@ -219,6 +223,9 @@ def landowner_dashboard(request):
         land__owner=request.user
     ).select_related('buyer', 'land').order_by('-allotted_at')
 
+    # Get uploaded site layouts
+    site_layouts = SiteLayoutPlan.objects.filter(owner=request.user).order_by('-created_at')
+
     context = {
         'lands': lands,
         'notifications': notifications,
@@ -228,6 +235,7 @@ def landowner_dashboard(request):
         'pending_purchase_count': pending_purchase_count,
         'active_buyers': active_buyers,
         'occupancy_records': occupancy_records,
+        'site_layouts': site_layouts,
     }
     return render(request, 'accounts/landowner_dashboard.html', context)
 
@@ -239,7 +247,7 @@ def admin_dashboard(request):
         if not request.user.is_superuser:
             raise PermissionDenied("You do not have access to this portal.")
 
-    from apps.lands.models import Land
+    from apps.lands.models import Land, SiteLayoutPlan
     from apps.core.models import Notification
 
     # Auto-discard draft lands that never progressed past boundary plotting.
@@ -261,6 +269,7 @@ def admin_dashboard(request):
     from apps.accounts.models import LandownerApplication
     tickets = SupportTicket.objects.all().order_by('-created_at')
     landowner_applications = LandownerApplication.objects.all().order_by('-created_at')
+    site_layouts = SiteLayoutPlan.objects.all().order_by('-created_at')
 
     context = {
         'lands': lands,
@@ -270,6 +279,7 @@ def admin_dashboard(request):
         'unread_count': unread_count,
         'tickets': tickets,
         'landowner_applications': landowner_applications,
+        'site_layouts': site_layouts,
     }
     return render(request, 'accounts/admin_dashboard.html', context)
 
@@ -1532,5 +1542,75 @@ def admin_landowner_reject(request, app_id):
 
     messages.success(request, f'Application #{app.pk} rejected.')
     return redirect('admin_landowner_applications')
+
+
+@login_required(login_url='portal_selection')
+def onboarding_landowner(request):
+    """Handles first-time login onboarding welcome and optional site layout upload for landowners."""
+    if request.user.role != User.LAND_OWNER:
+        raise PermissionDenied("Only landowners can complete landowner onboarding.")
+
+    # Handle GET request skip action
+    if request.GET.get('action') == 'skip':
+        request.user.is_first_login = False
+        request.user.save(update_fields=['is_first_login'])
+        messages.info(request, "Onboarding skipped. You can upload your site layouts later from your dashboard.")
+        return redirect('landowner_dashboard')
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '').strip()
+        
+        if action == 'upload':
+            property_name = request.POST.get('property_name', '').strip()
+            layout_file = request.FILES.get('layout_file')
+            notes = request.POST.get('notes', '').strip()
+            
+            if not property_name or not layout_file:
+                messages.error(request, "Property name and site layout file are required to upload.")
+                return render(request, 'accounts/onboarding_landowner.html')
+                
+            from apps.lands.models import SiteLayoutPlan
+            SiteLayoutPlan.objects.create(
+                owner=request.user,
+                property_name=property_name,
+                layout_file=layout_file,
+                notes=notes,
+                status='uploaded'
+            )
+            
+            # Update user onboarding status
+            request.user.is_first_login = False
+            request.user.save(update_fields=['is_first_login'])
+            messages.success(request, "Thank you! Your site layout has been successfully uploaded and is pending verification.")
+            return redirect('landowner_dashboard')
+            
+        elif action == 'skip':
+            request.user.is_first_login = False
+            request.user.save(update_fields=['is_first_login'])
+            messages.info(request, "Onboarding skipped. You can upload your site layouts later from your dashboard.")
+            return redirect('landowner_dashboard')
+
+    return render(request, 'accounts/onboarding_landowner.html')
+
+
+@login_required
+def admin_delete_landowner(request, username):
+    """Allows administrators to hard-delete registered landowner accounts."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+        
+    if request.user.role != User.ADMIN and not request.user.is_superuser:
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+        
+    try:
+        landowner = User.objects.filter(username=username, role=User.LAND_OWNER).first()
+        if not landowner:
+            return JsonResponse({'error': 'Landowner not found.'}, status=404)
+        
+        landowner_name = landowner.get_full_name() or username
+        landowner.delete()
+        return JsonResponse({'status': 'deleted', 'message': f'Landowner account for {landowner_name} deleted successfully.'})
+    except Exception as e:
+        return JsonResponse({'error': f'Failed to delete landowner: {e}'}, status=500)
 
 

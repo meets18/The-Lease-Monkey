@@ -12,6 +12,21 @@
     <!-- Map Canvas Viewport -->
     <div id="mapCreator" style="width: 100%; height: calc(100vh - 75px); background: #0b0e14;"></div>
 
+    <!-- Floating Address Search Bar -->
+    <div id="mapSearchBar" style="position: absolute; top: 90px; left: 50%; transform: translateX(-50%); z-index: 1100; width: 420px; max-width: calc(100vw - 40px);">
+        <div style="position: relative;">
+            <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #9CA3AF; pointer-events: none; font-size: 15px;">📍</span>
+            <input id="mapSearchInput"
+                   type="text"
+                   placeholder="Search address to pin location…"
+                   autocomplete="off"
+                   style="width: 100%; padding: 11px 14px 11px 38px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(15,23,42,0.88); backdrop-filter: blur(12px); color: #F1F5F9; font-size: 13.5px; font-family: 'Open Sans', sans-serif; outline: none; box-shadow: 0 4px 24px rgba(0,0,0,0.35); transition: border-color 0.2s;"
+                   onfocus="this.style.borderColor='rgba(0,178,255,0.5)'"
+                   onblur="this.style.borderColor='rgba(255,255,255,0.12)'" />
+        </div>
+        <div id="mapSearchSuggestions" style="display:none; margin-top: 6px; background: rgba(15,23,42,0.95); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.45);"></div>
+    </div>
+
     <!-- Floating Drawing Tool Control Panel (Left Sidebar Overlay) -->
     <div class="creator-card" style="position: absolute; top: 95px; left: 20px; z-index: 1000; width: 360px; max-height: calc(100vh - 120px); overflow-y: auto; overscroll-behavior: contain;">
         <!-- Header -->
@@ -98,6 +113,7 @@
     const landOwner = "{{ owner|escapejs }}";
     const landLocation = "{{ location|escapejs }}";
     const landPrice = "{{ price|escapejs }}";
+    const googleMapsApiKey = "{{ google_maps_api_key|escapejs }}";
     const landSlug = "{{ land.slug|escapejs }}";
     const otherLands = {{ other_lands_json|safe|default:"[]" }};
 
@@ -113,6 +129,7 @@
     let drawnPoints = [];
     let markers = [];
     let boundaryPolygon = null;
+    let locationPinMarker = null; // The address pin marker (distinct from boundary markers)
 
     // Get cookie helper
     function getCookie(name) {
@@ -146,19 +163,190 @@
             subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
         }).addTo(map);
 
-        // Geocode Location with OpenStreetMap Nominatim
+        // ─── Geocoding Engine — Google Maps Primary ──────────────────────────────
+        // Google Maps Geocoding covers every Indian colony/society/enclave that
+        // appears on the map tiles. Project already has GOOGLE_MAPS_API_KEY.
+        // Photon + Nominatim are kept as fallbacks.
+
+        // ── Place the pulsing pin ──────────────────────────────────────────────
+        const placeLocationPin = (lat, lon, label) => {
+            if (locationPinMarker) map.removeLayer(locationPinMarker);
+            const pinIcon = L.divIcon({
+                className: '',
+                html: `<div class="loc-pin-outer"><div class="loc-pin-inner"></div></div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+            locationPinMarker = L.marker([lat, lon], { icon: pinIcon, zIndexOffset: 500 })
+                .addTo(map)
+                .bindPopup(`<div style="font-family:'Open Sans',sans-serif;font-size:12px;line-height:1.5;max-width:220px;"><strong style="color:#00B2FF;">📍 Location Pin</strong><br>${label}</div>`, { maxWidth: 240 })
+                .openPopup();
+        };
+
+        // ── Google Maps Geocoding (primary) ────────────────────────────────────
+        const googleGeocode = async (q) => {
+            if (!googleMapsApiKey) return null;
+            const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(q)}&region=in&key=${googleMapsApiKey}`;
+            try {
+                const data = await fetch(url).then(r => r.json());
+                if (data.status === 'OK' && data.results.length > 0) {
+                    const loc = data.results[0].geometry.location;
+                    return { lat: String(loc.lat), lon: String(loc.lng), display_name: data.results[0].formatted_address };
+                }
+            } catch (e) { console.warn('Google Geocode error:', e); }
+            return null;
+        };
+
+        // ── Photon (fallback 1) ────────────────────────────────────────────────
+        const photonToResult = (f) => {
+            const p = f.properties;
+            return {
+                lat: String(f.geometry.coordinates[1]),
+                lon: String(f.geometry.coordinates[0]),
+                display_name: [p.name, p.street, p.district, p.city, p.state, p.country].filter(Boolean).join(', ')
+            };
+        };
+        const photonSearch = (q, limitN = 5) =>
+            fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=${limitN}&lang=en&lat=26.9&lon=75.8`)
+                .then(r => r.json())
+                .then(d => (d && d.features) ? d.features.map(photonToResult) : [])
+                .catch(() => []);
+
+        // ── Nominatim (fallback 2) ─────────────────────────────────────────────
+        const nominatimSearch = (q, limitN = 5) =>
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=${limitN}&countrycodes=in&q=${encodeURIComponent(q)}`, { headers: { 'Accept-Language': 'en' } })
+                .then(r => r.json())
+                .then(d => (d || []).map(r => ({ lat: r.lat, lon: r.lon, display_name: r.display_name })))
+                .catch(() => []);
+
+        // ── Best single result: Google → Photon → Nominatim ───────────────────
+        const geocodeOne = async (q) => {
+            const g = await googleGeocode(q);
+            if (g) return g;
+            const pr = await photonSearch(q, 1);
+            if (pr.length) return pr[0];
+            const nr = await nominatimSearch(q, 1);
+            return nr.length ? nr[0] : null;
+        };
+
+        // ── Extract ASCII words from Devanagari+English mix ───────────────────
+        // "सुख सागर एंक्लेव Bhambori, Rajasthan 303706" → "Bhambori, Rajasthan 303706"
+        const extractEnglish = (text) =>
+            text.split(/\s+/).filter(w => /^[a-zA-Z0-9,.\-]+$/.test(w)).join(' ').trim();
+
+        // ── Build candidate chain ──────────────────────────────────────────────
+        const buildCandidates = (loc) => {
+            const c = [];
+            const eng = extractEnglish(loc);
+            c.push(loc);                                        // 1. Full original
+            if (eng && eng !== loc) c.push(eng);               // 2. English-only
+            if (eng.includes(',')) {
+                c.push(eng.substring(0, eng.indexOf(',')).trim() + ', India');  // 3. Colony + India
+                c.push(eng.substring(eng.indexOf(',') + 1).trim());             // 4. City/State/PIN
+            }
+            const pin = (loc.match(/\b(\d{6})\b/) || [])[1];
+            if (pin) {
+                const stM = loc.match(/([A-Za-z][A-Za-z\s]{2,})\s+\d{6}/);
+                if (stM) c.push(`${pin}, ${stM[1].trim()}, India`);            // 5. PIN+State
+            }
+            return [...new Set(c)].filter(Boolean);
+        };
+
+        // ── Auto-geocode stored location on page load ──────────────────────────
         if (landLocation) {
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(landLocation)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data && data.length > 0) {
-                        const lat = parseFloat(data[0].lat);
-                        const lon = parseFloat(data[0].lon);
-                        map.setView([lat, lon], 18);
-                    }
-                })
-                .catch(err => console.error("Error geocoding location: ", err));
+            const candidates = buildCandidates(landLocation);
+            (async function tryNext(index) {
+                if (index >= candidates.length) {
+                    console.warn('Geocoding: all candidates exhausted.');
+                    return;
+                }
+                const result = await geocodeOne(candidates[index]);
+                if (result) {
+                    const zoom = Math.max(16, 19 - Math.floor(index / 2));
+                    map.setView([parseFloat(result.lat), parseFloat(result.lon)], zoom);
+                    placeLocationPin(parseFloat(result.lat), parseFloat(result.lon), result.display_name);
+                    console.info(`Geocoded[${index}] "${candidates[index]}" → [${result.lat}, ${result.lon}]`);
+                } else {
+                    tryNext(index + 1);
+                }
+            })(0);
         }
+
+        // ── Search bar: Google Places Autocomplete if key available, else Photon ─
+        (function setupSearchBar() {
+            const input = document.getElementById('mapSearchInput');
+            const suggestionsBox = document.getElementById('mapSearchSuggestions');
+            let debounceTimer = null;
+
+            if (landLocation) {
+                input.placeholder = landLocation.substring(0, 48) + (landLocation.length > 48 ? '…' : '');
+            }
+
+            // Render a list of result objects into the dropdown
+            const renderSuggestions = (results) => {
+                suggestionsBox.innerHTML = '';
+                if (!results.length) { suggestionsBox.style.display = 'none'; return; }
+                results.forEach(r => {
+                    const item = document.createElement('div');
+                    item.style.cssText = 'padding:10px 14px;font-size:12.5px;color:#CBD5E1;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.06);transition:background 0.15s;';
+                    item.innerText = r.display_name;
+                    item.onmouseenter = () => item.style.background = 'rgba(0,178,255,0.1)';
+                    item.onmouseleave = () => item.style.background = 'transparent';
+                    item.onclick = () => {
+                        map.setView([parseFloat(r.lat), parseFloat(r.lon)], 19);
+                        placeLocationPin(parseFloat(r.lat), parseFloat(r.lon), r.display_name);
+                        input.value = r.display_name;
+                        suggestionsBox.style.display = 'none';
+                    };
+                    suggestionsBox.appendChild(item);
+                });
+                suggestionsBox.style.display = 'block';
+            };
+
+            // Get suggestions: Google Places Text Search → Photon fallback
+            const getSuggestions = async (q) => {
+                if (googleMapsApiKey) {
+                    try {
+                        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(q)}&region=in&key=${googleMapsApiKey}`;
+                        const data = await fetch(url).then(r => r.json());
+                        if (data.status === 'OK' && data.results.length) {
+                            return data.results.slice(0, 5).map(r => ({
+                                lat: String(r.geometry.location.lat),
+                                lon: String(r.geometry.location.lng),
+                                display_name: r.formatted_address
+                            }));
+                        }
+                    } catch (e) { /* fall through to Photon */ }
+                }
+                // Photon fallback
+                const pr = await photonSearch(q, 5);
+                if (pr.length) return pr;
+                return nominatimSearch(q, 4);
+            };
+
+            input.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                const q = input.value.trim();
+                if (q.length < 2) { suggestionsBox.style.display = 'none'; return; }
+                debounceTimer = setTimeout(async () => {
+                    renderSuggestions(await getSuggestions(q));
+                }, 300);
+            });
+
+            document.addEventListener('click', e => {
+                if (!document.getElementById('mapSearchBar').contains(e.target)) {
+                    suggestionsBox.style.display = 'none';
+                }
+            });
+
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const first = suggestionsBox.querySelector('div');
+                    if (first) first.click();
+                }
+            });
+        })();
 
         // Map Click Listener to Draw Points
         map.on('click', function(e) {
@@ -669,5 +857,35 @@
     color: #E2E8F0;
     background: rgba(255, 255, 255, 0.05);
 }
+/* ── Location Pin Marker ── */
+.loc-pin-outer {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0, 178, 255, 0.18);
+    border: 2px solid rgba(0, 178, 255, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: locPinPulse 2s ease-in-out infinite;
+    box-shadow: 0 0 0 0 rgba(0, 178, 255, 0.4);
+}
+.loc-pin-inner {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #00B2FF;
+    box-shadow: 0 0 8px #00B2FF;
+}
+@keyframes locPinPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(0,178,255,0.5); }
+    70%  { box-shadow: 0 0 0 14px rgba(0,178,255,0); }
+    100% { box-shadow: 0 0 0 0 rgba(0,178,255,0); }
+}
+/* Search bar input text colour in light mode */
+[data-theme="light"] #mapSearchInput { background: rgba(255,255,255,0.92) !important; color: #1E293B !important; border-color: rgba(0,0,0,0.15) !important; }
+[data-theme="light"] #mapSearchSuggestions { background: rgba(255,255,255,0.97) !important; border-color: rgba(0,0,0,0.1) !important; }
+[data-theme="light"] #mapSearchSuggestions div { color: #374151 !important; border-bottom-color: rgba(0,0,0,0.06) !important; }
+[data-theme="light"] #mapSearchSuggestions div:hover { background: rgba(0,178,255,0.06) !important; }
 </style>
 {% endblock %}
