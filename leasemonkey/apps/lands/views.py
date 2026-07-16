@@ -55,7 +55,7 @@ def serialize_building(building):
 
 def lands_directory(request):
     """Renders the catalog list of available land properties."""
-    lands_qs = Land.objects.all().prefetch_related('images', 'plots')
+    lands_qs = Land.objects.filter(is_live=True).prefetch_related('images', 'plots')
     lands = [land for land in lands_qs if land.boundary_coordinates and len(land.boundary_coordinates) >= 3]
 
     lands_data = []
@@ -93,6 +93,9 @@ def plot_viewer(request, slug):
     land_items_list = plots_list + buildings_list
 
     is_admin = request.user.is_authenticated and (request.user.role == 'ADMIN' or request.user.is_superuser or request.user == land.owner)
+    
+    if not land.is_live and not is_admin:
+        raise PermissionDenied("This land layout is currently offline/under construction.")
     
     saved_plots = []
     if request.user.is_authenticated and request.user.role == 'BUYER':
@@ -1049,6 +1052,8 @@ def purchase_request_form(request, slug, plot_number):
         return redirect('lands:plot_viewer', slug=slug)
         
     land = get_object_or_404(Land, slug=slug)
+    if not land.is_live:
+        raise PermissionDenied("This land layout is currently offline/under construction.")
     plot = land.plots.filter(plot_number=plot_number).first()
     if not plot:
         plot = land.buildings.filter(building_id=plot_number).first()
@@ -1091,6 +1096,8 @@ def submit_purchase_request(request, slug, plot_number):
             return JsonResponse({'error': 'Email not verified or verification expired.'}, status=400)
             
         land = get_object_or_404(Land, slug=slug)
+        if not land.is_live:
+            return JsonResponse({'error': 'This land layout is currently offline/under construction.'}, status=400)
         
         # Check for existing pending request
         if PurchaseRequest.objects.filter(buyer=request.user, land=land, plot_number=plot_number, status__in=['pending', 'meeting_scheduled']).exists():
@@ -1437,170 +1444,440 @@ def occupancy_history(request, slug, plot_number):
 
 
 @login_required(login_url='portal_selection')
-def upload_site_layout(request):
-    """Processes site layout uploads from the landowner's dashboard status card."""
+def submit_land_request(request):
+    """Processes landowner property registration request submissions."""
     if request.user.role != 'LAND_OWNER':
-        raise PermissionDenied("Only landowners can upload site layouts.")
-        
+        raise PermissionDenied("Only landowners can submit land registration requests.")
+
     if request.method == 'POST':
         property_name = request.POST.get('property_name', '').strip()
-        layout_file = request.FILES.get('layout_file')
+        
+        # Location Details
+        state = request.POST.get('state', '').strip()
+        district = request.POST.get('district', '').strip()
+        city_village = request.POST.get('city_village', '').strip()
+        complete_address = request.POST.get('complete_address', '').strip()
+        pin_code = request.POST.get('pin_code', '').strip()
+        
+        google_maps_link = request.POST.get('google_maps_link', '').strip() or None
+        description = request.POST.get('description', '').strip()
+        avg_price_str = request.POST.get('average_plot_price', '').strip()
         notes = request.POST.get('notes', '').strip()
         
-        if not property_name or not layout_file:
-            messages.error(request, "Property name and layout file are required.")
+        # Files
+        ownership_proof = request.FILES.get('ownership_proof')
+        registry_sale_deed = request.FILES.get('registry_sale_deed')
+        supporting_documents = request.FILES.get('supporting_documents')
+        floor_plan = request.FILES.get('floor_plan')
+
+        errors = []
+        if not property_name:
+            errors.append("Property name is required.")
+        if not state:
+            errors.append("State is required.")
+        if not district:
+            errors.append("District is required.")
+        if not city_village:
+            errors.append("City / Village is required.")
+        if not complete_address:
+            errors.append("Complete address is required.")
+        if not pin_code:
+            errors.append("PIN Code is required.")
+        if not avg_price_str:
+            errors.append("Average plot price is required.")
+        if not ownership_proof and not registry_sale_deed:
+            errors.append("Please upload at least one ownership document.")
+        if not floor_plan:
+            errors.append("Site floor plan layout is required.")
+
+        try:
+            avg_price = float(avg_price_str) if avg_price_str else None
+            if avg_price is not None and avg_price <= 0:
+                errors.append("Average plot price must be a positive number.")
+        except ValueError:
+            errors.append("Average plot price must be a valid number.")
+            avg_price = None
+
+        if errors:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'error', 'errors': errors}, status=400)
+            for err in errors:
+                messages.error(request, err)
             return redirect('landowner_dashboard')
-            
-        from apps.lands.models import SiteLayoutPlan
-        SiteLayoutPlan.objects.create(
+
+        # Backward compatibility location string
+        location = f"{city_village}, {district}, {state} {pin_code}"
+
+        from apps.lands.models import LandRegistrationRequest
+        req = LandRegistrationRequest.objects.create(
             owner=request.user,
             property_name=property_name,
-            layout_file=layout_file,
+            state=state,
+            district=district,
+            city_village=city_village,
+            complete_address=complete_address,
+            pin_code=pin_code,
+            location=location,
+            google_maps_link=google_maps_link,
+            description=description,
+            average_plot_price=avg_price,
             notes=notes,
-            status='uploaded'
+            ownership_proof=ownership_proof,
+            registry_sale_deed=registry_sale_deed,
+            supporting_documents=supporting_documents,
+            floor_plan=floor_plan,
         )
-        messages.success(request, "Site layout successfully uploaded and pending review.")
+
+        from apps.core.models import Notification
+        from django.core.mail import send_mail
+        from django.conf import settings
+
+        admin_users = User.objects.filter(role='ADMIN')
+        for admin in admin_users:
+            Notification.objects.create(
+                recipient=admin,
+                sender=request.user,
+                notif_type='land_request_submitted',
+                title='🏗️ New Land Registration Request',
+                message=(
+                    f'{request.user.get_full_name() or request.user.username} has submitted a land '
+                    f'registration request for property: "{property_name}" in {location}.\n\n'
+                    f'Please review it from the admin dashboard.'
+                )
+            )
+        send_mail(
+            subject=f'New Land Registration Request — {property_name}',
+            message=(
+                f'Hello Admin,\n\n'
+                f'A new land registration request has been submitted.\n\n'
+                f'Property Name : {property_name}\n'
+                f'Location      : {location}\n'
+                f'Submitted by  : {request.user.get_full_name() or request.user.username} ({request.user.email})\n\n'
+                f'Please log in to the admin dashboard to review it.\n\n'
+                f'— Lease Monkey System'
+            ),
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[settings.EMAIL_HOST_USER],
+            fail_silently=True,
+        )
+
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'status': 'ok', 'request_id': req.id, 'message': f"Your registration request for '{property_name}' has been submitted."})
+        messages.success(request, f"Your registration request for '{property_name}' has been submitted. We'll review it shortly.")
     return redirect('landowner_dashboard')
 
 
+@login_required(login_url='portal_selection')
+def landowner_request_detail(request, req_id):
+    """Shows a landowner the current status of their specific land registration request."""
+    from apps.lands.models import LandRegistrationRequest
+    req = get_object_or_404(LandRegistrationRequest, pk=req_id, owner=request.user)
+    return render(request, 'lands/landowner_request_detail.html', {'req': req})
+
+
+@login_required(login_url='portal_selection')
+def landowner_request_data(request, req_id):
+    """Returns JSON data for a land registration request (used for resubmission pre-fill)."""
+    from apps.lands.models import LandRegistrationRequest
+    req = get_object_or_404(LandRegistrationRequest, pk=req_id, owner=request.user)
+    return JsonResponse({
+        'property_name': req.property_name,
+        'state': req.state,
+        'district': req.district,
+        'city': req.city_village,
+        'address': req.complete_address,
+        'pin': req.pin_code,
+        'price': str(req.average_plot_price),
+        'maps': req.google_maps_link or '',
+        'desc': req.description,
+        'notes': req.notes,
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LAND REGISTRATION REQUEST — ADMIN VIEWS
+# ─────────────────────────────────────────────────────────────────────────────
+
 @login_required
-def admin_review_layout(request, layout_id):
-    """Allows administrators to mark an uploaded site layout as Under Review."""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'POST required.'}, status=400)
-        
+def admin_land_requests(request):
+    """Lists all land registration requests, filterable by status."""
     if request.user.role != 'ADMIN' and not request.user.is_superuser:
-        return JsonResponse({'error': 'Permission denied.'}, status=403)
-        
-    from apps.lands.models import SiteLayoutPlan
-    layout = get_object_or_404(SiteLayoutPlan, pk=layout_id)
-    layout.status = 'under_review'
-    layout.save()
-    messages.success(request, f"Layout for '{layout.property_name}' is now under review.")
-    return redirect('admin_dashboard')
+        raise PermissionDenied
+
+    from apps.lands.models import LandRegistrationRequest
+    status_filter = request.GET.get('status', '')
+    qs = LandRegistrationRequest.objects.select_related('owner', 'land')
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    pending_count = LandRegistrationRequest.objects.filter(status='pending').count()
+    return render(request, 'lands/admin_land_requests.html', {
+        'requests':      qs,
+        'status_filter': status_filter,
+        'pending_count': pending_count,
+    })
 
 
 @login_required
-def admin_approve_layout(request, layout_id):
-    """Allows administrators to approve a site layout and notify the landowner that it is live."""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'POST required.'}, status=400)
-        
+def admin_land_request_detail(request, req_id):
+    """Shows admin the full detail of one land registration request."""
     if request.user.role != 'ADMIN' and not request.user.is_superuser:
-        return JsonResponse({'error': 'Permission denied.'}, status=403)
-        
-    from apps.lands.models import SiteLayoutPlan
-    layout = get_object_or_404(SiteLayoutPlan, pk=layout_id)
-    layout.status = 'approved'
-    layout.save()
-    
-    # 1. Send system notification to the landowner
-    from apps.core.models import Notification
-    Notification.objects.create(
-        recipient=layout.owner,
-        sender=request.user,
-        notif_type='lo_registration_approved',
-        title='🎉 Property Published',
-        message=(
-            f'Congratulations!\n\n'
-            f'Your property "{layout.property_name}" has been successfully verified '
-            f'and is now LIVE on Lease Monkey.\n\n'
-            f'Plots are now available for buyers to browse and send requests.'
-        )
+        raise PermissionDenied
+
+    from apps.lands.models import LandRegistrationRequest
+    req = get_object_or_404(LandRegistrationRequest, pk=req_id)
+
+    if request.method == 'POST':
+        admin_remarks = request.POST.get('admin_remarks', '').strip()
+        req.admin_remarks = admin_remarks
+        req.save(update_fields=['admin_remarks'])
+        messages.success(request, "Admin remarks saved.")
+        return redirect('lands:admin_land_request_detail', req_id=req_id)
+
+    return render(request, 'lands/admin_land_request_detail.html', {'req': req})
+
+
+@login_required
+def admin_set_request_review(request, req_id):
+    """Sets a land registration request status to under_review."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=400)
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        raise PermissionDenied
+
+    from apps.lands.models import LandRegistrationRequest
+    req = get_object_or_404(LandRegistrationRequest, pk=req_id)
+    req.status = 'under_review'
+    req.save(update_fields=['status'])
+    messages.info(request, f"'{req.property_name}' marked as Under Review.")
+    return redirect('lands:admin_land_request_detail', req_id=req_id)
+
+
+@login_required
+def admin_register_land_from_request(request, req_id):
+    """Approves a land request for digitization, creates draft Land record, status -> 'being_added', opens plotter."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=400)
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        raise PermissionDenied
+
+    from apps.lands.models import LandRegistrationRequest
+    from django.utils import timezone
+
+    req = get_object_or_404(LandRegistrationRequest, pk=req_id)
+
+    if req.status in ['being_added', 'approved', 'live'] and req.land:
+        messages.info(request, "This request is already registered/approved. Opening the plotter.")
+        return redirect(f'/lands/creator/?slug={req.land.slug}')
+
+    if Land.objects.filter(name__iexact=req.property_name).exists():
+        messages.error(request, f"A land named '{req.property_name}' already exists. Edit the request before registering.")
+        return redirect('lands:admin_land_request_detail', req_id=req_id)
+
+    # Use the precise location fields for the land's location field
+    location = f"{req.city_village}, {req.district}, {req.state} {req.pin_code}" if req.city_village else req.location
+
+    land = Land.objects.create(
+        name=req.property_name,
+        owner=req.owner,
+        location=location,
+        area=0.00,
+        average_plot_price=req.average_plot_price,
+        description=req.description,
+        is_live=False,
     )
-    
-    # 2. Send email to the landowner
+
+    req.status = 'being_added'
+    req.land = land
+    req.reviewed_at = timezone.now()
+    req.save(update_fields=['status', 'land', 'reviewed_at'])
+
+    messages.success(request, f"Land '{land.name}' created as draft. Start tracing boundaries in the plotter.")
+    return redirect(f'/lands/creator/?slug={land.slug}')
+
+
+@login_required
+def admin_reject_land_request(request, req_id):
+    """Rejects a land registration request and conditionally notifies the landowner."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=400)
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        raise PermissionDenied
+
+    from apps.lands.models import LandRegistrationRequest
+    from apps.core.models import Notification
     from django.core.mail import send_mail
     from django.conf import settings
-    
-    send_mail(
-        subject='Your property is now live on Lease Monkey',
-        message=(
-            f'Hello {layout.owner.first_name or layout.owner.username},\n\n'
-            f'Good news!\n\n'
-            f'Your property\n\n'
-            f'{layout.property_name}\n\n'
-            f'has been verified by our team and is now live on Lease Monkey.\n\n'
-            f'Buyers can now:\n'
-            f'• View available plots\n'
-            f'• Submit requests\n'
-            f'• Schedule meetings\n\n'
-            f'You can monitor all activity from your dashboard.\n\n'
-            f'Thank you for choosing Lease Monkey.\n\n'
-            f'— The Lease Monkey Team'
-        ),
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[layout.owner.email],
-        fail_silently=True,
-    )
-    
-    messages.success(request, f"Layout for '{layout.property_name}' approved. Landowner notified.")
+    from django.utils import timezone
+
+    req = get_object_or_404(LandRegistrationRequest, pk=req_id)
+    reason = request.POST.get('rejection_reason', '').strip()
+    send_email = request.POST.get('send_email', 'false').lower() == 'true'
+    send_inapp = request.POST.get('send_inapp', 'false').lower() == 'true'
+
+    req.status = 'rejected'
+    req.rejection_reason = reason
+    req.reviewed_at = timezone.now()
+    req.save(update_fields=['status', 'rejection_reason', 'reviewed_at'])
+
+    if send_inapp:
+        Notification.objects.create(
+            recipient=req.owner,
+            sender=request.user,
+            notif_type='land_request_rejected',
+            title='❌ Land Registration Request Rejected',
+            message=(
+                f'Your land registration request for "{req.property_name}" has been rejected.\n\n'
+                f'Reason: {reason or "No reason provided."}\n\n'
+                f'You may submit a new request with corrected details from your dashboard.'
+            )
+        )
+
+    if send_email:
+        send_mail(
+            subject=f'Land Registration Request Rejected — {req.property_name}',
+            message=(
+                f'Hello {req.owner.get_full_name() or req.owner.username},\n\n'
+                f'Your land registration request for the property:\n\n'
+                f'  {req.property_name}\n\n'
+                f'has been reviewed and rejected by our team.\n\n'
+                f'Reason: {reason or "No reason provided."}\n\n'
+                f'You may submit a new request with corrected information from your landowner dashboard.\n\n'
+                f'— The Lease Monkey Team'
+            ),
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[req.owner.email],
+            fail_silently=True,
+        )
+
+    messages.success(request, f"Request for '{req.property_name}' rejected. Landowner notified.")
     return redirect('admin_dashboard')
 
 
 @login_required
-def admin_reject_layout(request, layout_id):
-    """Allows administrators to reject a site layout and notify the landowner."""
+def admin_finish_registration(request, req_id):
+    """Finalizes digitized layout progress and triggers visibility and notifications."""
     if request.method != 'POST':
-        return JsonResponse({'error': 'POST required.'}, status=400)
-        
+        return JsonResponse({'error': 'POST required'}, status=400)
     if request.user.role != 'ADMIN' and not request.user.is_superuser:
-        return JsonResponse({'error': 'Permission denied.'}, status=403)
-        
-    import json
-    # Handle both JSON content type and normal form data
-    if request.content_type == 'application/json':
-        try:
-            data = json.loads(request.body)
-            reason = data.get('reason', '').strip()
-        except Exception:
-            reason = ''
+        raise PermissionDenied
+
+    from apps.lands.models import LandRegistrationRequest
+    from apps.core.models import Notification
+    from django.core.mail import send_mail
+    from django.conf import settings
+    from django.utils import timezone
+
+    req = get_object_or_404(LandRegistrationRequest, pk=req_id)
+    if not req.land:
+        return JsonResponse({'error': 'No land record associated with this request.'}, status=400)
+
+    make_live = request.POST.get('make_live', 'false').lower() == 'true'
+
+    if make_live:
+        req.status = 'live'
+        req.land.is_live = True
     else:
-        reason = request.POST.get('reason', '').strip()
-        
-    from apps.lands.models import SiteLayoutPlan
-    layout = get_object_or_404(SiteLayoutPlan, pk=layout_id)
-    layout.status = 'rejected'
-    if reason:
-        layout.notes = f"{layout.notes or ''}\n\nRejection Reason: {reason}".strip()
-    layout.save()
-    
-    # 1. Send system notification to the landowner
-    from apps.core.models import Notification
-    Notification.objects.create(
-        recipient=layout.owner,
-        sender=request.user,
-        notif_type='lo_registration_rejected',
-        title='❌ Site Layout Rejected',
-        message=(
-            f'Your site layout submission for "{layout.property_name}" has been rejected.\n\n'
-            f'Reason: {reason or "No reason provided."}\n\n'
-            f'Please upload a corrected layout diagram from your dashboard.'
+        req.status = 'approved'
+        req.land.is_live = False
+
+    req.land.save(update_fields=['is_live'])
+    req.reviewed_at = timezone.now()
+    req.save(update_fields=['status', 'reviewed_at'])
+
+    if make_live:
+        notif_title = 'Property Now Live'
+        notif_msg = f'Your property "{req.property_name}" is now live on Lease Monkey.'
+        email_subject = f'Your property is now live — {req.property_name}'
+        email_body = (
+            f'Hello {req.owner.get_full_name() or req.owner.username},\n\n'
+            f'Your property has been successfully digitized and is now live on Lease Monkey. '
+            f'Buyers can now discover and request your plots.\n\n'
+            f'— The Lease Monkey Team'
         )
+    else:
+        notif_title = 'Registration Approved'
+        notif_msg = f'Your property "{req.property_name}" has been approved and saved offline.'
+        email_subject = f'Registration Approved — {req.property_name}'
+        email_body = (
+            f'Hello {req.owner.get_full_name() or req.owner.username},\n\n'
+            f'Your property has been successfully digitized and approved. '
+            f'It has been saved as an offline property and will become visible once an administrator publishes it.\n\n'
+            f'— The Lease Monkey Team'
+        )
+
+    Notification.objects.create(
+        recipient=req.owner,
+        sender=request.user,
+        notif_type='land_request_approved',
+        title=notif_title,
+        message=notif_msg
     )
-    
-    # 2. Send email to the landowner
+
+    send_mail(
+        subject=email_subject,
+        message=email_body,
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[req.owner.email],
+        fail_silently=True
+    )
+
+    messages.success(request, f"Registration layout for '{req.property_name}' finalized successfully.")
+    return JsonResponse({'status': 'success', 'redirect_url': '/accounts/dashboard/'})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LAND LIVE / DRAFT TOGGLE — ADMIN ONLY
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+def toggle_land_live(request, slug):
+    """Flips Land.is_live. Optionally notifies the landowner when making live."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=400)
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        raise PermissionDenied
+
+    from apps.core.models import Notification
     from django.core.mail import send_mail
     from django.conf import settings
-    
-    send_mail(
-        subject='Site Layout Rejected — Lease Monkey',
-        message=(
-            f'Hello {layout.owner.first_name or layout.owner.username},\n\n'
-            f'We regret to inform you that your site layout submission for property:\n\n'
-            f'{layout.property_name}\n\n'
-            f'has been rejected by our verification team.\n\n'
-            f'Reason: {reason or "No reason provided."}\n\n'
-            f'Please log in to your dashboard to upload a new site layout.\n\n'
-            f'— The Lease Monkey Team'
-        ),
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[layout.owner.email],
-        fail_silently=True,
-    )
-    
-    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
-        return JsonResponse({'status': 'success', 'message': 'Layout rejected successfully.'})
-        
-    messages.success(request, f"Layout for '{layout.property_name}' rejected. Landowner notified.")
+
+    land = get_object_or_404(Land, slug=slug)
+    land.is_live = not land.is_live
+    land.save(update_fields=['is_live'])
+
+    if land.is_live:
+        notify = request.POST.get('notify', 'false').lower() == 'true'
+        if notify:
+            Notification.objects.create(
+                recipient=land.owner,
+                sender=request.user,
+                notif_type='land_request_approved',
+                title='🎉 Your Property is Now Live!',
+                message=(
+                    f'Congratulations!\n\n'
+                    f'Your property "{land.name}" has been digitized and is now LIVE on Lease Monkey.\n\n'
+                    f'Buyers can now view and request plots.'
+                )
+            )
+            send_mail(
+                subject=f'Your property is now live — {land.name}',
+                message=(
+                    f'Hello {land.owner.get_full_name() or land.owner.username},\n\n'
+                    f'Great news! Your property "{land.name}" is now live on Lease Monkey.\n\n'
+                    f'Buyers can browse available plots and submit requests.\n\n'
+                    f'— The Lease Monkey Team'
+                ),
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[land.owner.email],
+                fail_silently=True,
+            )
+        msg = f"'{land.name}' is now LIVE." + (" Landowner notified." if notify else "")
+    else:
+        msg = f"'{land.name}' set to DRAFT (hidden from buyers)."
+
+    messages.success(request, msg)
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'is_live': land.is_live, 'message': msg})
     return redirect('admin_dashboard')

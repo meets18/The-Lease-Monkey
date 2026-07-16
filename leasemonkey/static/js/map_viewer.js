@@ -380,7 +380,7 @@ function initMap() {
     zoomControl: false, // Disable default top-left control to place on right
     attributionControl: false,
     minZoom: minZoomLimit,
-    maxZoom: 19
+    maxZoom: 22
   });
 
   // Position zoom controls on the right-hand side
@@ -397,7 +397,8 @@ function initMap() {
     if (mapEl) mapEl.classList.add('satellite-active');
 
     satelliteLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-      maxZoom: 19,
+      maxZoom: 22,
+      maxNativeZoom: 20,
       subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
     });
     satelliteLayer.addTo(map);
@@ -656,7 +657,8 @@ function setupToggleControls() {
       // Load and add Satellite tiles dynamically underneath polygons
       if (!satelliteLayer) {
         satelliteLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-          maxZoom: 19,
+          maxZoom: 22,
+          maxNativeZoom: 20,
           subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
         });
       }

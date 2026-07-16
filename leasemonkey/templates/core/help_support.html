@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Help & Support — The Lease Monkey{% endblock %}
+
+{% block content %}
+<div class="container-fluid min-vh-100 p-0 d-flex" style="position: relative; z-index: 10; padding-top: 75px !important;">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar-wrapper d-none d-lg-flex flex-column p-4 border-end border-secondary-glow bg-dark-glow">
+        <div class="user-profile-badge p-3 rounded-3 mb-4 text-center border border-secondary-glow">
+            <div class="profile-avatar mb-2 mx-auto">
+                {% if user.role == 'BUYER' %}
+                <i class="bi bi-person-fill fs-3 text-primary-glow"></i>
+                {% else %}
+                <i class="bi bi-person-badge-fill fs-3 text-amber-glow"></i>
+                {% endif %}
+            </div>
+            <h5 class="text-white font-ranade fw-bold mb-1 fs-15">{{ user.email|default:user.username }}</h5>
+            <span class="badge {% if user.role == 'BUYER' %}bg-success-glow{% else %}bg-owner-glow{% endif %} fs-11 text-uppercase">
+                {% if user.role == 'BUYER' %}Active Buyer{% else %}Land Owner{% endif %}
+            </span>
+        </div>
+
+        <nav class="sidebar-nav flex-grow-1">
+            <ul class="nav flex-column gap-2.5">
+                {% if user.role == 'BUYER' %}
+                <li class="nav-item">
+                    <a href="{% url 'buyer_dashboard' %}" class="sidebar-link">
+                        <i class="bi bi-geo-alt-fill"></i> My Plots
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'buyer_dashboard' %}#requests" class="sidebar-link">
+                        <i class="bi bi-cart-fill"></i> My Requests
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'buyer_dashboard' %}#notifs" class="sidebar-link">
+                        <i class="bi bi-bell-fill"></i> Notifications
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'buyer_dashboard' %}#saved" class="sidebar-link">
+                        <i class="bi bi-heart"></i> Saved Plots
+                    </a>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{% url 'landowner_dashboard' %}" class="sidebar-link">
+                        <i class="bi bi-map-fill"></i> My Lands
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'landowner_dashboard' %}#layouts" class="sidebar-link">
+                        <i class="bi bi-file-earmark-text-fill"></i> Site Layout
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'landowner_dashboard' %}#buyers" class="sidebar-link">
+                        <i class="bi bi-people-fill"></i> Buyers
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'landowner_dashboard' %}#purchaseRequests" class="sidebar-link">
+                        <i class="bi bi-cart-fill"></i> Purchase Requests
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'landowner_dashboard' %}#requests" class="sidebar-link">
+                        <i class="bi bi-clock-history"></i> My Requests
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'landowner_dashboard' %}#notifs" class="sidebar-link">
+                        <i class="bi bi-bell-fill"></i> Notifications
+                    </a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a href="{% url 'core:help_support' %}" class="sidebar-link active">
+                        <i class="bi bi-question-circle-fill"></i> Help & Support
+                    </a>
+                </li>
+            </ul>
+            <hr class="border-secondary-glow my-2">
+            <ul class="nav flex-column gap-2">
+                <li class="nav-item">
+                    <a href="{% if user.role == 'BUYER' %}{% url 'profile' %}{% else %}{% url 'landowner_profile' %}{% endif %}" class="sidebar-link">
+                        <i class="bi bi-person-circle"></i> Profile
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="mt-auto pt-3 border-top border-secondary-glow">
+            <a href="{% url 'logout' %}" class="btn-logout-sidebar w-100 text-uppercase fw-bold text-center py-2 fs-12">
+                Log Out <i class="bi bi-box-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-grow-1 p-4 p-md-5">
+        <!-- Page Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Help & Support</h2>
+                <p class="text-muted-glow fs-14 mb-0">Get assistance, create tickets, and find answers to common questions.</p>
+            </div>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show border border-secondary-glow bg-dark-glow text-white shadow-lg mb-4" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Create Ticket -->
+        <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4 mb-4">
+            <h4 class="font-ranade text-white fw-bold mb-1 fs-18">Create Ticket</h4>
+            <p class="text-muted-glow fs-13 mb-3">Submit a new support request. Our team will respond shortly.</p>
+
+            <form id="ticketForm" method="post" enctype="multipart/form-data" onsubmit="event.preventDefault(); submitTicket();">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-white-50 fs-13">Subject <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="ticketSubject" placeholder="Brief summary of your issue" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-white-50 fs-13">Category <span class="text-danger">*</span></label>
+                        <select class="form-select" id="ticketCategory" required>
+                            <option value="">Select...</option>
+                            <option value="general">General Question</option>
+                            <option value="technical">Technical Issue</option>
+                            <option value="property_verification">Property Verification</option>
+                            <option value="meeting">Meeting Issue</option>
+                            <option value="account">Account Issue</option>
+                            <option value="bug">Bug Report</option>
+                            <option value="feature">Feature Request</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-white-50 fs-13">Description <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="ticketDescription" rows="4" placeholder="Describe your issue in detail..." required></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-white-50 fs-13">Attachment (optional)</label>
+                        <input type="file" class="form-control" id="ticketAttachment" accept=".pdf,.png,.jpg,.jpeg">
+                        <div class="text-muted-glow fs-11 mt-1">Allowed: PDF, PNG, JPG, JPEG (Max 10 MB)</div>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" id="btnCreateTicket" class="btn btn-get-started text-uppercase fw-bold fs-12 py-2 px-4">
+                            <i class="bi bi-plus-circle me-1"></i> Create Ticket
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- My Tickets -->
+        <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4 mb-4">
+            <h4 class="font-ranade text-white fw-bold mb-1 fs-18">My Tickets</h4>
+            <p class="text-muted-glow fs-13 mb-3">Track all your support requests.</p>
+
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle mb-0 font-opensans">
+                    <thead>
+                        <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
+                            <th scope="col" class="py-3 px-3">Ticket ID</th>
+                            <th scope="col" class="py-3">Subject</th>
+                            <th scope="col" class="py-3">Category</th>
+                            <th scope="col" class="py-3">Created</th>
+                            <th scope="col" class="py-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="fs-14">
+                        {% if tickets %}
+                            {% for ticket in tickets %}
+                            <tr class="border-bottom border-dark-glow" style="cursor: pointer;" onclick="window.location.href='{% url 'core:ticket_conversation' ticket.ticket_id %}';">
+                                <td class="py-3 px-3 fw-bold font-ranade">
+                                    <span class="text-cyan-glow">{{ ticket.ticket_id }}</span>
+                                </td>
+                                <td class="py-3 text-white">{{ ticket.subject }}</td>
+                                <td class="py-3 text-muted-glow">{{ ticket.get_category_display }}</td>
+                                <td class="py-3 text-muted-glow">{{ ticket.created_at|date:"d M Y" }}</td>
+                                <td class="py-3">
+                                    {% if ticket.status == 'open' %}
+                                    <span class="badge bg-success-glow fs-10">Open</span>
+                                    {% elif ticket.status == 'in_progress' %}
+                                    <span class="badge bg-warning-glow fs-10">In Progress</span>
+                                    {% elif ticket.status == 'waiting' %}
+                                    <span class="badge bg-info-glow fs-10" style="background:rgba(59,130,246,0.15)!important;color:#60A5FA!important;">Waiting</span>
+                                    {% elif ticket.status == 'resolved' %}
+                                    <span class="badge bg-success-glow fs-10">Resolved</span>
+                                    {% elif ticket.status == 'closed' %}
+                                    <span class="badge bg-danger-glow fs-10">Closed</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="py-5 text-center text-muted-glow">
+                                    <i class="bi bi-ticket fs-2 d-block mb-2"></i>
+                                    No tickets yet. Create one above!
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- FAQs -->
+        <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4">
+            <h4 class="font-ranade text-white fw-bold mb-1 fs-18">FAQs</h4>
+            <p class="text-muted-glow fs-13 mb-3">Frequently asked questions.</p>
+
+            <div class="accordion" id="faqAccordion">
+                {% for faq in faqs %}
+                <div class="accordion-item bg-transparent border-0 mb-2">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed bg-dark-glow text-white fs-13 fw-bold px-3 py-2.5 rounded-2 border border-secondary-glow" type="button" data-bs-toggle="collapse" data-bs-target="#faq{{ forloop.counter }}" style="box-shadow: none;">
+                            {{ faq.question }}
+                        </button>
+                    </h2>
+                    <div id="faq{{ forloop.counter }}" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body px-3 py-2 text-muted-glow fs-13">
+                            {{ faq.answer }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+function getCsrfToken() {
+    return document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
+}
+
+function submitTicket() {
+    const subject = document.getElementById('ticketSubject').value.trim();
+    const category = document.getElementById('ticketCategory').value;
+    const description = document.getElementById('ticketDescription').value.trim();
+    const attachment = document.getElementById('ticketAttachment').files[0];
+
+    if (!subject || !category || !description) {
+        alert('Please fill in all required fields.');
+        return;
+    }
+
+    const btn = document.getElementById('btnCreateTicket');
+    btn.disabled = true;
+    btn.innerHTML = 'Creating <span class="spinner-border spinner-border-sm ms-1" role="status"></span>';
+
+    const formData = new FormData();
+    formData.append('subject', subject);
+    formData.append('category', category);
+    formData.append('description', description);
+    if (attachment) {
+        formData.append('attachment', attachment);
+    }
+
+    fetch('{% url "core:create_ticket_ajax" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            alert('Support ticket created successfully! Ticket ID: ' + data.ticket_id);
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Something went wrong.'));
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Create Ticket';
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Network error occurred.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Create Ticket';
+    });
+}
+</script>
+{% endblock %}

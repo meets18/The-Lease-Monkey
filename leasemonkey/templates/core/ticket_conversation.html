@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Ticket {{ ticket.ticket_id }} — The Lease Monkey{% endblock %}
+
+{% block content %}
+<div class="container-fluid min-vh-100 p-0 d-flex" style="position: relative; z-index: 10; padding-top: 75px !important;">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar-wrapper d-none d-lg-flex flex-column p-4 border-end border-secondary-glow bg-dark-glow">
+        <div class="user-profile-badge p-3 rounded-3 mb-4 text-center border border-secondary-glow">
+            <div class="profile-avatar mb-2 mx-auto">
+                {% if user.role == 'BUYER' %}
+                <i class="bi bi-person-fill fs-3 text-primary-glow"></i>
+                {% else %}
+                <i class="bi bi-person-badge-fill fs-3 text-amber-glow"></i>
+                {% endif %}
+            </div>
+            <h5 class="text-white font-ranade fw-bold mb-1 fs-15">{{ user.email|default:user.username }}</h5>
+            <span class="badge {% if user.role == 'BUYER' %}bg-success-glow{% else %}bg-owner-glow{% endif %} fs-11 text-uppercase">
+                {% if user.role == 'BUYER' %}Active Buyer{% else %}Land Owner{% endif %}
+            </span>
+        </div>
+
+        <nav class="sidebar-nav flex-grow-1">
+            <ul class="nav flex-column gap-2.5">
+                {% if user.role == 'BUYER' %}
+                <li class="nav-item">
+                    <a href="{% url 'buyer_dashboard' %}" class="sidebar-link">
+                        <i class="bi bi-geo-alt-fill"></i> My Plots
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'buyer_dashboard' %}#requests" class="sidebar-link">
+                        <i class="bi bi-cart-fill"></i> My Requests
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'buyer_dashboard' %}#notifs" class="sidebar-link">
+                        <i class="bi bi-bell-fill"></i> Notifications
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'buyer_dashboard' %}#saved" class="sidebar-link">
+                        <i class="bi bi-heart"></i> Saved Plots
+                    </a>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a href="{% url 'landowner_dashboard' %}" class="sidebar-link">
+                        <i class="bi bi-map-fill"></i> My Lands
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'landowner_dashboard' %}#layouts" class="sidebar-link">
+                        <i class="bi bi-file-earmark-text-fill"></i> Site Layout
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'landowner_dashboard' %}#buyers" class="sidebar-link">
+                        <i class="bi bi-people-fill"></i> Buyers
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'landowner_dashboard' %}#purchaseRequests" class="sidebar-link">
+                        <i class="bi bi-cart-fill"></i> Purchase Requests
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'landowner_dashboard' %}#requests" class="sidebar-link">
+                        <i class="bi bi-clock-history"></i> My Requests
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'landowner_dashboard' %}#notifs" class="sidebar-link">
+                        <i class="bi bi-bell-fill"></i> Notifications
+                    </a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a href="{% url 'core:help_support' %}" class="sidebar-link">
+                        <i class="bi bi-question-circle-fill"></i> Help & Support
+                    </a>
+                </li>
+            </ul>
+            <hr class="border-secondary-glow my-2">
+            <ul class="nav flex-column gap-2">
+                <li class="nav-item">
+                    <a href="{% if user.role == 'BUYER' %}{% url 'profile' %}{% else %}{% url 'landowner_profile' %}{% endif %}" class="sidebar-link">
+                        <i class="bi bi-person-circle"></i> Profile
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="mt-auto pt-3 border-top border-secondary-glow">
+            <a href="{% url 'logout' %}" class="btn-logout-sidebar w-100 text-uppercase fw-bold text-center py-2 fs-12">
+                Log Out <i class="bi bi-box-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-grow-1 p-4 p-md-5" style="max-width: 1400px;">
+        <!-- Back Link -->
+        <a href="{% url 'core:help_support' %}" class="text-cyan-glow fs-14 text-decoration-none d-inline-block mb-3">
+            <i class="bi bi-arrow-left me-1"></i> Back to Help & Support
+        </a>
+
+        <!-- Ticket Header Card -->
+        <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4 mb-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                <div>
+                    <h3 class="font-ranade text-white fw-bold mb-1 fs-20">
+                        <span class="text-cyan-glow">{{ ticket.ticket_id }}</span> — {{ ticket.subject }}
+                    </h3>
+                    <p class="text-muted-glow fs-13 mb-0">
+                        {{ ticket.get_category_display }} · Created {{ ticket.created_at|date:"d M Y h:i A" }}
+                    </p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    {% if ticket.status == 'open' %}
+                    <span class="badge bg-success-glow fs-11 px-3 py-1.5">Open</span>
+                    {% elif ticket.status == 'in_progress' %}
+                    <span class="badge bg-warning-glow fs-11 px-3 py-1.5">In Progress</span>
+                    {% elif ticket.status == 'waiting' %}
+                    <span class="badge fs-11 px-3 py-1.5" style="background:rgba(59,130,246,0.15)!important;color:#60A5FA!important;">Waiting</span>
+                    {% elif ticket.status == 'resolved' %}
+                    <span class="badge bg-success-glow fs-11 px-3 py-1.5">Resolved</span>
+                    {% elif ticket.status == 'closed' %}
+                    <span class="badge bg-danger-glow fs-11 px-3 py-1.5">Closed</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Conversation Thread — Left 70% -->
+            <div class="col-lg-7 col-xl-7">
+                <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4">
+                    <h4 class="font-ranade text-white fw-bold mb-1 fs-18">Conversation</h4>
+                    <p class="text-muted-glow fs-13 mb-3">View and reply to the support conversation.</p>
+
+                    <div id="conversationContainer" class="d-flex flex-column gap-3 mb-4">
+                        {% for reply in replies %}
+                        {% if reply.sender.role == 'ADMIN' %}
+                        <!-- Admin Reply -->
+                        <div class="d-flex justify-content-start">
+                            <div class="bg-dark-glow border border-warning-glow rounded-3 p-3" style="max-width: 85%; border-left: 3px solid #f59e0b !important;">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold fs-13" style="color: #f59e0b;">
+                                        <i class="bi bi-shield-check me-1"></i> {{ reply.sender.get_full_name|default:reply.sender.username }}
+                                    </span>
+                                    <span class="text-muted-glow fs-11 ms-2">{{ reply.created_at|date:"d M Y h:i A" }}</span>
+                                </div>
+                                <p class="text-white-50 fs-13 mb-1">{{ reply.message }}</p>
+                                {% if reply.attachment %}
+                                <a href="{% url 'core:serve_protected_file' 'ticket_reply' reply.id %}" target="_blank" class="text-cyan-glow fs-12 text-decoration-none">
+                                    <i class="bi bi-paperclip me-1"></i> View Attachment
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <!-- User Reply (buyer/landowner) -->
+                        <div class="d-flex justify-content-end">
+                            <div class="bg-dark-glow border border-secondary-glow rounded-3 p-3" style="max-width: 85%; border-right: 3px solid #10b981 !important;">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold fs-13 text-white">
+                                        <i class="bi bi-person-fill me-1"></i> {{ reply.sender.get_full_name|default:reply.sender.username }}
+                                    </span>
+                                    <span class="text-muted-glow fs-11 ms-2">{{ reply.created_at|date:"d M Y h:i A" }}</span>
+                                </div>
+                                <p class="text-white-50 fs-13 mb-1">{{ reply.message }}</p>
+                                {% if reply.attachment %}
+                                <a href="{% url 'core:serve_protected_file' 'ticket_reply' reply.id %}" target="_blank" class="text-cyan-glow fs-12 text-decoration-none">
+                                    <i class="bi bi-paperclip me-1"></i> View Attachment
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% empty %}
+                        <div class="text-center py-4 text-muted-glow">
+                            <i class="bi bi-chat-dots fs-2 d-block mb-2"></i>
+                            No replies yet. Our team will respond shortly.
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if ticket.status != 'closed' and ticket.status != 'resolved' %}
+                    <!-- Reply Box -->
+                    <div class="border-top border-secondary-glow pt-3 mt-3">
+                        <form id="replyForm" onsubmit="event.preventDefault(); submitReply();">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label text-white-50 fs-13">Add Reply</label>
+                                <textarea class="form-control" id="replyMessage" rows="3" placeholder="Type your response..." required></textarea>
+                            </div>
+                            <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                                <div class="flex-grow-1">
+                                    <input type="file" class="form-control" id="replyAttachment" accept=".pdf,.png,.jpg,.jpeg">
+                                    <div class="text-muted-glow fs-11 mt-1">Allowed: PDF, PNG, JPG, JPEG (Max 10 MB)</div>
+                                </div>
+                                <button type="submit" id="btnSendReply" class="btn btn-get-started text-uppercase fw-bold fs-12 py-2 px-4 flex-shrink-0">
+                                    <i class="bi bi-send me-1"></i> Send Reply
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    {% else %}
+                    <div class="border-top border-secondary-glow pt-3 mt-3 text-center">
+                        <span class="text-muted-glow fs-13"><i class="bi bi-lock me-1"></i> This ticket is {{ ticket.get_status_display|lower }}. Replies are disabled.</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Right Sidebar — 30% -->
+            <div class="col-lg-5 col-xl-5">
+                <!-- Ticket Details Card -->
+                <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4 mb-4">
+                    <h5 class="font-ranade text-white fw-bold mb-3 fs-16">
+                        <i class="bi bi-info-circle me-1 text-cyan-glow"></i> Ticket Details
+                    </h5>
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span class="text-muted-glow fs-12">Ticket ID</span>
+                        <span class="text-white fs-14 fw-medium">{{ ticket.ticket_id }}</span>
+                    </div>
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span class="text-muted-glow fs-12">Category</span>
+                        <span class="text-white fs-14 fw-medium">{{ ticket.get_category_display }}</span>
+                    </div>
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span class="text-muted-glow fs-12">Created</span>
+                        <span class="text-white fs-14 fw-medium">{{ ticket.created_at|date:"d M Y h:i A" }}</span>
+                    </div>
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span class="text-muted-glow fs-12">Last Updated</span>
+                        <span class="text-white fs-14 fw-medium">{{ ticket.updated_at|date:"d M Y h:i A" }}</span>
+                    </div>
+                    <div class="mb-0 d-flex justify-content-between">
+                        <span class="text-muted-glow fs-12">Status</span>
+                        <span>
+                            {% if ticket.status == 'open' %}
+                            <span class="badge bg-success-glow fs-10">Open</span>
+                            {% elif ticket.status == 'in_progress' %}
+                            <span class="badge bg-warning-glow fs-10">In Progress</span>
+                            {% elif ticket.status == 'waiting' %}
+                            <span class="badge fs-10" style="background:rgba(59,130,246,0.15)!important;color:#60A5FA!important;">Waiting</span>
+                            {% elif ticket.status == 'resolved' %}
+                            <span class="badge bg-success-glow fs-10">Resolved</span>
+                            {% elif ticket.status == 'closed' %}
+                            <span class="badge bg-danger-glow fs-10">Closed</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Attachment Card -->
+                <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4">
+                    <h5 class="font-ranade text-white fw-bold mb-3 fs-16">
+                        <i class="bi bi-paperclip me-1 text-cyan-glow"></i> Attachment
+                    </h5>
+                    {% if ticket.attachment %}
+                    <a href="{% url 'core:serve_protected_file' 'ticket' ticket.id %}" target="_blank" class="btn btn-outline-secondary-glow text-cyan-glow fs-13 w-100 py-2">
+                        <i class="bi bi-download me-1"></i> Download Attachment
+                    </a>
+                    {% else %}
+                    <div class="text-center py-3 text-muted-glow">
+                        <i class="bi bi-file-earmark-x fs-2 d-block mb-1 text-white-50"></i>
+                        <span class="fs-13">No attachment uploaded</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+function getCsrfToken() {
+    return document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
+}
+
+function submitReply() {
+    const message = document.getElementById('replyMessage').value.trim();
+    const attachment = document.getElementById('replyAttachment').files[0];
+
+    if (!message) {
+        alert('Please enter a reply message.');
+        return;
+    }
+
+    const btn = document.getElementById('btnSendReply');
+    btn.disabled = true;
+    btn.innerHTML = 'Sending <span class="spinner-border spinner-border-sm ms-1" role="status"></span>';
+
+    const formData = new FormData();
+    formData.append('message', message);
+    if (attachment) {
+        formData.append('attachment', attachment);
+    }
+
+    fetch('{% url "core:reply_ticket_ajax" ticket.ticket_id %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Something went wrong.'));
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Reply';
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Network error occurred.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Reply';
+    });
+}
+</script>
+{% endblock %}

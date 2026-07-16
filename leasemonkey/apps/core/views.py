@@ -259,3 +259,86 @@ def delete_notification(request, notification_id):
         return JsonResponse({'status': 'ok'})
     except Notification.DoesNotExist:
         return JsonResponse({'error': 'Not found.'}, status=404)
+
+
+import os
+from django.http import FileResponse, Http404
+from django.shortcuts import get_object_or_404
+
+
+@login_required
+def serve_protected_file(request, model_name, pk):
+    """
+    Serve protected files after permission check.
+    Prevents direct access to media URLs for sensitive documents.
+
+    model_name: 'ticket' | 'ticket_reply' | 'identity' | 'layout'
+    """
+    file_path = None
+    original_name = None
+
+    if model_name == 'ticket':
+        from .models import Ticket
+        obj = get_object_or_404(Ticket, id=pk)
+        if obj.user != request.user and request.user.role != 'ADMIN' and not request.user.is_superuser:
+            raise PermissionDenied()
+        file_path = obj.attachment.path if obj.attachment else None
+        original_name = f'ticket_{obj.ticket_id}_attachment{os.path.splitext(obj.attachment.name)[1] if obj.attachment else ""}'
+
+    elif model_name == 'ticket_reply':
+        from .models import TicketReply
+        obj = get_object_or_404(TicketReply, id=pk)
+        if obj.ticket.user != request.user and request.user.role != 'ADMIN' and not request.user.is_superuser:
+            raise PermissionDenied()
+        file_path = obj.attachment.path if obj.attachment else None
+        original_name = f'reply_{obj.id}_attachment{os.path.splitext(obj.attachment.name)[1] if obj.attachment else ""}'
+
+    elif model_name == 'identity':
+        from apps.accounts.models import LandownerApplication
+        obj = get_object_or_404(LandownerApplication, id=pk)
+        if request.user.role != 'ADMIN' and not request.user.is_superuser:
+            raise PermissionDenied()
+        doc_field = request.GET.get('doc', '')
+        if doc_field == 'aadhaar':
+            file_path = obj.aadhaar_document.path if obj.aadhaar_document else None
+            original_name = f'aadhaar_{obj.first_name}_{obj.last_name}{os.path.splitext(obj.aadhaar_document.name)[1] if obj.aadhaar_document else ""}'
+        elif doc_field == 'pan':
+            file_path = obj.pan_document.path if obj.pan_document else None
+            original_name = f'pan_{obj.first_name}_{obj.last_name}{os.path.splitext(obj.pan_document.name)[1] if obj.pan_document else ""}'
+        elif doc_field == 'ownership':
+            file_path = obj.ownership_document.path if obj.ownership_document else None
+            original_name = f'ownership_{obj.first_name}_{obj.last_name}{os.path.splitext(obj.ownership_document.name)[1] if obj.ownership_document else ""}'
+        else:
+            return JsonResponse({'error': 'Invalid document field. Use ?doc=aadhaar|pan|ownership'}, status=400)
+
+    elif model_name == 'land_request':
+        from apps.lands.models import LandRegistrationRequest
+        obj = get_object_or_404(LandRegistrationRequest, id=pk)
+        if obj.owner != request.user and request.user.role != 'ADMIN' and not request.user.is_superuser:
+            raise PermissionDenied()
+        doc_field = request.GET.get('doc', '')
+        if doc_field == 'ownership':
+            file_path = obj.ownership_proof.path if obj.ownership_proof else None
+            original_name = f'ownership_{obj.property_name}{os.path.splitext(obj.ownership_proof.name)[1] if obj.ownership_proof else ""}'
+        elif doc_field == 'floor_plan':
+            file_path = obj.floor_plan.path if obj.floor_plan else None
+            original_name = f'floor_plan_{obj.property_name}{os.path.splitext(obj.floor_plan.name)[1] if obj.floor_plan else ""}'
+        elif doc_field == 'registry_sale_deed':
+            file_path = obj.registry_sale_deed.path if obj.registry_sale_deed else None
+            original_name = f'registry_deed_{obj.property_name}{os.path.splitext(obj.registry_sale_deed.name)[1] if obj.registry_sale_deed else ""}'
+        elif doc_field == 'supporting_docs':
+            file_path = obj.supporting_documents.path if obj.supporting_documents else None
+            original_name = f'supporting_docs_{obj.property_name}{os.path.splitext(obj.supporting_documents.name)[1] if obj.supporting_documents else ""}'
+        else:
+            return JsonResponse({'error': 'Invalid document field. Use ?doc=ownership|floor_plan|registry_sale_deed|supporting_docs'}, status=400)
+
+    else:
+        raise Http404('Invalid file type.')
+
+    if not file_path or not os.path.exists(file_path):
+        raise Http404('File not found.')
+
+    response = FileResponse(open(file_path, 'rb'))
+    if original_name:
+        response['Content-Disposition'] = f'inline; filename="{original_name}"'
+    return response

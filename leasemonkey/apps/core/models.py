@@ -1,3 +1,5 @@
+import os
+import uuid
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -16,7 +18,13 @@ class Notification(models.Model):
         ('lo_registration_request',  'Landowner Registration Request'),
         ('lo_registration_approved', 'Landowner Registration Approved'),
         ('lo_registration_rejected', 'Landowner Registration Rejected'),
+        ('support_ticket_created',   'Support Ticket Created'),
+        ('support_ticket_replied',   'Support Ticket Reply'),
+        ('support_ticket_status_changed', 'Support Ticket Status Changed'),
+        ('purchase_request_cancelled', 'Purchase Request Cancelled'),
     ]
+
+    ticket_id = models.CharField(max_length=20, null=True, blank=True)
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -74,6 +82,7 @@ class PurchaseRequest(models.Model):
         ('meeting_scheduled',  'Meeting Scheduled'),
         ('approved',           'Approved'),
         ('rejected',           'Rejected'),
+        ('cancelled',          'Cancelled'),
     ]
 
     buyer           = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='purchase_requests')
@@ -108,3 +117,62 @@ class PurchaseRequest(models.Model):
 
     def __str__(self):
         return f"PurchaseRequest by {self.buyer.username} for Plot {self.plot_number} in {self.land.name}"
+
+
+def _ticket_attachment_path(instance, filename):
+    ext = filename.split('.')[-1] if '.' in filename else ''
+    name = uuid.uuid4().hex
+    return os.path.join('tickets', f'{name}.{ext}')
+
+
+class Ticket(models.Model):
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('in_progress', 'In Progress'),
+        ('waiting', 'Waiting for User'),
+        ('resolved', 'Resolved'),
+        ('closed', 'Closed'),
+    ]
+    CATEGORY_CHOICES = [
+        ('general', 'General Question'),
+        ('technical', 'Technical Issue'),
+        ('property_verification', 'Property Verification'),
+        ('meeting', 'Meeting Issue'),
+        ('account', 'Account Issue'),
+        ('bug', 'Bug Report'),
+        ('feature', 'Feature Request'),
+        ('other', 'Other'),
+    ]
+
+    ticket_id   = models.CharField(max_length=20, unique=True)
+    user        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='support_tickets_new')
+    role        = models.CharField(max_length=20)
+    subject     = models.CharField(max_length=200)
+    category    = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    description = models.TextField()
+    attachment  = models.FileField(upload_to=_ticket_attachment_path, null=True, blank=True)
+    status      = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_ticket'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.ticket_id} - {self.subject} ({self.get_status_display()})"
+
+
+class TicketReply(models.Model):
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='replies')
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    message = models.TextField()
+    attachment = models.FileField(upload_to=_ticket_attachment_path, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'ai_ticketreply'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Reply by {self.sender.username} on {self.ticket.ticket_id}"

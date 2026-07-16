@@ -38,6 +38,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkSupport" onclick="switchTab('support');" class="sidebar-link">
+                        <i class="bi bi-question-circle-fill"></i> Help & Support
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="{% url 'profile' %}" class="sidebar-link">
                         <i class="bi bi-person"></i> Profile
                     </a>
@@ -124,7 +129,19 @@
                     </thead>
                     <tbody class="fs-14">
                         {% for req in purchase_requests %}
-                        <tr class="border-bottom border-dark-glow">
+                        <tr class="border-bottom border-dark-glow" style="cursor:pointer;"
+                            data-id="{{ req.id }}"
+                            data-plot="Plot {{ req.plot_number }}"
+                            data-land="{{ req.land.name }}"
+                            data-owner="{{ req.land.owner.username }}"
+                            data-amount="₹{{ req.proposed_amount }}"
+                            data-status="{{ req.status }}"
+                            data-date="{{ req.created_at|date:'M d, Y' }}"
+                            data-rejection="{{ req.rejection_reason|default:'' }}"
+                            data-meetlink="{{ req.meet_link|default:'' }}"
+                            data-meetingdt="{% if req.meeting_datetime %}{{ req.meeting_datetime|date:'M d, Y, h:i A' }}{% endif %}"
+                            data-meetingdur="{% if req.meeting_duration_mins %}{{ req.meeting_duration_mins }} mins{% endif %}"
+                            onclick="openRequestDetail(this)">
                             <td class="py-3 px-3 fw-bold text-white">Plot {{ req.plot_number }} in {{ req.land.name }}</td>
                             <td class="py-3 text-cyan-glow fw-bold">₹{{ req.proposed_amount }}</td>
                             <td class="py-3">
@@ -149,6 +166,8 @@
                                 {% elif req.status == 'rejected' %}
                                 <span class="badge bg-danger">Rejected</span>
                                 <div class="fs-12 text-danger mt-1">Reason: {{ req.rejection_reason }}</div>
+                                {% elif req.status == 'cancelled' %}
+                                <span class="badge bg-secondary">Cancelled</span>
                                 {% endif %}
                             </td>
                             <td class="py-3 text-muted-glow">{{ req.created_at|date:"M d, Y" }}</td>
@@ -257,13 +276,190 @@
             </div>
             {% endif %}
         </section>
+
+        <!-- HELP & SUPPORT TAB -->
+        <section id="sectionSupport" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Help & Support</h2>
+                <p class="text-muted-glow fs-14 mb-0">Get assistance, create tickets, and find answers to common questions.</p>
+            </div>
+
+            <!-- Create Ticket -->
+            <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4 mb-4">
+                <h4 class="font-ranade text-white fw-bold mb-1 fs-18">Create Ticket</h4>
+                <p class="text-muted-glow fs-13 mb-3">Submit a new support request. Our team will respond shortly.</p>
+
+                <form id="ticketForm" method="post" enctype="multipart/form-data" onsubmit="event.preventDefault(); submitTicket();">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-white-50 fs-13">Subject <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="ticketSubject" placeholder="Brief summary of your issue" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-white-50 fs-13">Category <span class="text-danger">*</span></label>
+                            <select class="form-select" id="ticketCategory" required>
+                                <option value="">Select...</option>
+                                <option value="general">General Question</option>
+                                <option value="technical">Technical Issue</option>
+                                <option value="property_verification">Property Verification</option>
+                                <option value="meeting">Meeting Issue</option>
+                                <option value="account">Account Issue</option>
+                                <option value="bug">Bug Report</option>
+                                <option value="feature">Feature Request</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label text-white-50 fs-13">Description <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="ticketDescription" rows="4" placeholder="Describe your issue in detail..." required></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-white-50 fs-13">Attachment (optional)</label>
+                            <input type="file" class="form-control" id="ticketAttachment" accept=".pdf,.png,.jpg,.jpeg">
+                            <div class="text-muted-glow fs-11 mt-1">Allowed: PDF, PNG, JPG, JPEG (Max 10 MB)</div>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" id="btnCreateTicket" class="btn btn-get-started text-uppercase fw-bold fs-12 py-2 px-4">
+                                <i class="bi bi-plus-circle me-1"></i> Create Ticket
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- My Tickets -->
+            <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4 mb-4">
+                <h4 class="font-ranade text-white fw-bold mb-1 fs-18">My Tickets</h4>
+                <p class="text-muted-glow fs-13 mb-3">Track all your support requests.</p>
+
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover align-middle mb-0 font-opensans">
+                        <thead>
+                            <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
+                                <th scope="col" class="py-3 px-3">Ticket ID</th>
+                                <th scope="col" class="py-3">Subject</th>
+                                <th scope="col" class="py-3">Category</th>
+                                <th scope="col" class="py-3">Created</th>
+                                <th scope="col" class="py-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="fs-14">
+                            {% if tickets %}
+                                {% for ticket in tickets %}
+                                <tr class="border-bottom border-dark-glow" style="cursor: pointer;" onclick="window.location.href='{% url 'core:ticket_conversation' ticket.ticket_id %}';">
+                                    <td class="py-3 px-3 fw-bold font-ranade">
+                                        <span class="text-cyan-glow">{{ ticket.ticket_id }}</span>
+                                    </td>
+                                    <td class="py-3 text-white">{{ ticket.subject }}</td>
+                                    <td class="py-3 text-muted-glow">{{ ticket.get_category_display }}</td>
+                                    <td class="py-3 text-muted-glow">{{ ticket.created_at|date:"d M Y" }}</td>
+                                    <td class="py-3">
+                                        {% if ticket.status == 'open' %}
+                                        <span class="badge bg-success-glow fs-10">Open</span>
+                                        {% elif ticket.status == 'in_progress' %}
+                                        <span class="badge bg-warning-glow fs-10">In Progress</span>
+                                        {% elif ticket.status == 'waiting' %}
+                                        <span class="badge bg-info-glow fs-10" style="background:rgba(59,130,246,0.15)!important;color:#60A5FA!important;">Waiting</span>
+                                        {% elif ticket.status == 'resolved' %}
+                                        <span class="badge bg-success-glow fs-10">Resolved</span>
+                                        {% elif ticket.status == 'closed' %}
+                                        <span class="badge bg-danger-glow fs-10">Closed</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="py-5 text-center text-muted-glow">
+                                        <i class="bi bi-ticket fs-2 d-block mb-2"></i>
+                                        No tickets yet. Create one above!
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- FAQs -->
+            <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4">
+                <h4 class="font-ranade text-white fw-bold mb-1 fs-18">FAQs</h4>
+                <p class="text-muted-glow fs-13 mb-3">Frequently asked questions.</p>
+
+                <div class="accordion" id="faqAccordion">
+                    {% for faq in faqs %}
+                    <div class="accordion-item bg-transparent border-0 mb-2">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed bg-dark-glow text-white fs-13 fw-bold px-3 py-2.5 rounded-2 border border-secondary-glow" type="button" data-bs-toggle="collapse" data-bs-target="#faq{{ forloop.counter }}" style="box-shadow: none;">
+                                {{ faq.question }}
+                            </button>
+                        </h2>
+                        <div id="faq{{ forloop.counter }}" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body px-3 py-2 text-muted-glow fs-13">
+                                {{ faq.answer }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <!-- Purchase Request Detail Modal -->
+        <div class="modal fade" id="requestDetailModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content glass-panel border border-secondary-glow shadow-2xl p-2 text-white">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title font-ranade fw-bold text-white fs-18">
+                            <i class="bi bi-receipt text-cyan-glow me-2"></i> Request Details
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body py-3" id="requestDetailBody">
+                        <div id="requestDetailLoading" class="text-center py-4">
+                            <div class="spinner-border text-cyan-glow" role="status"></div>
+                            <p class="text-muted-glow fs-13 mt-2">Loading...</p>
+                        </div>
+                        <div id="requestDetailContent" style="display:none;"></div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0" id="requestDetailFooter" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cancel Confirmation Modal -->
+        <div class="modal fade" id="cancelConfirmModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content glass-panel border border-secondary-glow shadow-2xl p-2 text-white">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title font-ranade fw-bold text-white fs-18">
+                            <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i> Cancel Purchase Request?
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body py-3">
+                        <p class="text-muted-glow fs-14 mb-1">Are you sure you want to cancel this purchase request?</p>
+                        <p class="text-danger fs-13 mb-0"><i class="bi bi-info-circle me-1"></i> This action cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer border-0 pt-0 gap-2">
+                        <button type="button" class="btn btn-outline-secondary-glow text-white-50 px-4 py-2 fs-13" data-bs-dismiss="modal">
+                            <i class="bi bi-arrow-left me-1"></i> Keep Request
+                        </button>
+                        <button type="button" id="confirmCancelBtn" class="btn btn-danger px-4 py-2 fs-13 fw-bold text-uppercase">
+                            <i class="bi bi-x-circle me-1"></i> Cancel Request
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 </div>
 
 <script>
     function switchTab(tabName) {
-        const tabs = { plots: 'sectionPlots', requests: 'sectionRequests', notifs: 'sectionNotifs', saved: 'sectionSaved' };
-        const links = { plots: 'tabLinkPlots', requests: 'tabLinkRequests', notifs: 'tabLinkNotifs', saved: 'tabLinkSaved' };
+        const tabs = { plots: 'sectionPlots', requests: 'sectionRequests', notifs: 'sectionNotifs', saved: 'sectionSaved', support: 'sectionSupport' };
+        const links = { plots: 'tabLinkPlots', requests: 'tabLinkRequests', notifs: 'tabLinkNotifs', saved: 'tabLinkSaved', support: 'tabLinkSupport' };
         Object.keys(tabs).forEach(t => {
             const sectionEl = document.getElementById(tabs[t]);
             if (sectionEl) {
@@ -320,11 +516,176 @@
     document.addEventListener("DOMContentLoaded", function() {
         if (window.location.hash) {
             const hash = window.location.hash.substring(1);
-            if (['plots', 'requests', 'notifs', 'saved'].includes(hash)) {
+            if (['plots', 'requests', 'notifs', 'saved', 'support'].includes(hash)) {
                 switchTab(hash);
             }
         }
+        // Cancel confirmation
+        document.getElementById('confirmCancelBtn')?.addEventListener('click', executeCancel);
     });
+
+    let _cancelRequestId = null;
+
+    function openRequestDetail(row) {
+        const get = k => row.getAttribute(k) || '';
+        const status = get('data-status');
+        const html = `
+            <div class="d-flex flex-column gap-2">
+                <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-glow bg-dark-glow">
+                    <span class="text-muted-glow fs-12">Property</span>
+                    <span class="text-white fs-13 fw-bold">${get('data-land')}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-glow bg-dark-glow">
+                    <span class="text-muted-glow fs-12">Plot</span>
+                    <span class="text-white fs-13 fw-bold">${get('data-plot')}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-glow bg-dark-glow">
+                    <span class="text-muted-glow fs-12">Proposed Amount</span>
+                    <span class="text-cyan-glow fs-13 fw-bold">${get('data-amount')}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-glow bg-dark-glow">
+                    <span class="text-muted-glow fs-12">Landowner</span>
+                    <span class="text-white fs-13 fw-bold">${get('data-owner')}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-glow bg-dark-glow">
+                    <span class="text-muted-glow fs-12">Request Date</span>
+                    <span class="text-white fs-13 fw-bold">${get('data-date')}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-glow bg-dark-glow">
+                    <span class="text-muted-glow fs-12">Status</span>
+                    <span class="fs-13 fw-bold">${statusBadge(status)}</span>
+                </div>
+                ${get('data-rejection') ? `
+                <div class="p-2 rounded-2 border border-danger-glow bg-dark-glow">
+                    <span class="text-muted-glow fs-12">Rejection Reason</span>
+                    <p class="text-danger fs-13 mb-0 mt-1">${get('data-rejection')}</p>
+                </div>` : ''}
+                ${get('data-meetingdt') ? `
+                <div class="p-2 rounded-2 border border-secondary-glow bg-dark-glow">
+                    <span class="text-muted-glow fs-12">Meeting</span>
+                    <p class="text-white fs-13 mb-0 mt-1">${get('data-meetingdt')}${get('data-meetingdur') ? ' (' + get('data-meetingdur') + ')' : ''}</p>
+                    ${get('data-meetlink') ? `<a href="${get('data-meetlink')}" target="_blank" class="btn btn-sm btn-outline-info text-white fs-12 px-2 py-1 mt-1"><i class="bi bi-camera-video me-1"></i> Join Meet</a>` : ''}
+                </div>` : ''}
+            </div>
+        `;
+
+        document.getElementById('requestDetailLoading').style.display = 'none';
+        document.getElementById('requestDetailContent').innerHTML = html;
+        document.getElementById('requestDetailContent').style.display = 'block';
+
+        const footer = document.getElementById('requestDetailFooter');
+        if (status === 'pending') {
+            _cancelRequestId = get('data-id');
+            footer.innerHTML = `<button class="btn btn-danger w-100 py-2 fs-13 fw-bold text-uppercase" onclick="confirmCancelRequest()"><i class="bi bi-x-circle me-1"></i> Cancel Request</button>`;
+            footer.style.display = 'block';
+        } else {
+            footer.style.display = 'none';
+        }
+
+        new bootstrap.Modal(document.getElementById('requestDetailModal')).show();
+    }
+
+    function statusBadge(s) {
+        const map = {
+            'pending': '<span class="badge bg-warning text-dark">Pending</span>',
+            'meeting_scheduled': '<span class="badge" style="background-color:#fd7e14;color:white;">Meeting Scheduled</span>',
+            'approved': '<span class="badge bg-success">Approved</span>',
+            'rejected': '<span class="badge bg-danger">Rejected</span>',
+            'cancelled': '<span class="badge bg-secondary">Cancelled</span>',
+        };
+        return map[s] || s;
+    }
+
+    function confirmCancelRequest() {
+        bootstrap.Modal.getInstance(document.getElementById('requestDetailModal')).hide();
+        document.getElementById('requestDetailModal').addEventListener('hidden.bs.modal', function _onDetailHidden() {
+            document.getElementById('requestDetailModal').removeEventListener('hidden.bs.modal', _onDetailHidden);
+            new bootstrap.Modal(document.getElementById('cancelConfirmModal')).show();
+        });
+    }
+
+    function executeCancel() {
+        if (!_cancelRequestId) return;
+        const btn = document.getElementById('confirmCancelBtn');
+        btn.disabled = true;
+        btn.innerHTML = 'Cancelling <span class="spinner-border spinner-border-sm ms-1" role="status"></span>';
+
+        fetch(`/lands/purchase-request/${_cancelRequestId}/cancel/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() },
+        })
+        .then(res => res.json())
+        .then(data => {
+            bootstrap.Modal.getInstance(document.getElementById('cancelConfirmModal')).hide();
+            if (data.status === 'ok') {
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Something went wrong.'));
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-x-circle me-1"></i> Cancel Request';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Network error occurred.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-x-circle me-1"></i> Cancel Request';
+        });
+    }
+
+    // Global modal cleanup — force-remove stray backdrops on any modal hide
+    document.addEventListener('hidden.bs.modal', function() {
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+    });
+
+    /* ── Support Ticket ── */
+    function submitTicket() {
+        const subject = document.getElementById('ticketSubject').value.trim();
+        const category = document.getElementById('ticketCategory').value;
+        const description = document.getElementById('ticketDescription').value.trim();
+        const attachment = document.getElementById('ticketAttachment').files[0];
+
+        if (!subject || !category || !description) {
+            alert('Please fill in all required fields.');
+            return;
+        }
+
+        const btn = document.getElementById('btnCreateTicket');
+        btn.disabled = true;
+        btn.innerHTML = 'Creating <span class="spinner-border spinner-border-sm ms-1" role="status"></span>';
+
+        const formData = new FormData();
+        formData.append('subject', subject);
+        formData.append('category', category);
+        formData.append('description', description);
+        if (attachment) formData.append('attachment', attachment);
+
+        fetch('{% url "core:create_ticket_ajax" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() },
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                alert('Support ticket created successfully! Ticket ID: ' + data.ticket_id);
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Something went wrong.'));
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Create Ticket';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Network error occurred.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Create Ticket';
+        });
+    }
 </script>
 
 <style>

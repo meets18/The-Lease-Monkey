@@ -30,7 +30,14 @@
                 </li>
                 <li class="nav-item">
                     <a href="javascript:void(0);" id="tabLinkLayouts" onclick="switchTab('layouts');" class="sidebar-link">
-                        <i class="bi bi-file-earmark-text-fill"></i> Layout Submissions
+                        <i class="bi bi-file-earmark-text-fill"></i> Land Requests
+                        {% if pending_requests_count %}<span class="admin-notif-badge ms-auto">{{ pending_requests_count }}</span>{% endif %}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkTickets" onclick="switchTab('tickets');" class="sidebar-link">
+                        <i class="bi bi-ticket-fill"></i> Support Tickets
+                        {% if open_tickets_count %}<span class="admin-notif-badge ms-auto">{{ open_tickets_count }}</span>{% endif %}
                     </a>
                 </li>
                 <li class="nav-item">
@@ -84,6 +91,7 @@
                             <th scope="col" class="py-3">Location</th>
                             <th scope="col" class="py-3">Total Area</th>
                             <th scope="col" class="py-3">Avg Plot Price</th>
+                            <th scope="col" class="py-3">Status</th>
                         </tr>
                     </thead>
                     <tbody class="fs-14">
@@ -98,12 +106,21 @@
                                     data-land-price-label="{{ land.display_plot_price_lakhs }}"
                                     data-explore-url="{% url 'lands:plot_viewer' slug=land.slug %}"
                                     data-manage-url="{% url 'lands:plot_creator' slug=land.slug %}"
-                                    data-delete-url="{% url 'lands:delete_land' slug=land.slug %}">
+                                    data-delete-url="{% url 'lands:delete_land' slug=land.slug %}"
+                                    data-land-slug="{{ land.slug }}"
+                                    data-land-is-live="{% if land.is_live %}true{% else %}false{% endif %}">
                                     <td class="py-3 px-3 fw-bold text-white font-ranade fs-15">{{ land.name }}</td>
                                     <td class="py-3">{{ land.owner.username }}</td>
                                     <td class="py-3 text-muted-glow land-location-cell"><i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i><span class="land-location-text"></span></td>
                                     <td class="py-3">{{ land.area }} Acres</td>
                                     <td class="py-3 text-cyan-glow fw-bold land-price-cell"></td>
+                                    <td class="py-3">
+                                        {% if land.is_live %}
+                                            <span class="badge bg-success-glow text-uppercase fs-10">Live</span>
+                                        {% else %}
+                                            <span class="badge bg-warning-glow text-uppercase fs-10">Draft</span>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                             {% endfor %}
                         {% else %}
@@ -302,113 +319,195 @@
             </div>
         </section>
 
-        <!-- SITE LAYOUTS QUEUE SECTION -->
+        <!-- LAND REGISTRATION REQUESTS QUEUE SECTION -->
         <section id="sectionLayouts" style="display:none;">
             <div class="mb-4">
-                <h2 class="h3 font-ranade text-white fw-bold mb-1">Site Layout Submissions</h2>
-                <p class="text-muted-glow fs-14 mb-0">Review and approve site layout diagrams uploaded by landowners to digitize their plots.</p>
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Land Registration Requests</h2>
+                <p class="text-muted-glow fs-14 mb-0">Review landowner requests, inspect documents, digitize boundaries, and approve properties.</p>
             </div>
             
-            <div class="pr-grid font-opensans">
-                {% if site_layouts %}
-                    {% for layout in site_layouts %}
-                    <div class="pr-card-wrapper">
-                        <div class="pr-card" id="layout-card-{{ layout.id }}" onclick="toggleLayoutCard({{ layout.id }})" tabindex="0" role="button">
-                            <div class="pr-card-body">
-                                <div class="pr-top-row">
-                                    <div class="pr-buyer text-white font-ranade">{{ layout.owner.username }}</div>
-                                    <div class="pr-expand-icon">
-                                        <i class="bi bi-chevron-down text-white-50" id="layout-icon-{{ layout.id }}"></i>
-                                    </div>
-                                </div>
-                                <div class="pr-plot text-cyan-glow">Property: {{ layout.property_name }}</div>
-                                <div class="pr-meta pr-meta-loc text-muted-glow">
-                                    <a href="{{ layout.layout_file.url }}" target="_blank" class="text-cyan-glow text-decoration-none" onclick="event.stopPropagation();">
-                                        <i class="bi bi-file-earmark-arrow-down-fill me-1"></i> View Layout Document
-                                    </a>
-                                </div>
-                                <div class="pr-divider"></div>
-                                <div class="pr-bottom-row">
-                                    <div class="pr-amount fs-12 text-white-50">Notes: {{ layout.notes|default:"-"|truncatechars:50 }}</div>
-                                    <div>
-                                        {% if layout.status == 'uploaded' %}
-                                        <span class="pr-badge status-pending">Uploaded</span>
-                                        {% elif layout.status == 'under_review' %}
-                                        <span class="pr-badge status-meeting">Under Review</span>
-                                        {% elif layout.status == 'approved' %}
-                                        <span class="pr-badge status-approved">Approved</span>
-                                        {% elif layout.status == 'rejected' %}
-                                        <span class="pr-badge status-rejected">Rejected</span>
+            <div class="card bg-dark-glow border border-secondary-glow rounded-3 text-white shadow-lg p-4 font-opensans">
+                <div class="table-responsive">
+                    <table class="table table-dark align-middle mb-0 table-modern">
+                        <thead>
+                            <tr class="text-secondary-glow fs-12 border-bottom border-secondary-glow">
+                                <th class="py-2.5 px-3">Request ID</th>
+                                <th class="py-2.5">Landowner</th>
+                                <th class="py-2.5">Property</th>
+                                <th class="py-2.5">District / State</th>
+                                <th class="py-2.5">Submitted On</th>
+                                <th class="py-2.5">Status</th>
+                                <th class="py-2.5 text-end px-3">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="fs-13">
+                            {% if land_requests %}
+                                {% for req in land_requests %}
+                                <tr class="border-bottom border-dark-glow">
+                                    <td class="py-3 px-3 text-muted-glow">#{{ req.id }}</td>
+                                    <td class="py-3 fw-bold text-white">{{ req.owner.username }}</td>
+                                    <td class="py-3 text-white font-ranade">{{ req.property_name }}</td>
+                                    <td class="py-3 text-white-50">
+                                        {% if req.district %}{{ req.district }}, {{ req.state }}{% else %}{{ req.location }}{% endif %}
+                                    </td>
+                                    <td class="py-3 text-muted-glow">{{ req.submitted_at|date:"d M Y" }}</td>
+                                    <td class="py-3">
+                                        {% if req.status == 'pending' %}
+                                            <span class="badge bg-warning-glow text-uppercase fs-9">Pending Review</span>
+                                        {% elif req.status == 'under_review' %}
+                                            <span class="badge bg-info-glow text-uppercase fs-9">Under Review</span>
+                                        {% elif req.status == 'being_added' %}
+                                            <span class="badge bg-primary-glow text-uppercase fs-9" style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.4); color: #38bdf8;">Being Digitized</span>
+                                        {% elif req.status == 'approved' %}
+                                            <span class="badge bg-success-glow text-uppercase fs-9">Approved (Offline)</span>
+                                        {% elif req.status == 'live' %}
+                                            <span class="badge bg-success-glow text-uppercase fs-9" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399;">Live</span>
+                                        {% elif req.status == 'rejected' %}
+                                            <span class="badge bg-danger-glow text-uppercase fs-9">Rejected</span>
                                         {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="pr-expanded" id="layout-body-{{ layout.id }}">
-                                <div class="pr-expanded-inner text-white">
-                                    <div class="pr-col">
-                                        <div class="pr-col-title text-secondary-glow fs-11 font-ranade fw-bold">Submission Details</div>
-                                        <div class="pr-field">
-                                            <span class="pr-field-label">Land Owner</span>
-                                            <span class="pr-field-value">{{ layout.owner.username }} ({{ layout.owner.email }})</span>
-                                        </div>
-                                        <div class="pr-field">
-                                            <span class="pr-field-label">Property Name</span>
-                                            <span class="pr-field-value fw-bold text-white">{{ layout.property_name }}</span>
-                                        </div>
-                                        <div class="pr-field">
-                                            <span class="pr-field-label">Notes</span>
-                                            <span class="pr-field-value">{{ layout.notes|default:"No notes provided."|linebreaksbr }}</span>
-                                        </div>
-                                    </div>
-                                    <div class="pr-col">
-                                        <div class="pr-col-title text-secondary-glow fs-11 font-ranade fw-bold">Status History</div>
-                                        <div class="pr-field">
-                                            <span class="pr-field-label">Current Status</span>
-                                            <span class="pr-field-value text-capitalize">{{ layout.status }}</span>
-                                        </div>
-                                        <div class="pr-field">
-                                            <span class="pr-field-label">Uploaded On</span>
-                                            <span class="pr-field-value">{{ layout.created_at|date:"d M Y, h:i A" }}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="pr-actions">
-                                    {% if layout.status == 'uploaded' %}
-                                        <form method="POST" action="{% url 'lands:admin_review_layout' layout.pk %}" onclick="event.stopPropagation();" class="d-inline flex-grow-1">
-                                            {% csrf_token %}
-                                            <button type="submit" class="pr-btn pr-btn-primary w-100">Review</button>
-                                        </form>
-                                        <button class="pr-btn pr-btn-danger flex-grow-1" onclick="event.stopPropagation(); confirmRejectLayout({{ layout.pk }});">Reject</button>
-                                    {% elif layout.status == 'under_review' %}
-                                        <form method="POST" action="{% url 'lands:admin_approve_layout' layout.pk %}" onclick="event.stopPropagation();" class="d-inline flex-grow-1">
-                                            {% csrf_token %}
-                                            <button type="submit" class="pr-btn pr-btn-primary w-100">Approve &amp; Publish</button>
-                                        </form>
-                                        <button class="pr-btn pr-btn-danger flex-grow-1" onclick="event.stopPropagation(); confirmRejectLayout({{ layout.pk }});">Reject</button>
-                                    {% elif layout.status == 'approved' %}
-                                        <div class="text-success-glow fw-bold fs-12 px-3 py-1 bg-success-glow bg-opacity-10 border border-success-glow rounded-pill d-inline-flex align-items-center">
-                                            <i class="bi bi-check2-circle me-1"></i> Verified &amp; Published
-                                        </div>
-                                    {% elif layout.status == 'rejected' %}
-                                        <div class="text-danger-glow fw-bold fs-12 px-3 py-1 bg-danger-glow bg-opacity-10 border border-danger-glow rounded-pill d-inline-flex align-items-center">
-                                            <i class="bi bi-x-circle me-1"></i> Rejected
-                                        </div>
+                                    </td>
+                                    <td class="py-3 text-end px-3">
+                                        <a href="{% url 'lands:admin_land_request_detail' req.id %}" class="btn btn-outline-info py-1 px-3 fs-11 fw-bold text-uppercase text-decoration-none">
+                                            View Request
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="7" class="py-5 text-center text-muted-glow">
+                                        <i class="bi bi-file-earmark-x fs-1 text-muted-glow d-block mb-3"></i>
+                                        <p class="text-muted-glow fs-15 mb-0">No land registration requests yet.</p>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- SUPPORT TICKETS SECTION -->
+        <section id="sectionTickets" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Support Tickets</h2>
+                <p class="text-muted-glow fs-14 mb-0">Manage incoming support requests from buyers and landowners.</p>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3 text-center">
+                        <span class="d-block fs-24 fw-bold text-cyan-glow" id="ticketTotalCount">{{ support_tickets|length }}</span>
+                        <span class="text-muted-glow fs-12">Total Tickets</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3 text-center">
+                        <span class="d-block fs-24 fw-bold text-success-glow" id="ticketOpenCount">0</span>
+                        <span class="text-muted-glow fs-12">Open</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3 text-center">
+                        <span class="d-block fs-24 fw-bold text-warning-glow" id="ticketInProgressCount">0</span>
+                        <span class="text-muted-glow fs-12">In Progress</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3 text-center">
+                        <span class="d-block fs-24 fw-bold text-info-glow" id="ticketResolvedCount">0</span>
+                        <span class="text-muted-glow fs-12">Resolved/Closed</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tickets Table -->
+            <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
+                <table class="table table-dark table-hover align-middle mb-0 font-opensans">
+                    <thead>
+                        <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
+                            <th scope="col" class="py-3 px-3">Ticket ID</th>
+                            <th scope="col" class="py-3">Subject</th>
+                            <th scope="col" class="py-3">Created By</th>
+                            <th scope="col" class="py-3">Category</th>
+                            <th scope="col" class="py-3">Created</th>
+                            <th scope="col" class="py-3">Status</th>
+                            <th scope="col" class="py-3 text-end px-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="fs-14">
+                        {% if support_tickets %}
+                            {% for ticket in support_tickets %}
+                            <tr class="border-bottom border-dark-glow">
+                                <td class="py-3 px-3 fw-bold font-ranade">
+                                    <span class="text-cyan-glow">{{ ticket.ticket_id }}</span>
+                                </td>
+                                <td class="py-3 text-white">{{ ticket.subject }}</td>
+                                <td class="py-3 text-muted-glow">{{ ticket.user.get_full_name|default:ticket.user.username }}</td>
+                                <td class="py-3 text-muted-glow">{{ ticket.get_category_display }}</td>
+                                <td class="py-3 text-muted-glow">{{ ticket.created_at|date:"d M Y" }}</td>
+                                <td class="py-3">
+                                    {% if ticket.status == 'open' %}
+                                    <span class="badge bg-success-glow fs-10">Open</span>
+                                    {% elif ticket.status == 'in_progress' %}
+                                    <span class="badge bg-warning-glow fs-10">In Progress</span>
+                                    {% elif ticket.status == 'waiting' %}
+                                    <span class="badge fs-10" style="background:rgba(59,130,246,0.15)!important;color:#60A5FA!important;">Waiting</span>
+                                    {% elif ticket.status == 'resolved' %}
+                                    <span class="badge bg-success-glow fs-10">Resolved</span>
+                                    {% elif ticket.status == 'closed' %}
+                                    <span class="badge bg-danger-glow fs-10">Closed</span>
                                     {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-5 text-center w-100">
-                        <i class="bi bi-file-earmark-x fs-1 text-muted-glow d-block mb-3"></i>
-                        <p class="text-muted-glow fs-15 mb-0">No site layout submissions yet.</p>
-                    </div>
-                {% endif %}
+                                </td>
+                                <td class="py-3 text-end px-3">
+                                    <button class="btn btn-sm btn-action px-3 py-1 fs-11 fw-bold text-uppercase"
+                                            onclick="openTicketDetail('{{ ticket.ticket_id }}')">
+                                        <i class="bi bi-eye me-1"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="py-5 text-center text-muted-glow">
+                                    <i class="bi bi-ticket fs-2 d-block mb-2"></i>
+                                    No support tickets yet.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
         </section>
 
     </main>
+</div>
+
+<!-- Support Ticket Detail Modal (Admin) -->
+<div class="modal fade" id="ticketDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content glass-panel border border-secondary-glow shadow-2xl p-2 text-white">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title font-ranade fw-bold text-white fs-18" id="ticketDetailTitle">
+                    <i class="bi bi-ticket text-cyan-glow me-2"></i> <span id="ticketDetailId">Ticket</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-3" id="ticketDetailBody">
+                <div id="ticketDetailLoading" class="text-center py-5">
+                    <div class="spinner-border text-cyan-glow" role="status"></div>
+                    <p class="text-muted-glow fs-13 mt-2">Loading ticket details...</p>
+                </div>
+                <div id="ticketDetailContent" style="display:none;">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0" id="ticketDetailFooter" style="display:none;">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Land Actions Modal (Moved outside positioned wrapper to avoid backdrop clicks block) -->
@@ -427,8 +526,26 @@
                     <div class="land-modal-info-item"><span class="text-muted-glow">Location:</span> <strong id="modalLandLocation" class="text-white">-</strong></div>
                     <div class="land-modal-info-item"><span class="text-muted-glow">Area:</span> <strong id="modalLandArea" class="text-white">-</strong></div>
                     <div class="land-modal-info-item"><span class="text-muted-glow">Avg Plot Price:</span> <strong id="modalLandPrice" class="text-cyan-glow">-</strong></div>
+                    <div class="land-modal-info-item"><span class="text-muted-glow">Status:</span> <strong id="modalLandStatus" class="text-white">-</strong></div>
                 </div>
+
+                <div class="mb-3 p-2 bg-dark-glow border border-secondary-glow rounded-3" id="notifyContainer" style="display:none;">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="notifyCheckbox" checked>
+                        <label class="form-check-label fs-12 text-white-50" for="notifyCheckbox">
+                            Notify landowner via Email & In-App notification on publish
+                        </label>
+                    </div>
+                </div>
+
                 <div class="d-grid gap-2">
+                    <form id="toggleLiveForm" method="POST" action="" style="margin: 0;">
+                        {% csrf_token %}
+                        <input type="hidden" name="notify" id="toggleLiveNotify" value="false">
+                        <button type="submit" id="modalToggleLiveBtn" class="btn btn-lg py-2.5 fs-12 text-uppercase fw-bold w-100 mb-2">
+                            Toggle Live/Draft
+                        </button>
+                    </form>
                     <a id="modalExploreBtn" href="#" class="btn btn-action btn-lg py-2.5 fs-12 text-uppercase fw-bold text-decoration-none">Explore <i class="bi bi-eye ms-1"></i></a>
                     <a id="modalManageBtn" href="#" class="btn btn-action btn-lg py-2.5 fs-12 text-uppercase fw-bold text-decoration-none">Manage Plots <i class="bi bi-grid-3x3-gap ms-1"></i></a>
                     <a id="modalDeleteBtn" href="#" onclick="return confirm('Are you sure you want to delete this land and all its plots? This action is permanent.');" class="btn btn-outline-danger btn-lg py-2.5 fs-12 text-uppercase fw-bold text-decoration-none">Delete <i class="bi bi-trash ms-1"></i></a>
@@ -523,6 +640,7 @@
             lands:  { section: 'sectionLands',         link: 'tabLinkLands'   },
             owners: { section: 'sectionOwners',        link: 'tabLinkOwners'  },
             layouts: { section: 'sectionLayouts',      link: 'tabLinkLayouts' },
+            tickets: { section: 'sectionTickets',      link: 'tabLinkTickets' },
             notifs: { section: 'sectionNotifications', link: 'tabLinkNotifs'  },
             applications: { section: 'sectionApplications', link: 'tabLinkApplications' },
         };
@@ -651,6 +769,35 @@
         document.getElementById('modalManageBtn').href = get('data-manage-url');
         document.getElementById('modalDeleteBtn').href = get('data-delete-url');
 
+        // Status & Toggle action setup
+        const isLive = get('data-land-is-live') === 'true';
+        const slug = get('data-land-slug');
+        const statusEl = document.getElementById('modalLandStatus');
+        const toggleBtn = document.getElementById('modalToggleLiveBtn');
+        const notifyCont = document.getElementById('notifyContainer');
+        const toggleForm = document.getElementById('toggleLiveForm');
+
+        toggleForm.action = `/lands/admin/lands/${slug}/toggle-live/`;
+
+        if (isLive) {
+            statusEl.innerHTML = '<span class="badge bg-success-glow text-uppercase fs-10">Live</span>';
+            toggleBtn.className = 'btn btn-outline-warning btn-lg py-2.5 fs-12 text-uppercase fw-bold w-100 mb-2';
+            toggleBtn.innerText = 'Make Offline';
+            notifyCont.style.display = 'none';
+        } else {
+            statusEl.innerHTML = '<span class="badge bg-warning-glow text-uppercase fs-10">Draft</span>';
+            toggleBtn.className = 'btn btn-success btn-lg py-2.5 fs-12 text-uppercase fw-bold w-100 mb-2';
+            toggleBtn.innerText = 'Publish (Make Live)';
+            notifyCont.style.display = 'block';
+        }
+
+        // Set hidden input value on submit click
+        toggleForm.onsubmit = function() {
+            const chk = document.getElementById('notifyCheckbox');
+            document.getElementById('toggleLiveNotify').value = (chk && chk.checked) ? 'true' : 'false';
+            return true;
+        };
+
         const modalEl = document.getElementById('landActionModal');
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.show();
@@ -778,10 +925,10 @@
         });
     });
 
-    // ─── Expand/Collapse Site Layout Cards ──────────────────────────────────
-    function toggleLayoutCard(id) {
-        const body = document.getElementById('layout-body-' + id);
-        const icon = document.getElementById('layout-icon-' + id);
+    // ─── Expand/Collapse Land Registration Request Cards ────────────────────
+    function toggleRequestCard(id) {
+        const body = document.getElementById('request-body-' + id);
+        const icon = document.getElementById('request-icon-' + id);
         if (!body) return;
         if (body.classList.contains('expanded')) {
             body.classList.remove('expanded');
@@ -794,35 +941,246 @@
         }
     }
 
-    // ─── Reject Site Layout Action ─────────────────────────────────────────
-    function confirmRejectLayout(layoutId) {
-        const reason = prompt("Please enter the reason for rejecting this site layout (an email and notification will be sent to the landowner):");
+    // ─── Reject Land Registration Request Action ────────────────────────────
+    function confirmRejectRequest(reqId) {
+        const reason = prompt("Please enter the reason for rejecting this land registration request (an email and notification will be sent to the landowner):");
         if (reason === null) return;
         if (reason.trim() === '') {
-            alert("A reason is required to reject the layout.");
+            alert("A reason is required to reject the request.");
             return;
         }
         
-        fetch(`/lands/admin/layout/${layoutId}/reject/`, {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/lands/admin/land-requests/${reqId}/reject/`;
+        
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = getCsrf();
+        form.appendChild(csrfInput);
+        
+        const reasonInput = document.createElement('input');
+        reasonInput.type = 'hidden';
+        reasonInput.name = 'rejection_reason';
+        reasonInput.value = reason.trim();
+        form.appendChild(reasonInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    // ─── Support Ticket Functions ─────────────────────────────────────────────
+    function updateTicketCounts() {
+        const rows = document.querySelectorAll('#sectionTickets tbody tr');
+        let open = 0, inProgress = 0, resolved = 0;
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length < 7) return;
+            const statusCell = cells[6];
+            const text = statusCell.textContent.trim().toLowerCase();
+            if (text === 'open') open++;
+            else if (text === 'in progress') inProgress++;
+            else if (text === 'resolved' || text === 'closed') resolved++;
+        });
+        document.getElementById('ticketOpenCount').textContent = open;
+        document.getElementById('ticketInProgressCount').textContent = inProgress;
+        document.getElementById('ticketResolvedCount').textContent = resolved;
+    }
+
+    // Patch switchTab to recompute ticket counts when tickets tab is selected
+    const _origSwitchTab = window.switchTab;
+    window.switchTab = function(tabName) {
+        if (typeof _origSwitchTab === 'function') _origSwitchTab(tabName);
+        if (tabName === 'tickets') {
+            setTimeout(updateTicketCounts, 50);
+        }
+    };
+
+    function openTicketDetail(ticketId) {
+        const modal = new bootstrap.Modal(document.getElementById('ticketDetailModal'));
+        document.getElementById('ticketDetailId').innerText = ticketId;
+        document.getElementById('ticketDetailTitle').innerHTML = `<i class="bi bi-ticket text-cyan-glow me-2"></i> <span id="ticketDetailId">${ticketId}</span>`;
+        document.getElementById('ticketDetailLoading').style.display = 'block';
+        document.getElementById('ticketDetailContent').style.display = 'none';
+        document.getElementById('ticketDetailFooter').style.display = 'none';
+        modal.show();
+
+        fetch(`{% url 'core:admin_ticket_detail_ajax' ticket_id='__TICKET__' %}`.replace('__TICKET__', ticketId), {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('ticketDetailLoading').style.display = 'none';
+            if (data.error) {
+                document.getElementById('ticketDetailContent').innerHTML = `<div class="text-danger text-center py-4">${data.error}</div>`;
+                document.getElementById('ticketDetailContent').style.display = 'block';
+                return;
+            }
+
+            let statusBadge = '';
+            const statusMap = {
+                'open': '<span class="badge bg-success-glow fs-11 px-3 py-1.5">Open</span>',
+                'in_progress': '<span class="badge bg-warning-glow fs-11 px-3 py-1.5">In Progress</span>',
+                'waiting': '<span class="badge fs-11 px-3 py-1.5" style="background:rgba(59,130,246,0.15)!important;color:#60A5FA!important;">Waiting</span>',
+                'resolved': '<span class="badge bg-success-glow fs-11 px-3 py-1.5">Resolved</span>',
+                'closed': '<span class="badge bg-danger-glow fs-11 px-3 py-1.5">Closed</span>'
+            };
+            statusBadge = statusMap[data.ticket.status] || data.ticket.status;
+
+            let html = `
+                <div class="mb-3 p-3 rounded-2 border border-secondary-glow bg-dark-glow">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="text-white fw-bold mb-1">${data.ticket.subject}</h6>
+                            <span class="text-muted-glow fs-12">${data.ticket.category}</span>
+                        </div>
+                        <div>${statusBadge}</div>
+                    </div>
+                    <p class="text-muted-glow fs-13 mb-2">${data.ticket.description}</p>
+                    <div class="d-flex gap-3 text-muted-glow fs-12">
+                        <span><strong class="text-white">Created by:</strong> ${data.ticket.user} (${data.ticket.user_email})</span>
+                        <span><strong class="text-white">Date:</strong> ${data.ticket.created_at}</span>
+                    </div>
+                    ${data.ticket.attachment ? `<a href="${data.ticket.attachment}" target="_blank" class="text-cyan-glow fs-12 text-decoration-none d-inline-block mt-2"><i class="bi bi-paperclip me-1"></i> View Attachment</a>` : ''}
+                </div>
+                <h6 class="text-white fw-bold fs-14 mb-2">Replies (${data.replies.length})</h6>
+            `;
+
+            if (data.replies.length === 0) {
+                html += `<div class="text-center py-3 text-muted-glow fs-13"><i class="bi bi-chat-dots d-block mb-1 fs-4"></i>No replies yet.</div>`;
+            } else {
+                data.replies.forEach(r => {
+                    html += `
+                        <div class="mb-2 p-3 rounded-2 border border-secondary-glow bg-dark-glow">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold fs-12 text-white">${r.sender}</span>
+                                <span class="text-muted-glow fs-11">${r.created_at}</span>
+                            </div>
+                            <p class="text-muted-glow fs-13 mb-1">${r.message}</p>
+                            ${r.attachment ? `<a href="${r.attachment}" target="_blank" class="text-cyan-glow fs-12 text-decoration-none"><i class="bi bi-paperclip me-1"></i> View Attachment</a>` : ''}
+                        </div>
+                    `;
+                });
+            }
+
+            // Reply composer
+            html += `
+                <div class="mt-3 pt-3 border-top border-secondary-glow">
+                    <label class="text-white fw-bold fs-14 mb-2"><i class="bi bi-reply-fill me-1 text-cyan-glow"></i> Reply</label>
+                    <textarea class="form-control bg-dark border border-secondary-glow text-white fs-13" id="ticketReplyText"
+                              rows="3" placeholder="Type your response..." style="resize:vertical;min-height:70px;"></textarea>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <div class="text-muted-glow fs-11"><i class="bi bi-info-circle me-1"></i>Press <kbd class="bg-dark text-white-50 border border-secondary-glow px-1 rounded">Ctrl+Enter</kbd> to send</div>
+                        <button class="btn btn-sm btn-get-started px-3 py-1 fs-11 fw-bold text-uppercase" id="btnSendReply"
+                                onclick="sendAdminReply('${ticketId}')">
+                            <i class="bi bi-send me-1"></i> Send Reply
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('ticketDetailContent').innerHTML = html;
+            document.getElementById('ticketDetailContent').style.display = 'block';
+
+            // Ctrl+Enter to send
+            document.getElementById('ticketReplyText').addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('btnSendReply').click();
+                }
+            });
+
+            // Footer: Status update controls
+            const footer = document.getElementById('ticketDetailFooter');
+            footer.innerHTML = `
+                <div class="d-flex gap-2 w-100 justify-content-end">
+                    <select class="form-select form-select-sm bg-dark border-secondary-glow text-white fs-12" id="ticketStatusSelect" style="max-width:160px;">
+                        <option value="open" ${data.ticket.status === 'open' ? 'selected' : ''}>Open</option>
+                        <option value="in_progress" ${data.ticket.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                        <option value="waiting" ${data.ticket.status === 'waiting' ? 'selected' : ''}>Waiting</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                    <button class="btn btn-sm btn-action px-3 py-1 fs-11 fw-bold text-uppercase"
+                            onclick="updateTicketStatus('${ticketId}')">
+                        <i class="bi bi-arrow-repeat me-1"></i> Update
+                    </button>
+                </div>
+            `;
+            footer.style.display = 'block';
+        })
+        .catch(err => {
+            document.getElementById('ticketDetailLoading').style.display = 'none';
+            document.getElementById('ticketDetailContent').innerHTML = `<div class="text-danger text-center py-4">Network error loading ticket details.</div>`;
+            document.getElementById('ticketDetailContent').style.display = 'block';
+        });
+    }
+
+    function updateTicketStatus(ticketId) {
+        const status = document.getElementById('ticketStatusSelect').value;
+        if (!confirm(`Update ticket ${ticketId} status to "${status}"?`)) return;
+
+        fetch(`{% url 'core:update_ticket_status_ajax' ticket_id='__TICKET__' %}`.replace('__TICKET__', ticketId), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCsrf()
             },
-            body: JSON.stringify({ reason: reason.trim() })
+            body: JSON.stringify({ status })
         })
         .then(res => res.json())
         .then(data => {
-            if (data.status === 'success') {
-                alert(data.message);
-                window.location.reload();
+            if (data.status === 'ok') {
+                showAdminToast('Ticket status updated successfully.', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('ticketDetailModal')).hide();
+                // Reload the tickets section: just reload whole page for simplicity
+                setTimeout(() => window.location.reload(), 1000);
             } else {
-                alert(data.error || 'Failed to reject layout.');
+                showAdminToast(data.error || 'Failed to update status.', 'danger');
             }
         })
         .catch(err => {
-            console.error(err);
-            alert('Network error while rejecting layout.');
+            showAdminToast('Network error.', 'danger');
+        });
+    }
+
+    function sendAdminReply(ticketId) {
+        const replyText = document.getElementById('ticketReplyText').value.trim();
+        if (!replyText) {
+            showAdminToast('Please enter a reply message.', 'warning');
+            return;
+        }
+
+        const btn = document.getElementById('btnSendReply');
+        btn.disabled = true;
+        btn.innerHTML = 'Sending <span class="spinner-border spinner-border-sm ms-1" role="status"></span>';
+
+        const formData = new FormData();
+        formData.append('message', replyText);
+
+        fetch(`{% url 'core:reply_ticket_ajax' ticket_id='__TICKET__' %}`.replace('__TICKET__', ticketId), {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() },
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                showAdminToast('Reply sent successfully.', 'success');
+                // Refresh the modal conversation without closing it
+                openTicketDetail(ticketId);
+            } else {
+                showAdminToast(data.error || 'Failed to send reply.', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Reply';
+            }
+        })
+        .catch(err => {
+            showAdminToast('Network error sending reply.', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Reply';
         });
     }
 </script>

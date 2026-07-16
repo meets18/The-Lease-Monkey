@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Admin: Land Registration Request Detail — The Lease Monkey{% endblock %}
+
+{% block content %}
+<div class="container py-5" style="padding-top: 100px !important; position: relative; z-index: 10;">
+    <div class="mb-4">
+        <a href="{% url 'admin_dashboard' %}?section=layouts" class="text-decoration-none fw-bold fs-14 font-ranade" style="color: var(--accent-orange); transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+            <i class="bi bi-arrow-left me-1"></i> Back to Requests Queue
+        </a>
+    </div>
+
+    {% if messages %}
+        <div class="mb-4">
+            {% for message in messages %}
+                <div class="alert alert-info border-0 shadow-sm rounded-3 p-3 fs-14" style="background-color: var(--accent-orange-light); border-left: 4px solid var(--accent-orange) !important; color: var(--accent-orange);" role="alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="card bg-white border border-light-glow shadow-sm p-4 font-opensans rounded-3 mb-4">
+        <div class="d-flex justify-content-between align-items-center border-bottom border-light-glow pb-3 mb-4 flex-wrap gap-2">
+            <div>
+                <h2 class="h3 font-ranade fw-bold mb-1 text-dark">Land Registration Request</h2>
+                <span class="fs-12 text-muted">Submitted by <strong>{{ req.owner.username }}</strong> on {{ req.submitted_at|date:"d M Y at h:i A" }}</span>
+            </div>
+            <div>
+                {% if req.status == 'pending' %}
+                    <span class="badge bg-warning text-dark fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Pending Review</span>
+                {% elif req.status == 'under_review' %}
+                    <span class="badge bg-info text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Under Review</span>
+                {% elif req.status == 'being_added' %}
+                    <span class="badge bg-primary text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge); background-color: #0284c7 !important;">Being Digitized</span>
+                {% elif req.status == 'approved' %}
+                    <span class="badge bg-success text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Approved (Offline)</span>
+                {% elif req.status == 'live' %}
+                    <span class="badge bg-success text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge); background-color: #059669 !important;">Live</span>
+                {% elif req.status == 'rejected' %}
+                    <span class="badge bg-danger text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Rejected</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <!-- Details -->
+            <div class="col-md-6">
+                <div class="p-3 border border-light-glow rounded-3 h-100" style="background-color: #f9fafb;">
+                    <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-3" style="color: var(--accent-orange) !important;">Property Details</h5>
+                    <div class="mb-2 fs-14 text-dark">
+                        <span class="text-muted me-2">Property Name:</span>
+                        <strong class="text-dark font-ranade">{{ req.property_name }}</strong>
+                    </div>
+                    <div class="mb-2 fs-14 text-dark">
+                        <span class="text-muted me-2">State:</span>
+                        <strong class="text-dark">{{ req.state|default:"-" }}</strong>
+                    </div>
+                    <div class="mb-2 fs-14 text-dark">
+                        <span class="text-muted me-2">District:</span>
+                        <strong class="text-dark">{{ req.district|default:"-" }}</strong>
+                    </div>
+                    <div class="mb-2 fs-14 text-dark">
+                        <span class="text-muted me-2">City / Village:</span>
+                        <strong class="text-dark">{{ req.city_village|default:"-" }}</strong>
+                    </div>
+                    <div class="mb-2 fs-14 text-dark">
+                        <span class="text-muted me-2">PIN Code:</span>
+                        <strong class="text-dark">{{ req.pin_code|default:"-" }}</strong>
+                    </div>
+                    <div class="mb-2 fs-14 text-dark">
+                        <span class="text-muted me-2">Complete Address:</span>
+                        <strong class="text-dark">{{ req.complete_address|default:req.location }}</strong>
+                    </div>
+                    <div class="mb-2 fs-14 text-dark">
+                        <span class="text-muted me-2">Average Plot Price:</span>
+                        <strong class="text-dark">₹{{ req.average_plot_price }}</strong>
+                    </div>
+                    {% if req.google_maps_link %}
+                    <div class="mb-2 fs-14 mt-3">
+                        <a href="{{ req.google_maps_link }}" target="_blank" class="text-decoration-none fw-bold" style="color: var(--accent-orange); transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                            Open in Google Maps <i class="bi bi-box-arrow-up-right ms-1" style="font-size: 11px;"></i>
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Documents -->
+            <div class="col-md-6">
+                <div class="p-3 border border-light-glow rounded-3 h-100" style="background-color: #f9fafb;">
+                    <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-3" style="color: var(--accent-orange) !important;">Submitted Documents</h5>
+                    <div class="d-flex flex-column gap-2.5">
+                        <div class="d-flex align-items-center justify-content-between p-2 bg-white border border-light-glow rounded-2">
+                            <span class="fs-13 text-dark fw-bold"><i class="bi bi-file-earmark-text text-warning me-1.5"></i> Ownership Proof</span>
+                            <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=ownership" target="_blank" class="btn btn-sm" style="border: 1px solid var(--accent-orange); color: var(--accent-orange); border-radius: var(--radius-btn); padding: 4px 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--accent-orange)'; this.style.color='#FFFFFF';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--accent-orange)';">
+                                View <i class="bi bi-eye-fill ms-0.5"></i>
+                            </a>
+                        </div>
+                        {% if req.registry_sale_deed %}
+                        <div class="d-flex align-items-center justify-content-between p-2 bg-white border border-light-glow rounded-2">
+                            <span class="fs-13 text-dark fw-bold"><i class="bi bi-file-earmark-check text-success me-1.5"></i> Registry / Sale Deed</span>
+                            <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=registry" target="_blank" class="btn btn-sm" style="border: 1px solid var(--accent-orange); color: var(--accent-orange); border-radius: var(--radius-btn); padding: 4px 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--accent-orange)'; this.style.color='#FFFFFF';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--accent-orange)';">
+                                View <i class="bi bi-eye-fill ms-0.5"></i>
+                            </a>
+                        </div>
+                        {% endif %}
+                        {% if req.supporting_documents %}
+                        <div class="d-flex align-items-center justify-content-between p-2 bg-white border border-light-glow rounded-2">
+                            <span class="fs-13 text-dark fw-bold"><i class="bi bi-file-zip text-secondary me-1.5"></i> Supporting Docs</span>
+                            <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=supporting" target="_blank" class="btn btn-sm" style="border: 1px solid var(--accent-orange); color: var(--accent-orange); border-radius: var(--radius-btn); padding: 4px 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--accent-orange)'; this.style.color='#FFFFFF';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--accent-orange)';">
+                                View <i class="bi bi-eye-fill ms-0.5"></i>
+                            </a>
+                        </div>
+                        {% endif %}
+                        <div class="d-flex align-items-center justify-content-between p-2 bg-white border border-light-glow rounded-2">
+                            <span class="fs-13 text-dark fw-bold"><i class="bi bi-map text-primary me-1.5"></i> Site Floor Plan</span>
+                            <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=floor_plan" target="_blank" class="btn btn-sm" style="border: 1px solid var(--accent-orange); color: var(--accent-orange); border-radius: var(--radius-btn); padding: 4px 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--accent-orange)'; this.style.color='#FFFFFF';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--accent-orange)';">
+                                View <i class="bi bi-eye-fill ms-0.5"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if req.description %}
+        <div class="mb-4 p-3 border border-light-glow rounded-3" style="background-color: #f9fafb;">
+            <h5 class="fs-11 text-uppercase tracking-wider fw-bold text-muted mb-2">Description</h5>
+            <p class="text-dark fs-14 mb-0" style="white-space: pre-wrap;">{{ req.description }}</p>
+        </div>
+        {% endif %}
+
+        {% if req.notes %}
+        <div class="mb-4 p-3 border border-light-glow rounded-3" style="background-color: #f9fafb;">
+            <h5 class="fs-11 text-uppercase tracking-wider fw-bold text-muted mb-2">Landowner's Notes</h5>
+            <p class="text-dark fs-14 mb-0" style="white-space: pre-wrap;">{{ req.notes }}</p>
+        </div>
+        {% endif %}
+
+        {% if req.status == 'rejected' and req.rejection_reason %}
+        <div class="mb-4 p-3 bg-danger bg-opacity-10 border border-danger rounded-3 text-danger">
+            <h5 class="font-ranade fw-bold mb-2"><i class="bi bi-x-circle-fill me-1"></i> Rejection Reason</h5>
+            <p class="fs-14 mb-0">{{ req.rejection_reason }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Actions Panel -->
+        <div class="border-top border-light-glow pt-4">
+            <h4 class="h5 font-ranade fw-bold mb-3 text-dark">Review Actions</h4>
+            
+            <div class="d-flex flex-wrap gap-3">
+                {% if req.status == 'pending' %}
+                    <form method="POST" action="{% url 'lands:admin_set_request_review' req.id %}" style="margin: 0;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2.5 px-4" style="background-color: var(--color-warning); border-radius: var(--radius-btn); border: none;">
+                            Set Under Review
+                        </button>
+                    </form>
+                    <button class="btn btn-outline-danger fs-12 fw-bold text-uppercase py-2.5 px-4" style="border-radius: var(--radius-btn);" onclick="openRejectModal();">
+                        Reject Request
+                    </button>
+                {% elif req.status == 'under_review' %}
+                    <form method="POST" action="{% url 'lands:admin_register_land' req.id %}" style="margin: 0;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2.5 px-4" style="background-color: var(--color-success); border-radius: var(--radius-btn); border: none;">
+                            Register Land &amp; Digitise
+                        </button>
+                    </form>
+                    <button class="btn btn-outline-danger fs-12 fw-bold text-uppercase py-2.5 px-4" style="border-radius: var(--radius-btn);" onclick="openRejectModal();">
+                        Reject Request
+                    </button>
+                {% elif req.status == 'being_added' %}
+                    <div class="text-primary fw-bold fs-14 bg-sky-500 bg-opacity-10 border border-sky-500 rounded p-3 w-100 d-flex justify-content-between align-items-center flex-wrap gap-2" style="background-color: rgba(14, 165, 233, 0.08); border-color: rgba(14, 165, 233, 0.3); color: #0284c7;">
+                        <span><i class="bi bi-cone-striped me-1"></i> Digitization in progress. Draft land layout created.</span>
+                        {% if req.land %}
+                        <a href="{% url 'lands:plot_creator' req.land.slug %}" class="btn text-white fs-11 text-uppercase fw-bold py-2 px-3 text-decoration-none" style="background-color: #0284c7; border-radius: var(--radius-btn);">
+                            Resume Plotting <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                {% elif req.status == 'approved' %}
+                    <div class="text-success fw-bold fs-14 bg-success bg-opacity-10 border border-success rounded p-3 w-100 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span><i class="bi bi-check-circle-fill me-1"></i> Layout fully digitized. Property is currently OFFLINE (Waiting to Go Live).</span>
+                        <div class="d-flex gap-2">
+                            {% if req.land %}
+                            <a href="{% url 'lands:plot_creator' req.land.slug %}" class="btn btn-outline-secondary fs-11 text-uppercase fw-bold py-2 px-3 text-decoration-none">
+                                Edit Layout
+                            </a>
+                            <form method="POST" action="{% url 'lands:toggle_land_live' req.land.slug %}" style="margin: 0;">
+                                {% csrf_token %}
+                                <input type="hidden" name="notify" value="true">
+                                <button type="submit" class="btn text-white fs-11 text-uppercase fw-bold py-2 px-3" style="background-color: var(--accent-orange); border-radius: var(--radius-btn); border: none;">
+                                    Make Live 🚀
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% elif req.status == 'live' %}
+                    <div class="text-success fw-bold fs-14 bg-success bg-opacity-10 border border-success rounded p-3 w-100 d-flex justify-content-between align-items-center flex-wrap gap-2" style="background-color: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.3); color: #059669;">
+                        <span><i class="bi bi-globe me-1"></i> Property is successfully registered and LIVE on Lease Monkey.</span>
+                        <div class="d-flex gap-2">
+                            {% if req.land %}
+                            <a href="{% url 'lands:plot_viewer' req.land.slug %}" target="_blank" class="btn btn-outline-success fs-11 text-uppercase fw-bold py-2 px-3 text-decoration-none" style="border-radius: var(--radius-btn);">
+                                View on Map <i class="bi bi-box-arrow-up-right ms-0.5"></i>
+                            </a>
+                            <form method="POST" action="{% url 'lands:toggle_land_live' req.land.slug %}" style="margin: 0;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger fs-11 text-uppercase fw-bold py-2 px-3" style="border-radius: var(--radius-btn);">
+                                    Take Offline (Draft)
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Rejection Modal -->
+    <div class="modal fade" id="rejectRequestModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-white p-3 font-opensans" style="border-radius: var(--radius-card); border: 1px solid var(--border-light-glow);">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title font-ranade fw-bold text-dark fs-18">Reject Land Registration</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" id="rejectForm" action="{% url 'lands:admin_reject_land_request' req.id %}">
+                    {% csrf_token %}
+                    <div class="modal-body py-3">
+                        <div class="mb-3">
+                            <label for="rejectReason" class="form-label fs-13 text-muted">Reason for Rejection *</label>
+                            <textarea class="form-control bg-light text-dark fs-14 py-2" id="rejectReason" name="rejection_reason" rows="3" required placeholder="Describe the reason (e.g. invalid ownership documents, illegible floor plan layout)..." style="border-radius: var(--radius-input);"></textarea>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="sendEmailCheckbox" name="send_email" value="true" checked>
+                            <label class="form-check-label fs-13 text-dark" for="sendEmailCheckbox">Send Email Notification</label>
+                        </div>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="sendInAppCheckbox" name="send_inapp" value="true" checked>
+                            <label class="form-check-label fs-13 text-dark" for="sendInAppCheckbox">Send In-App Notification</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-outline-secondary fs-12 fw-bold text-uppercase" data-bs-dismiss="modal" style="border-radius: var(--radius-btn);">Cancel</button>
+                        <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2 px-3" style="background-color: var(--color-danger); border-radius: var(--radius-btn); border: none;">Reject Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Remarks Panel -->
+    <div class="card bg-white border border-light-glow shadow-sm p-4 font-opensans rounded-3">
+        <h4 class="h5 font-ranade fw-bold mb-3 text-dark"><i class="bi bi-pencil-square text-warning me-1"></i> Internal Admin Remarks</h4>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <div class="mb-3">
+                <textarea class="form-control bg-white border border-light-glow text-dark fs-14 py-2" name="admin_remarks" rows="3" style="border-radius: var(--radius-input);" placeholder="Add internal remarks only visible to admins...">{{ req.admin_remarks }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-outline-secondary fs-12 fw-bold text-uppercase py-2.5 px-4" style="border-radius: var(--radius-btn);">
+                Save Remarks
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openRejectModal() {
+        const modal = new bootstrap.Modal(document.getElementById('rejectRequestModal'));
+        modal.show();
+    }
+</script>
+{% endblock %}

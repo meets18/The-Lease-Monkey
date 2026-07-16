@@ -380,9 +380,9 @@
                 <div class="ad-card">
                     <h5><i class="bi bi-files me-1"></i> Uploaded Documents</h5>
                     <div class="d-flex gap-3 flex-wrap">
-                        <a href="{{ app.aadhaar_document.url }}" target="_blank" class="ad-btn-doc"><i class="bi bi-eye"></i> View Aadhaar</a>
-                        <a href="{{ app.pan_document.url }}" target="_blank" class="ad-btn-doc"><i class="bi bi-eye"></i> View PAN</a>
-                        <a href="{{ app.ownership_document.url }}" target="_blank" class="ad-btn-doc"><i class="bi bi-eye"></i> View Ownership</a>
+                        <a href="{% url 'core:serve_protected_file' 'identity' app.id %}?doc=aadhaar" target="_blank" class="ad-btn-doc"><i class="bi bi-eye"></i> View Aadhaar</a>
+                        <a href="{% url 'core:serve_protected_file' 'identity' app.id %}?doc=pan" target="_blank" class="ad-btn-doc"><i class="bi bi-eye"></i> View PAN</a>
+                        <a href="{% url 'core:serve_protected_file' 'identity' app.id %}?doc=ownership" target="_blank" class="ad-btn-doc"><i class="bi bi-eye"></i> View Ownership</a>
                     </div>
                 </div>
             </div>

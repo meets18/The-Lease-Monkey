@@ -8,9 +8,92 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<div class="container-fluid min-vh-100 p-0" style="position: relative; z-index: 10; padding-top: 75px !important;">
+<style>
+html, body { overflow: hidden; height: 100%; }
+</style>
+<div style="position: relative; z-index: 10; height: 100vh; overflow: hidden; background: #0b0e14;">
     <!-- Map Canvas Viewport -->
-    <div id="mapPlotCreator" style="width: 100%; height: calc(100vh - 75px); background: #0b0e14;"></div>
+    <div id="mapPlotCreator" style="position: absolute; top: 75px; left: 0; right: 0; bottom: 0; background: #0b0e14;"></div>
+
+    {% if land.registration_request.floor_plan %}
+    <!-- Floating Collapsible Floor Plan Panel -->
+    <div id="floorPlanWidget" class="floor-plan-widget glass-panel" style="position: absolute; top: 95px; right: 20px; z-index: 1000; transition: all 0.3s ease; width: 50px; height: 50px; overflow: hidden; padding: 10px; cursor: pointer; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;" onclick="toggleFloorPlanWidget(event);">
+        <!-- Collapsed Toggle Icon -->
+        <div id="floorPlanCollapsed" class="d-flex align-items-center justify-content-center h-100">
+            <i class="bi bi-map-fill fs-4 text-cyan-glow" title="View Site Floor Plan"></i>
+        </div>
+
+        <!-- Expanded content (initially hidden) -->
+        <div id="floorPlanExpanded" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="font-ranade text-white fw-bold mb-0 fs-13"><i class="bi bi-map text-cyan-glow me-1"></i> Floor Plan</h6>
+                <button type="button" onclick="collapseFloorPlanWidget(event);" class="bg-transparent border-0 fs-12 p-0 lh-1" style="color: #ffffff; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#00ffd2'" onmouseout="this.style.color='#ffffff'">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="text-center mb-2 position-relative" style="background: rgba(0,0,0,0.3); border-radius: 4px; padding: 5px;">
+                <img src="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" class="img-fluid rounded border border-secondary-glow" style="max-height: 180px; object-fit: contain; cursor: zoom-in;" onclick="openFullscreenViewer(); event.stopPropagation();">
+            </div>
+            <div class="d-flex gap-1.5">
+                <button type="button" class="btn btn-outline-info w-50 fs-9 text-uppercase fw-bold py-1.5" onclick="openFullscreenViewer(); event.stopPropagation();" style="border-radius: 4px;">
+                    <i class="bi bi-arrows-fullscreen me-0.5"></i> View Full
+                </button>
+                <button type="button" class="btn btn-outline-secondary w-50 fs-9 text-uppercase fw-bold py-1.5" onclick="window.open('{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan', '_blank'); event.stopPropagation();" style="border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); color: #FFF;">
+                    <i class="bi bi-box-arrow-up-right me-0.5"></i> New Tab
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Floor Plan Viewer Overlay -->
+    <div id="fullscreenFloorPlanViewer" class="fullscreen-viewer-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 14, 20, 0.95); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
+        <!-- Controls Bar -->
+        <div class="viewer-controls d-flex gap-3 mb-3 text-white justify-content-center align-items-center bg-dark bg-opacity-75 p-2 px-4 rounded-pill" style="border: 1px solid rgba(255,255,255,0.15);">
+            <button type="button" class="btn btn-dark btn-sm rounded-circle text-white" onclick="adjustViewerZoom(1.2);" title="Zoom In" style="background: transparent; border: none;"><i class="bi bi-zoom-in fs-5 text-cyan-glow"></i></button>
+            <button type="button" class="btn btn-dark btn-sm rounded-circle text-white" onclick="adjustViewerZoom(0.8);" title="Zoom Out" style="background: transparent; border: none;"><i class="bi bi-zoom-out fs-5 text-cyan-glow"></i></button>
+            <button type="button" class="btn btn-dark btn-sm text-white" onclick="rotateViewerImage();" title="Rotate" style="background: transparent; border: none;"><i class="bi bi-arrow-clockwise fs-5 text-cyan-glow"></i></button>
+            <a href="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" download class="btn btn-dark btn-sm text-white" title="Download" style="background: transparent; border: none;"><i class="bi bi-download fs-5 text-cyan-glow"></i></a>
+            <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2);"></div>
+            <button type="button" class="btn btn-danger btn-sm rounded-pill px-3 fw-bold" onclick="closeFullscreenViewer();" style="border: none;">Close <i class="bi bi-x-lg ms-1"></i></button>
+        </div>
+        <!-- Image Container -->
+        <div class="viewer-image-container" style="width: 90%; height: 80%; overflow: auto; display: flex; justify-content: center; align-items: center; border-radius: 8px; background: rgba(255,255,255,0.02); padding: 20px; border: 1px solid rgba(255,255,255,0.05);">
+            <img id="viewerImage" src="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.2s ease;" />
+        </div>
+    </div>
+
+    <script>
+        function toggleFloorPlanWidget(event) {
+            const widget = document.getElementById('floorPlanWidget');
+            const collapsed = document.getElementById('floorPlanCollapsed');
+            const expanded = document.getElementById('floorPlanExpanded');
+            if (widget.style.width === '50px') {
+                // Expand
+                widget.style.width = '260px';
+                widget.style.height = '275px';
+                widget.style.cursor = 'default';
+                collapsed.style.setProperty('display', 'none', 'important');
+                expanded.style.display = 'block';
+            }
+        }
+
+        function collapseFloorPlanWidget(event) {
+            event.stopPropagation();
+            const widget = document.getElementById('floorPlanWidget');
+            const collapsed = document.getElementById('floorPlanCollapsed');
+            const expanded = document.getElementById('floorPlanExpanded');
+            widget.style.width = '50px';
+            widget.style.height = '50px';
+            widget.style.cursor = 'pointer';
+            expanded.style.display = 'none';
+            setTimeout(() => {
+                if (widget.style.width === '50px') {
+                    collapsed.style.setProperty('display', 'flex', 'important');
+                }
+            }, 150);
+        }
+    </script>
+    {% endif %}
 
     <!-- Floating Compass HUD -->
     <div id="compassWidget" class="compass-hud" title="Plot Orientation Indicator">
@@ -24,23 +107,25 @@
     </div>
 
     <!-- Left Controls Panel Overlay -->
-    <div class="pcreator-card" style="position: absolute; top: 95px; left: 20px; z-index: 1000; width: 360px; max-height: calc(100vh - 120px); overflow-y: auto; overscroll-behavior: contain;">
+    <div class="pcreator-card" style="position: absolute; top: 95px; left: 20px; z-index: 1000; width: 360px; display: flex; flex-direction: column; max-height: calc(100vh - 115px);">
+        <div style="overflow-y: auto; flex: 1; min-height: 0; overscroll-behavior: contain;">
         <!-- Header -->
         <div class="pcreator-header">
-            <h4 class="pcreator-title">Plot Creator</h4>
-            <p class="pcreator-subtitle">Create individual plots inside <strong>{{ land.name }}</strong>.</p>
-        </div>
-
-        <div class="pcreator-divider"></div>
-
-        <!-- Property Section -->
-        <div class="pcreator-section">
-            <div class="pcreator-section-label"><i class="bi bi-info-circle me-1"></i> Property</div>
-            <div class="pcreator-prop-grid">
-                <div class="pcreator-prop-item">
-                    <span class="pcreator-prop-label">Land Name</span>
-                    <strong class="pcreator-prop-value">{{ land.name }}</strong>
-                </div>
+            <h4 class="pcreator-title" style="color: var(--accent-orange) !important; font-weight: 800; font-family: 'Ranade', sans-serif; font-size: 1.15rem; margin-bottom: 6px;">{{ land.name }}</h4>
+            <div class="fs-12 text-white-50 mb-1"><i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i> {% if land.registration_request.district %}{{ land.registration_request.district }}, {{ land.registration_request.state }}{% else %}{{ land.location }}{% endif %}</div>
+            <div class="fs-12 text-white-50 mb-1.5"><i class="bi bi-person-fill text-amber-glow me-1"></i> Owner: {{ land.owner.username }}</div>
+            <div class="mt-2">
+                {% if land.registration_request %}
+                    {% if land.registration_request.status == 'being_added' %}
+                        <span class="badge bg-primary fs-10 text-uppercase px-2.5 py-1" style="background-color: #0284c7 !important; border-radius: 4px;">Status: Digitising</span>
+                    {% elif land.registration_request.status == 'approved' %}
+                        <span class="badge bg-success fs-10 text-uppercase px-2.5 py-1" style="border-radius: 4px;">Status: Digitised</span>
+                    {% elif land.registration_request.status == 'live' %}
+                        <span class="badge bg-success fs-10 text-uppercase px-2.5 py-1" style="background-color: #059669 !important; border-radius: 4px;">Status: Live</span>
+                    {% endif %}
+                {% else %}
+                    <span class="badge bg-secondary fs-10 text-uppercase px-2.5 py-1" style="border-radius: 4px;">Quick Land</span>
+                {% endif %}
             </div>
         </div>
 
@@ -128,14 +213,7 @@
                         <div class="pcreator-list-empty">No plots added yet. Trace one above!</div>
                     </div>
                 </div>
-                <div class="pcreator-actions" style="margin-top: 12px;">
-                    <a href="{% url 'admin_dashboard' %}" class="pcreator-btn-primary">
-                        Finish & Save Layout <i class="bi bi-check-all ms-1"></i>
-                    </a>
-                    <a href="{% url 'admin_dashboard' %}" onclick="return confirm('Are you sure you want to exit the workspace? Any unsaved plot modifications will be lost.');" class="pcreator-btn-ghost">
-                        Exit Workspace <i class="bi bi-box-arrow-right ms-1"></i>
-                    </a>
-                </div>
+                {% comment %}Actions moved to sticky footer below{% endcomment %}
             </div>
         </div>
 
@@ -199,14 +277,7 @@
                         <div class="pcreator-list-empty">No buildings mapped yet. Trace one above!</div>
                     </div>
                 </div>
-                <div class="pcreator-actions" style="margin-top: 12px;">
-                    <a href="{% url 'admin_dashboard' %}" class="pcreator-btn-primary">
-                        Finish & Save Layout <i class="bi bi-check-all ms-1"></i>
-                    </a>
-                    <a href="{% url 'admin_dashboard' %}" onclick="return confirm('Are you sure you want to exit the workspace? Any unsaved plot modifications will be lost.');" class="pcreator-btn-ghost">
-                        Exit Workspace <i class="bi bi-box-arrow-right ms-1"></i>
-                    </a>
-                </div>
+                {% comment %}Actions moved to sticky footer below{% endcomment %}
             </div>
         </div>
 
@@ -267,14 +338,7 @@
                         <div class="pcreator-list-empty">No roads mapped yet. Trace one above!</div>
                     </div>
                 </div>
-                <div class="pcreator-actions" style="margin-top: 12px;">
-                    <a href="{% url 'admin_dashboard' %}" class="pcreator-btn-primary">
-                        Finish & Save Layout <i class="bi bi-check-all ms-1"></i>
-                    </a>
-                    <a href="{% url 'admin_dashboard' %}" onclick="return confirm('Are you sure you want to exit the workspace? Any unsaved plot modifications will be lost.');" class="pcreator-btn-ghost">
-                        Exit Workspace <i class="bi bi-box-arrow-right ms-1"></i>
-                    </a>
-                </div>
+                {% comment %}Actions moved to sticky footer below{% endcomment %}
             </div>
         </div>
 
@@ -329,14 +393,28 @@
                         <div class="pcreator-list-empty">No gates mapped yet. Place one above!</div>
                     </div>
                 </div>
-                <div class="pcreator-actions" style="margin-top: 12px;">
-                    <a href="{% url 'admin_dashboard' %}" class="pcreator-btn-primary">
-                        Finish & Save Layout <i class="bi bi-check-all ms-1"></i>
-                    </a>
-                    <a href="{% url 'admin_dashboard' %}" onclick="return confirm('Are you sure you want to exit the workspace? Any unsaved plot modifications will be lost.');" class="pcreator-btn-ghost">
-                        Exit Workspace <i class="bi bi-box-arrow-right ms-1"></i>
-                    </a>
-                </div>
+                {% comment %}Actions moved to sticky footer below{% endcomment %}
+            </div>
+        </div>
+        </div>
+        {% comment %} ── STICKY ACTION FOOTER ── {% endcomment %}
+        <div style="border-top: 1px solid #E5E7EB; padding: 16px 24px 8px; background: #FFFFFF; flex-shrink: 0;">
+            <div class="pcreator-actions">
+                <button type="button" onclick="savePlotterProgress();" class="pcreator-btn-primary w-100 mb-2" style="background-color: #10B981 !important; border: none; font-weight: bold; color: white;">
+                    Save Progress <i class="bi bi-save ms-1"></i>
+                </button>
+                {% if land.registration_request %}
+                <button type="button" onclick="openFinishRegistrationModal();" class="pcreator-btn-primary w-100 mb-2" style="font-weight: bold; color: white;">
+                    Finish Registration <i class="bi bi-check-all ms-1"></i>
+                </button>
+                {% else %}
+                <a href="{% url 'admin_dashboard' %}" class="pcreator-btn-primary w-100 mb-2 text-decoration-none text-center d-block" style="color: white; font-weight: bold;">
+                    Finish & Save <i class="bi bi-check-all ms-1"></i>
+                </a>
+                {% endif %}
+                <a href="{% url 'admin_dashboard' %}" onclick="return confirm('Are you sure you want to exit the workspace? Any unsaved plot modifications will be lost.');" class="pcreator-btn-primary w-100 text-center d-block text-decoration-none" style="background-color: #DC2626 !important; border: none; font-weight: bold; color: white; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);">
+                    Exit Workspace <i class="bi bi-box-arrow-right ms-1"></i>
+                </a>
             </div>
         </div>
     </div>
@@ -429,7 +507,8 @@
     // Initialize Map Workspace
     document.addEventListener("DOMContentLoaded", function() {
         map = L.map('mapPlotCreator', {
-            zoomControl: false
+            zoomControl: false,
+            maxZoom: 22
         }).setView(centerCoords, 18);
 
         L.control.zoom({ position: 'topright' }).addTo(map);
@@ -437,7 +516,8 @@
 
         // Load Satellite view
         L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-            maxZoom: 19,
+            maxZoom: 22,
+            maxNativeZoom: 20,
             subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
         }).addTo(map);
 
@@ -475,8 +555,58 @@
         });
         updateGatesSidebarList();
 
+        let previewPolygon = null;
+
+        // Register Mousemove handler for showing plot duplicate preview
+        map.on('mousemove', function(e) {
+            if (window.duplicateShapeTemplate) {
+                const tempCoords = window.duplicateShapeTemplate.map(offset => {
+                    return [e.latlng.lat + offset.latOffset, e.latlng.lng + offset.lngOffset];
+                });
+                if (!previewPolygon) {
+                    previewPolygon = L.polygon(tempCoords, {
+                        color: '#F96D00',
+                        weight: 2,
+                        dashArray: '5, 5',
+                        fillColor: '#F96D00',
+                        fillOpacity: 0.4,
+                        interactive: false
+                    }).addTo(map);
+                } else {
+                    previewPolygon.setLatLngs(tempCoords);
+                }
+            }
+        });
+
         // Register Click handler for dynamic drawings based on mode
         map.on('click', function(e) {
+            if (window.duplicateShapeTemplate) {
+                // Translate template offsets to clicked location to create new boundary coords
+                currentPlotPoints = window.duplicateShapeTemplate.map(offset => {
+                    return L.latLng(e.latlng.lat + offset.latOffset, e.latlng.lng + offset.lngOffset);
+                });
+                
+                // Clear duplication state
+                window.duplicateShapeTemplate = null;
+                if (previewPolygon) {
+                    map.removeLayer(previewPolygon);
+                    previewPolygon = null;
+                }
+
+                // Prepopulate form fields with metadata (leaving plot number empty)
+                document.getElementById('plot_number').value = '';
+                if (window.duplicateSourceMetadata) {
+                    document.getElementById('plot_area').value = window.duplicateSourceMetadata.area || '';
+                    document.getElementById('plot_price').value = window.duplicateSourceMetadata.price || '';
+                    document.getElementById('plot_status').value = window.duplicateSourceMetadata.status || 'available';
+                    window.duplicateSourceMetadata = null;
+                }
+                
+                // Redraw staging shape
+                updatePlotPolygon();
+                return;
+            }
+
             if (activeMode === 'plots') {
                 addPlotPoint(e.latlng);
             } else if (activeMode === 'buildings') {
@@ -494,6 +624,41 @@
             handlePlotStatusChange();
         }
     });
+
+    window.duplicateShapeTemplate = null;
+    window.duplicateSourceMetadata = null;
+
+    function startPlotDuplication(plotNumber) {
+        const plot = existingPlots.find(p => p.number === plotNumber);
+        if (!plot) return;
+
+        // Centroid
+        const centroid = getPolygonCentroid(plot.coordinates);
+
+        // Map absolute points to offsets from centroid
+        window.duplicateShapeTemplate = plot.coordinates.map(pt => {
+            const lat = Array.isArray(pt) ? pt[0] : pt.lat;
+            const lng = Array.isArray(pt) ? pt[1] : pt.lng;
+            return {
+                latOffset: lat - centroid.lat,
+                lngOffset: lng - centroid.lng
+            };
+        });
+
+        // Store source metadata
+        window.duplicateSourceMetadata = {
+            area: plot.area,
+            price: plot.price,
+            status: plot.status
+        };
+
+        // Set workspace mode
+        setWorkspaceMode('plots');
+
+        // Alert instructions
+        document.getElementById('drawingInstructions').innerHTML = 
+            `<span class="text-warning fw-bold"><i class="bi bi-copy me-1"></i> Copying Plot ${plotNumber} shape</span>. Move mouse to preview, click on the map to place the shape.`;
+    }
 
     function handlePlotStatusChange() {
         const statusVal = document.getElementById('plot_status').value;
@@ -840,7 +1005,10 @@
                 <div class="pcreator-plot-bottom">
                     <span class="pcreator-plot-area">${plot.area} sq ft</span>
                     <div class="pcreator-plot-actions" onclick="event.stopPropagation();">
-                        <span class="pcreator-plot-price">₹${(Number(plot.price)/100000).toFixed(1)}L</span>
+                        <span class="pcreator-plot-price" style="margin-right: auto;">₹${(Number(plot.price)/100000).toFixed(1)}L</span>
+                        <button type="button" onclick="startPlotDuplication('${plot.number}');" class="pcreator-plot-duplicate btn-action-glow-sm" title="Duplicate Plot" style="background: rgba(0, 255, 210, 0.1); border: 1px solid rgba(0, 255, 210, 0.2); color: #00ffd2; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer; margin-right: 4px; transition: all 0.2s;">
+                            <i class="bi bi-copy"></i> Copy
+                        </button>
                         <button type="button" onclick="deleteStagedPlot('${plot.number}', 'plot');" class="pcreator-plot-delete" title="Delete Plot">
                             <i class="bi bi-trash3"></i>
                         </button>
@@ -1858,7 +2026,127 @@
             marker: marker
         });
     }
+
+    // JS functions for custom floor plan fullscreen viewer
+    let viewerZoom = 1.0;
+    let viewerRotation = 0;
+
+    function openFullscreenViewer() {
+        viewerZoom = 1.0;
+        viewerRotation = 0;
+        const img = document.getElementById('viewerImage');
+        if (img) {
+            img.style.transform = 'none';
+            img.style.width = 'auto';
+        }
+        const viewer = document.getElementById('fullscreenFloorPlanViewer');
+        if (viewer) {
+            viewer.style.display = 'flex';
+        }
+    }
+
+    function closeFullscreenViewer() {
+        const viewer = document.getElementById('fullscreenFloorPlanViewer');
+        if (viewer) {
+            viewer.style.display = 'none';
+        }
+    }
+
+    function adjustViewerZoom(factor) {
+        const img = document.getElementById('viewerImage');
+        if (!img) return;
+        viewerZoom *= factor;
+        if (viewerZoom < 0.2) viewerZoom = 0.2;
+        if (viewerZoom > 5.0) viewerZoom = 5.0;
+        applyViewerTransform();
+    }
+
+    function rotateViewerImage() {
+        viewerRotation = (viewerRotation + 90) % 360;
+        applyViewerTransform();
+    }
+
+    function applyViewerTransform() {
+        const img = document.getElementById('viewerImage');
+        if (img) {
+            img.style.transform = `rotate(${viewerRotation}deg) scale(${viewerZoom})`;
+        }
+    }
+
+    // Save progress without publishing
+    function savePlotterProgress() {
+        // Trigger AJAX save layout or direct toast since all plot creation acts save dynamically via existing submitPlotRecord
+        const toastEl = document.createElement('div');
+        toastEl.className = 'position-fixed bottom-0 end-0 p-3';
+        toastEl.style.zIndex = '99999';
+        toastEl.innerHTML = `
+            <div class="toast show bg-success text-white" role="alert" aria-live="assertive" aria-atomic="true" style="border-radius: 8px; border: none; background-color: #10b981 !important;">
+                <div class="toast-body d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill me-2 fs-5"></i>
+                    <div>Progress saved successfully. Status remains "Being Digitised".</div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(toastEl);
+        setTimeout(() => {
+            toastEl.remove();
+        }, 3500);
+    }
+
+    // Open finish registration modal
+    function openFinishRegistrationModal() {
+        const modalEl = document.getElementById('finishRegistrationModal');
+        if (modalEl) {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        } else {
+            // Fallback: Redirect directly to admin dashboard
+            window.location.href = "{% url 'admin_dashboard' %}";
+        }
+    }
 </script>
+
+<!-- Finish Digitization Registration Modal -->
+{% if land.registration_request %}
+<div class="modal fade font-opensans text-dark animate-fade-in" id="finishRegistrationModal" tabindex="-1" aria-hidden="true" style="z-index: 10050;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-white p-3 shadow-lg" style="border-radius: 12px; border: 1px solid rgba(0,0,0,0.08);">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title font-ranade fw-bold text-dark fs-18"><i class="bi bi-patch-check-fill text-success me-1"></i> Finish Land Registration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="finishRegistrationForm" method="POST" action="{% url 'lands:admin_finish_registration' land.registration_request.id %}">
+                {% csrf_token %}
+                <div class="modal-body py-3">
+                    <p class="fs-13 text-muted mb-3">Digitization is complete. Choose whether this property should be published immediately.</p>
+
+                    <div class="mb-0">
+                        <label class="form-label fs-13 fw-bold text-dark mb-2 d-block">Make Property Live?</label>
+                        <div class="form-check mb-2 p-3 border rounded-3" style="border-color: #E5E7EB !important; background-color: #F9FAFB;">
+                            <input class="form-check-input" type="radio" name="make_live" id="makeLiveYes" value="true" checked>
+                            <label class="form-check-label fs-13 text-dark" for="makeLiveYes">
+                                <strong>Yes, Make Live</strong>
+                                <div class="fs-12 text-muted mt-0.5">Visible to buyers immediately.</div>
+                            </label>
+                        </div>
+                        <div class="form-check p-3 border rounded-3" style="border-color: #E5E7EB !important; background-color: #F9FAFB;">
+                            <input class="form-check-input" type="radio" name="make_live" id="makeLiveNo" value="false">
+                            <label class="form-check-label fs-13 text-dark" for="makeLiveNo">
+                                <strong>No, Keep Offline</strong>
+                                <div class="fs-12 text-muted mt-0.5">Saved as an approved property but hidden from buyers.</div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary fs-12 fw-bold text-uppercase" data-bs-dismiss="modal" style="border-radius: 6px;">Cancel</button>
+                    <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2 px-4" style="background-color: var(--color-success); border-radius: 6px; border: none;">Finish &amp; Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <style>
 /* ─── Plot Creator Card ─────────────────────────────────────── */

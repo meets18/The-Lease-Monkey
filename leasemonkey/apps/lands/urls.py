@@ -40,9 +40,19 @@ urlpatterns = [
     # ── Occupancy Registry ─────────────────────────────────────────────────────
     path('occupancy-history/<slug:slug>/<str:plot_number>/', views.occupancy_history, name='occupancy_history'),
 
-    # ── Site Layout Verification ────────────────────────────────────────────────
-    path('layout/upload/', views.upload_site_layout, name='upload_site_layout'),
-    path('admin/layout/<int:layout_id>/review/', views.admin_review_layout, name='admin_review_layout'),
-    path('admin/layout/<int:layout_id>/approve/', views.admin_approve_layout, name='admin_approve_layout'),
-    path('admin/layout/<int:layout_id>/reject/', views.admin_reject_layout, name='admin_reject_layout'),
+    # ── Landowner: Register a Property ─────────────────────────────────────────
+    path('register-land/', views.submit_land_request, name='submit_land_request'),
+    path('register-land/<int:req_id>/', views.landowner_request_detail, name='landowner_request_detail'),
+    path('register-land/<int:req_id>/data/', views.landowner_request_data, name='landowner_request_data'),
+
+    # ── Admin: Land Registration Request Queue ──────────────────────────────────
+    path('admin/land-requests/', views.admin_land_requests, name='admin_land_requests'),
+    path('admin/land-requests/<int:req_id>/', views.admin_land_request_detail, name='admin_land_request_detail'),
+    path('admin/land-requests/<int:req_id>/review/', views.admin_set_request_review, name='admin_set_request_review'),
+    path('admin/land-requests/<int:req_id>/register/', views.admin_register_land_from_request, name='admin_register_land'),
+    path('admin/land-requests/<int:req_id>/reject/', views.admin_reject_land_request, name='admin_reject_land_request'),
+    path('admin/land-requests/<int:req_id>/finish/', views.admin_finish_registration, name='admin_finish_registration'),
+
+    # ── Admin: Live / Draft Toggle ──────────────────────────────────────────────
+    path('admin/lands/<slug:slug>/toggle-live/', views.toggle_land_live, name='toggle_land_live'),
 ]

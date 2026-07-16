@@ -151,7 +151,8 @@
     document.addEventListener("DOMContentLoaded", function() {
         // Start centered in Sitapura default
         map = L.map('mapCreator', {
-            zoomControl: false
+            zoomControl: false,
+            maxZoom: 22
         }).setView([26.788506, 75.836371], 17);
 
         // Standard zoom controls in top-right
@@ -159,7 +160,8 @@
 
         // Load Satellite Hybrid base by default for precise boundary tracing
         const satLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-            maxZoom: 19,
+            maxZoom: 22,
+            maxNativeZoom: 20,
             subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
         }).addTo(map);
 

@@ -1,6 +1,9 @@
 from django.db import models
 from django.conf import settings
 
+# Backward-compatible alias for old migration references
+from apps.core.models import _ticket_attachment_path as ticket_attachment_path
+
 class ChatSession(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='chat_sessions')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -37,3 +40,6 @@ class SupportTicket(models.Model):
 
     def __str__(self):
         return f"Ticket #{self.id} ({self.status}) - {self.user.username if self.user else 'Guest'}"
+
+
+

@@ -95,17 +95,31 @@ def buyer_dashboard(request):
         if not request.user.is_superuser:
             raise PermissionDenied("You do not have access to this portal.")
             
-    from apps.core.models import Notification, PurchaseRequest
+    from apps.core.models import Notification, PurchaseRequest, Ticket
     from apps.lands.models import SavedPlot
     
     notifications = Notification.objects.filter(recipient=request.user).order_by('-created_at')
     unread_count = notifications.filter(is_read=False).count()
     
-    purchase_requests = PurchaseRequest.objects.filter(buyer=request.user).select_related('land', 'land__owner').order_by('-created_at')
+    purchase_requests = PurchaseRequest.objects.filter(buyer=request.user, land__is_live=True).select_related('land', 'land__owner').order_by('-created_at')
     purchased_plots = purchase_requests.filter(status='approved')
     purchased_count = purchased_plots.count()
     
-    saved_plots = SavedPlot.objects.filter(user=request.user).select_related('land').order_by('-created_at')
+    saved_plots = SavedPlot.objects.filter(user=request.user, land__is_live=True).select_related('land').order_by('-created_at')
+    
+    tickets = Ticket.objects.filter(user=request.user).order_by('-created_at')
+    faqs = [
+        {'question': 'How long does verification take?',
+         'answer': 'Verification typically takes 2-3 business days after submitting all required documents. You will be notified via email once the verification is complete.'},
+        {'question': 'How are plots approved?',
+         'answer': 'Plots are approved after the landowner and buyer complete a scheduled meeting. The landowner can then approve the purchase request from their dashboard.'},
+        {'question': 'How do meetings work?',
+         'answer': 'Meetings are scheduled through the platform. Once a purchase request is submitted, the landowner can schedule a meeting with the buyer. Both parties receive the meeting link and reminders.'},
+        {'question': 'How do I update my profile?',
+         'answer': 'You can update your profile by clicking on "Profile" in the sidebar navigation. From there, you can edit your personal information, contact details, and preferences.'},
+        {'question': 'Can I cancel a purchase request?',
+         'answer': 'Yes, you can cancel a purchase request while it is still in "Pending" status. Contact support if you need assistance with an already-processed request.'},
+    ]
     
     context = {
         'notifications': notifications,
@@ -114,6 +128,8 @@ def buyer_dashboard(request):
         'purchased_plots': purchased_plots,
         'purchased_count': purchased_count,
         'saved_plots': saved_plots,
+        'tickets': tickets,
+        'faqs': faqs,
     }
             
     return render(request, 'accounts/buyer_dashboard.html', context)
@@ -195,8 +211,8 @@ def landowner_dashboard(request):
     if request.user.role == User.LAND_OWNER and request.user.is_first_login:
         return redirect('onboarding_landowner')
 
-    from apps.lands.models import Land, OccupancyRecord, SiteLayoutPlan
-    from apps.core.models import Notification, PurchaseRequest
+    from apps.lands.models import Land, OccupancyRecord, LandRegistrationRequest
+    from apps.core.models import Notification, PurchaseRequest, Ticket
 
     lands = list(Land.objects.filter(owner=request.user).prefetch_related('plots', 'images'))
     for land in lands:
@@ -223,8 +239,22 @@ def landowner_dashboard(request):
         land__owner=request.user
     ).select_related('buyer', 'land').order_by('-allotted_at')
 
-    # Get uploaded site layouts
-    site_layouts = SiteLayoutPlan.objects.filter(owner=request.user).order_by('-created_at')
+    # Get land registration requests
+    land_requests = LandRegistrationRequest.objects.filter(owner=request.user).order_by('-submitted_at')
+
+    landowner_tickets = Ticket.objects.filter(user=request.user).order_by('-created_at')
+    faqs = [
+        {'question': 'How long does verification take?',
+         'answer': 'Verification typically takes 2-3 business days after submitting all required documents. You will be notified via email once the verification is complete.'},
+        {'question': 'How are plots approved?',
+         'answer': 'Plots are approved after the landowner and buyer complete a scheduled meeting. The landowner can then approve the purchase request from their dashboard.'},
+        {'question': 'How do meetings work?',
+         'answer': 'Meetings are scheduled through the platform. Once a purchase request is submitted, the landowner can schedule a meeting with the buyer. Both parties receive the meeting link and reminders.'},
+        {'question': 'How do I update my profile?',
+         'answer': 'You can update your profile by clicking on "Profile" in the sidebar navigation. From there, you can edit your personal information, contact details, and preferences.'},
+        {'question': 'Can I cancel a purchase request?',
+         'answer': 'Yes, you can cancel a purchase request while it is still in "Pending" status. Contact support if you need assistance with an already-processed request.'},
+    ]
 
     context = {
         'lands': lands,
@@ -235,7 +265,9 @@ def landowner_dashboard(request):
         'pending_purchase_count': pending_purchase_count,
         'active_buyers': active_buyers,
         'occupancy_records': occupancy_records,
-        'site_layouts': site_layouts,
+        'land_requests': land_requests,
+        'landowner_tickets': landowner_tickets,
+        'faqs': faqs,
     }
     return render(request, 'accounts/landowner_dashboard.html', context)
 
@@ -247,14 +279,16 @@ def admin_dashboard(request):
         if not request.user.is_superuser:
             raise PermissionDenied("You do not have access to this portal.")
 
-    from apps.lands.models import Land, SiteLayoutPlan
+    from apps.lands.models import Land, LandRegistrationRequest
     from apps.core.models import Notification
 
-    # Auto-discard draft lands that never progressed past boundary plotting.
+    # Auto-discard draft lands that never progressed past boundary plotting, unless linked to a request
     for land in Land.objects.select_related('owner').all():
         has_boundary = bool(land.boundary_coordinates and len(land.boundary_coordinates) >= 3)
+        has_request = hasattr(land, 'registration_request')
         if not has_boundary and not land.plots.exists() and not land.roads.exists() and not land.points.exists():
-            land.delete()
+            if not has_request:
+                land.delete()
 
     lands = list(Land.objects.select_related('owner').all())
     for land in lands:
@@ -266,10 +300,14 @@ def admin_dashboard(request):
     unread_count  = notifications.filter(is_read=False).count()
 
     from apps.ai.models import SupportTicket
+    from apps.core.models import Ticket
     from apps.accounts.models import LandownerApplication
     tickets = SupportTicket.objects.all().order_by('-created_at')
+    support_tickets = Ticket.objects.select_related('user').all().order_by('-created_at')
+    open_tickets_count = support_tickets.filter(status='open').count()
     landowner_applications = LandownerApplication.objects.all().order_by('-created_at')
-    site_layouts = SiteLayoutPlan.objects.all().order_by('-created_at')
+    land_requests = LandRegistrationRequest.objects.all().order_by('-submitted_at')
+    pending_requests_count = land_requests.filter(status='pending').count()
 
     context = {
         'lands': lands,
@@ -278,8 +316,11 @@ def admin_dashboard(request):
         'notifications': notifications,
         'unread_count': unread_count,
         'tickets': tickets,
+        'support_tickets': support_tickets,
+        'open_tickets_count': open_tickets_count,
         'landowner_applications': landowner_applications,
-        'site_layouts': site_layouts,
+        'land_requests': land_requests,
+        'pending_requests_count': pending_requests_count,
     }
     return render(request, 'accounts/admin_dashboard.html', context)
 
@@ -1546,49 +1587,15 @@ def admin_landowner_reject(request, app_id):
 
 @login_required(login_url='portal_selection')
 def onboarding_landowner(request):
-    """Handles first-time login onboarding welcome and optional site layout upload for landowners."""
+    """Handles first-time login onboarding welcome for landowners."""
     if request.user.role != User.LAND_OWNER:
         raise PermissionDenied("Only landowners can complete landowner onboarding.")
 
-    # Handle GET request skip action
-    if request.GET.get('action') == 'skip':
+    if request.method == 'POST' or request.GET.get('action') == 'skip':
         request.user.is_first_login = False
         request.user.save(update_fields=['is_first_login'])
-        messages.info(request, "Onboarding skipped. You can upload your site layouts later from your dashboard.")
+        messages.success(request, "Welcome to Lease Monkey! You can now register your properties.")
         return redirect('landowner_dashboard')
-
-    if request.method == 'POST':
-        action = request.POST.get('action', '').strip()
-        
-        if action == 'upload':
-            property_name = request.POST.get('property_name', '').strip()
-            layout_file = request.FILES.get('layout_file')
-            notes = request.POST.get('notes', '').strip()
-            
-            if not property_name or not layout_file:
-                messages.error(request, "Property name and site layout file are required to upload.")
-                return render(request, 'accounts/onboarding_landowner.html')
-                
-            from apps.lands.models import SiteLayoutPlan
-            SiteLayoutPlan.objects.create(
-                owner=request.user,
-                property_name=property_name,
-                layout_file=layout_file,
-                notes=notes,
-                status='uploaded'
-            )
-            
-            # Update user onboarding status
-            request.user.is_first_login = False
-            request.user.save(update_fields=['is_first_login'])
-            messages.success(request, "Thank you! Your site layout has been successfully uploaded and is pending verification.")
-            return redirect('landowner_dashboard')
-            
-        elif action == 'skip':
-            request.user.is_first_login = False
-            request.user.save(update_fields=['is_first_login'])
-            messages.info(request, "Onboarding skipped. You can upload your site layouts later from your dashboard.")
-            return redirect('landowner_dashboard')
 
     return render(request, 'accounts/onboarding_landowner.html')
 

@@ -1,0 +1,540 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Property Registration Request Detail — The Lease Monkey{% endblock %}
+
+{% block content %}
+<style>
+.status-timeline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 8px 0 4px;
+    position: relative;
+}
+.timeline-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    text-align: center;
+    position: relative;
+}
+.timeline-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    transition: all 0.3s ease;
+}
+.timeline-step.completed .timeline-circle {
+    background: rgba(16, 185, 129, 0.12);
+    border: 2px solid #10b981;
+    color: #10b981;
+}
+.timeline-step.current .timeline-circle {
+    background: rgba(245, 158, 11, 0.12);
+    border: 2px solid #f59e0b;
+    color: #f59e0b;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+}
+.timeline-step.future .timeline-circle {
+    background: rgba(107, 114, 128, 0.08);
+    border: 2px solid #d1d5db;
+    color: #9ca3af;
+}
+.timeline-step.rejected .timeline-circle {
+    background: rgba(239, 68, 68, 0.1);
+    border: 2px solid #ef4444;
+    color: #ef4444;
+}
+.timeline-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    line-height: 1.3;
+    max-width: 80px;
+}
+.timeline-step.completed .timeline-label { color: #10b981; }
+.timeline-step.current .timeline-label { color: #f59e0b; }
+.timeline-step.future .timeline-label { color: #9ca3af; }
+.timeline-step.rejected .timeline-label { color: #ef4444; }
+.timeline-connector {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 48px;
+    height: 2px;
+    align-self: center;
+    margin-bottom: 30px;
+    transition: background 0.3s ease;
+}
+.timeline-connector.completed { background: #10b981; }
+.timeline-connector.future { background: #e5e7eb; }
+.timeline-connector.rejected { background: #ef4444; }
+
+@media (max-width: 576px) {
+    .timeline-label { font-size: 8px; max-width: 60px; letter-spacing: 0.3px; }
+    .timeline-circle { width: 30px; height: 30px; font-size: 11px; }
+}
+
+.doc-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+.doc-card:hover {
+    background: #FFF9F5;
+}
+.doc-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+</style>
+
+<div class="container-fluid py-5 px-4 px-xxl-5" style="padding-top: 100px !important; position: relative; z-index: 10;">
+    <div class="mb-4">
+        <a href="{% url 'landowner_dashboard' %}?section=requests" class="text-decoration-none fw-bold fs-14 font-ranade" style="color: var(--accent-orange, #F96D00);">
+            <i class="bi bi-arrow-left me-1"></i> Back to Registration Requests
+        </a>
+    </div>
+
+    <div class="card bg-white border border-light-glow shadow-sm p-4 p-xl-5 font-opensans rounded-3 mb-4">
+
+        {% comment %} ── HEADER ── {% endcomment %}
+        <div class="d-flex justify-content-between align-items-center border-bottom border-light-glow pb-3 mb-4 flex-wrap gap-2">
+            <div>
+                <h2 class="h4 font-ranade fw-bold mb-1 text-dark">{{ req.property_name }}</h2>
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <span class="fs-12 text-muted">Request #{{ req.id }}</span>
+                    <span class="fs-12 text-muted">Submitted on {{ req.submitted_at|date:"d M Y at h:i A" }}</span>
+                    {% if req.reviewed_at %}
+                    <span class="fs-12 text-muted">Reviewed on {{ req.reviewed_at|date:"d M Y at h:i A" }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div>
+                {% if req.status == 'pending' %}
+                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#FEF3C7;color:#92400E;">Pending Review</span>
+                {% elif req.status == 'under_review' %}
+                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#DBEAFE;color:#1D4ED8;">Under Review</span>
+                {% elif req.status == 'being_added' %}
+                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#DBEAFE;color:#1D4ED8;">Being Digitized</span>
+                {% elif req.status == 'approved' %}
+                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#DCFCE7;color:#166534;">Waiting to Go Live</span>
+                {% elif req.status == 'live' %}
+                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#DCFCE7;color:#166534;">Live</span>
+                {% elif req.status == 'rejected' %}
+                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#FEE2E2;color:#B91C1C;">Rejected</span>
+                {% endif %}
+            </div>
+        </div>
+
+        {% comment %} ── STATUS TIMELINE ── {% endcomment %}
+        <div class="p-4 rounded-3 mb-4" style="background-color: #F9FAFB; border: 1px solid #E5E7EB;">
+            <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-2" style="color: #6B7280;">Status Timeline</h5>
+            {% if req.status == 'rejected' %}
+            <div class="status-timeline">
+                <div class="timeline-step completed">
+                    <div class="timeline-circle"><i class="bi bi-check-lg"></i></div>
+                    <div class="timeline-label">Submitted</div>
+                </div>
+                <div class="timeline-connector rejected"></div>
+                <div class="timeline-step rejected">
+                    <div class="timeline-circle"><i class="bi bi-x-lg"></i></div>
+                    <div class="timeline-label">Rejected</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="status-timeline">
+                <div class="timeline-step completed">
+                    <div class="timeline-circle"><i class="bi bi-check-lg"></i></div>
+                    <div class="timeline-label">Submitted</div>
+                </div>
+
+                {% if req.status == 'live' or req.status == 'approved' or req.status == 'being_added' or req.status == 'under_review' or req.status == 'pending' %}
+                <div class="timeline-connector completed"></div>
+                {% else %}
+                <div class="timeline-connector future"></div>
+                {% endif %}
+
+                {% if req.status == 'live' or req.status == 'approved' or req.status == 'being_added' %}
+                <div class="timeline-step completed">
+                    <div class="timeline-circle"><i class="bi bi-check-lg"></i></div>
+                    <div class="timeline-label">Pending Review</div>
+                </div>
+                {% elif req.status == 'under_review' or req.status == 'pending' %}
+                <div class="timeline-step current">
+                    <div class="timeline-circle"><i class="bi bi-hourglass-split"></i></div>
+                    <div class="timeline-label">{% if req.status == 'under_review' %}Under Review{% else %}Pending Review{% endif %}</div>
+                </div>
+                {% else %}
+                <div class="timeline-step future">
+                    <div class="timeline-circle"><i class="bi bi-dot"></i></div>
+                    <div class="timeline-label">Pending Review</div>
+                </div>
+                {% endif %}
+
+                {% if req.status == 'live' or req.status == 'approved' or req.status == 'being_added' %}
+                <div class="timeline-connector completed"></div>
+                {% else %}
+                <div class="timeline-connector future"></div>
+                {% endif %}
+
+                {% if req.status == 'live' or req.status == 'approved' %}
+                <div class="timeline-step completed">
+                    <div class="timeline-circle"><i class="bi bi-check-lg"></i></div>
+                    <div class="timeline-label">Being Digitized</div>
+                </div>
+                {% elif req.status == 'being_added' %}
+                <div class="timeline-step current">
+                    <div class="timeline-circle"><i class="bi bi-gear"></i></div>
+                    <div class="timeline-label">Being Digitized</div>
+                </div>
+                {% else %}
+                <div class="timeline-step future">
+                    <div class="timeline-circle"><i class="bi bi-dot"></i></div>
+                    <div class="timeline-label">Being Added</div>
+                </div>
+                {% endif %}
+
+                {% if req.status == 'live' or req.status == 'approved' %}
+                <div class="timeline-connector completed"></div>
+                {% else %}
+                <div class="timeline-connector future"></div>
+                {% endif %}
+
+                {% if req.status == 'live' %}
+                <div class="timeline-step completed">
+                    <div class="timeline-circle"><i class="bi bi-check-lg"></i></div>
+                    <div class="timeline-label">Approved</div>
+                </div>
+                {% elif req.status == 'approved' %}
+                <div class="timeline-step current">
+                    <div class="timeline-circle"><i class="bi bi-check-circle"></i></div>
+                    <div class="timeline-label">Approved</div>
+                </div>
+                {% else %}
+                <div class="timeline-step future">
+                    <div class="timeline-circle"><i class="bi bi-dot"></i></div>
+                    <div class="timeline-label">Approved</div>
+                </div>
+                {% endif %}
+
+                {% if req.status == 'live' %}
+                <div class="timeline-connector completed"></div>
+                {% else %}
+                <div class="timeline-connector future"></div>
+                {% endif %}
+
+                {% if req.status == 'live' %}
+                <div class="timeline-step current">
+                    <div class="timeline-circle"><i class="bi bi-globe2"></i></div>
+                    <div class="timeline-label">Live</div>
+                </div>
+                {% else %}
+                <div class="timeline-step future">
+                    <div class="timeline-circle"><i class="bi bi-dot"></i></div>
+                    <div class="timeline-label">Live</div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        {% comment %} ── STATUS-SPECIFIC ALERT ── {% endcomment %}
+        {% if req.status == 'pending' or req.status == 'under_review' %}
+        <div class="alert border-0 shadow-sm rounded-3 p-3 mb-4 fs-14" style="background-color: #FFF2E6; border-left: 4px solid #F96D00 !important; color: #92400E;">
+            <div class="d-flex align-items-start gap-2">
+                <div style="font-size: 16px; flex-shrink: 0; margin-top: 1px;">
+                    <i class="bi bi-clock-history" style="color: #F96D00;"></i>
+                </div>
+                <div>
+                    <strong class="fw-bold d-block mb-0.5" style="color: #C24100;">Awaiting Admin Review</strong>
+                    <span style="color: #92400E;">Your registration request is currently awaiting review by an administrator. You will be notified once the status changes.</span>
+                </div>
+            </div>
+        </div>
+        {% elif req.status == 'being_added' %}
+        <div class="alert border-0 shadow-sm rounded-3 p-3 mb-4 fs-14" style="background-color: #EFF6FF; border-left: 4px solid #2563EB !important; color: #1E3A5F;">
+            <div class="d-flex align-items-start gap-2">
+                <div style="font-size: 16px; flex-shrink: 0; margin-top: 1px;">
+                    <i class="bi bi-gear-wide-connected" style="color: #2563EB;"></i>
+                </div>
+                <div>
+                    <strong class="fw-bold d-block mb-0.5" style="color: #1D4ED8;">Being Digitized</strong>
+                    <span>Your property is currently being digitized. Plot boundaries are being mapped onto the platform.</span>
+                    {% if req.reviewed_at %}
+                    <div class="mt-1 fs-12" style="color: #6B7280;">Digitization started: {{ req.reviewed_at|date:"d M Y" }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% elif req.status == 'approved' %}
+        <div class="alert border-0 shadow-sm rounded-3 p-3 mb-4 fs-14" style="background-color: #F0FDF4; border-left: 4px solid #16A34A !important; color: #166534;">
+            <div class="d-flex align-items-start gap-2">
+                <div style="font-size: 16px; flex-shrink: 0; margin-top: 1px;">
+                    <i class="bi bi-check-all" style="color: #16A34A;"></i>
+                </div>
+                <div>
+                    <strong class="fw-bold d-block mb-0.5" style="color: #15803D;">Approved — Waiting to Go Live</strong>
+                    <span>Your property has been successfully digitized and is ready to be published. It will go live once the administrator publishes it.</span>
+                </div>
+            </div>
+        </div>
+        {% elif req.status == 'live' %}
+        <div class="alert border-0 shadow-sm rounded-3 p-3 mb-4 fs-14" style="background-color: #F0FDF4; border-left: 4px solid #16A34A !important; color: #166534;">
+            <div class="d-flex align-items-start gap-2">
+                <div style="font-size: 16px; flex-shrink: 0; margin-top: 1px;">
+                    <i class="bi bi-globe2" style="color: #16A34A;"></i>
+                </div>
+                <div>
+                    <strong class="fw-bold d-block mb-0.5" style="color: #15803D;">Property is Now Live</strong>
+                    <span>Your property has been published and is visible to prospective buyers on the catalog directory.</span>
+                    <div class="mt-2">
+                        <a href="{% url 'landowner_dashboard' %}?section=lands" class="btn text-white fs-12 fw-bold text-uppercase py-2 px-3" style="background-color: #F96D00; border-radius: 10px; border: none;">
+                            <i class="bi bi-map-fill me-1"></i> Go to Land Management
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% elif req.status == 'rejected' %}
+        <div class="alert border-0 shadow-sm rounded-3 p-3 mb-4 fs-14" style="background-color: #FEF2F2; border-left: 4px solid #DC2626 !important; color: #991B1B;">
+            <div class="d-flex align-items-start gap-2">
+                <div style="font-size: 16px; flex-shrink: 0; margin-top: 1px;">
+                    <i class="bi bi-x-circle-fill" style="color: #DC2626;"></i>
+                </div>
+                <div>
+                    <strong class="fw-bold d-block mb-0.5" style="color: #B91C1C;">Request Rejected</strong>
+                    <div class="mb-1"><strong>Reason:</strong> {{ req.rejection_reason|default:"No reason provided by the administrator." }}</div>
+                    {% if req.admin_remarks %}
+                    <div class="mb-1"><strong>Administrator Remarks:</strong> {{ req.admin_remarks }}</div>
+                    {% endif %}
+                    {% if req.reviewed_at %}
+                    <div class="fs-12" style="color: #6B7280;">Rejected on {{ req.reviewed_at|date:"d M Y at h:i A" }}</div>
+                    {% endif %}
+                    <div class="mt-2">
+                        <a href="{% url 'landowner_dashboard' %}?resubmit={{ req.id }}" class="btn text-white fs-12 fw-bold text-uppercase py-2 px-3" style="background: #DC2626; border: none; border-radius: 10px;">
+                            <i class="bi bi-arrow-repeat me-1"></i> Resubmit Registration
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% comment %} ── 2-COLUMN: Property Info + Ownership Docs ── {% endcomment %}
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <div class="p-4 border border-light-glow rounded-3 h-100" style="background-color: #F9FAFB;">
+                    <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-3" style="color: #6B7280;"><i class="bi bi-building me-1.5"></i> Property Information</h5>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="mb-1">
+                                <span class="fs-12" style="color: #9CA3AF;">Property Name</span>
+                                <div class="fw-semibold text-dark font-ranade fs-13">{{ req.property_name }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-1">
+                                <span class="fs-12" style="color: #9CA3AF;">State</span>
+                                <div class="fw-semibold text-dark fs-13">{{ req.state|default:"—" }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-1">
+                                <span class="fs-12" style="color: #9CA3AF;">District</span>
+                                <div class="fw-semibold text-dark fs-13">{{ req.district|default:"—" }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-1">
+                                <span class="fs-12" style="color: #9CA3AF;">City / Village</span>
+                                <div class="fw-semibold text-dark fs-13">{{ req.city_village|default:"—" }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-1">
+                                <span class="fs-12" style="color: #9CA3AF;">Complete Address</span>
+                                <div class="fw-semibold text-dark fs-13">{{ req.complete_address|default:req.location|default:"—" }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-1">
+                                <span class="fs-12" style="color: #9CA3AF;">PIN Code</span>
+                                <div class="fw-semibold text-dark fs-13">{{ req.pin_code|default:"—" }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-1">
+                                <span class="fs-12" style="color: #9CA3AF;">Avg. Plot Price</span>
+                                <div class="fw-semibold text-dark font-ranade fs-13">₹{{ req.average_plot_price }}</div>
+                            </div>
+                        </div>
+                        {% if req.google_maps_link %}
+                        <div class="col-6">
+                            <div class="mb-1">
+                                <span class="fs-12" style="color: #9CA3AF;">Google Maps</span>
+                                <div>
+                                    <a href="{{ req.google_maps_link }}" target="_blank" style="color: var(--accent-orange, #F96D00);" class="text-decoration-none fs-13">
+                                        Open Maps <i class="bi bi-box-arrow-up-right ms-0.5" style="font-size: 11px;"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="p-4 border border-light-glow rounded-3 h-100" style="background-color: #F9FAFB;">
+                    <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-3" style="color: #6B7280;"><i class="bi bi-file-earmark-text me-1.5"></i> Ownership Documents</h5>
+                    <div class="d-flex flex-column gap-2">
+                        {% if req.ownership_proof %}
+                        <div class="doc-card">
+                            <div class="d-flex align-items-center gap-2.5">
+                                <div class="doc-icon" style="background:rgba(249,109,0,0.1);color:#F96D00;"><i class="bi bi-file-earmark"></i></div>
+                                <div>
+                                    <div class="fs-13 fw-semibold text-dark">Ownership Proof</div>
+                                    <span class="fs-11" style="color: #9CA3AF;">{{ req.ownership_proof.name|cut:"land_requests/"|cut:"ownership/" }}</span>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-1.5">
+                                <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=ownership" target="_blank" class="btn py-1 px-2.5 fs-11 fw-bold text-uppercase" style="border: 1px solid #E5E7EB; color: #374151; border-radius: 8px;">
+                                    <i class="bi bi-eye-fill me-0.5"></i> View
+                                </a>
+                                <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=ownership" download class="btn py-1 px-2.5 fs-11 fw-bold text-uppercase" style="border: 1px solid #E5E7EB; color: #374151; border-radius: 8px;">
+                                    <i class="bi bi-download me-0.5"></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if req.registry_sale_deed %}
+                        <div class="doc-card">
+                            <div class="d-flex align-items-center gap-2.5">
+                                <div class="doc-icon" style="background:rgba(59,130,246,0.1);color:#3b82f6;"><i class="bi bi-file-earmark-text"></i></div>
+                                <div>
+                                    <div class="fs-13 fw-semibold text-dark">Registry / Sale Deed</div>
+                                    <span class="fs-11" style="color: #9CA3AF;">{{ req.registry_sale_deed.name|cut:"land_requests/"|cut:"registry/" }}</span>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-1.5">
+                                <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=registry_sale_deed" target="_blank" class="btn py-1 px-2.5 fs-11 fw-bold text-uppercase" style="border: 1px solid #E5E7EB; color: #374151; border-radius: 8px;">
+                                    <i class="bi bi-eye-fill me-0.5"></i> View
+                                </a>
+                                <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=registry_sale_deed" download class="btn py-1 px-2.5 fs-11 fw-bold text-uppercase" style="border: 1px solid #E5E7EB; color: #374151; border-radius: 8px;">
+                                    <i class="bi bi-download me-0.5"></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if req.supporting_documents %}
+                        <div class="doc-card">
+                            <div class="d-flex align-items-center gap-2.5">
+                                <div class="doc-icon" style="background:rgba(139,92,246,0.1);color:#8b5cf6;"><i class="bi bi-paperclip"></i></div>
+                                <div>
+                                    <div class="fs-13 fw-semibold text-dark">Supporting Documents</div>
+                                    <span class="fs-11" style="color: #9CA3AF;">{{ req.supporting_documents.name|cut:"land_requests/"|cut:"supporting/" }}</span>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-1.5">
+                                <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=supporting_docs" target="_blank" class="btn py-1 px-2.5 fs-11 fw-bold text-uppercase" style="border: 1px solid #E5E7EB; color: #374151; border-radius: 8px;">
+                                    <i class="bi bi-eye-fill me-0.5"></i> View
+                                </a>
+                                <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=supporting_docs" download class="btn py-1 px-2.5 fs-11 fw-bold text-uppercase" style="border: 1px solid #E5E7EB; color: #374151; border-radius: 8px;">
+                                    <i class="bi bi-download me-0.5"></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if not req.ownership_proof and not req.registry_sale_deed and not req.supporting_documents %}
+                        <div style="color: #9CA3AF; font-size: 13px;">No documents submitted.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% comment %} ── 2-COLUMN: Site Layout + Additional Notes ── {% endcomment %}
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <div class="p-4 border border-light-glow rounded-3 h-100" style="background-color: #F9FAFB;">
+                    <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-3" style="color: #6B7280;"><i class="bi bi-map me-1.5"></i> Site Layout / Floor Plan</h5>
+                    {% if req.floor_plan %}
+                    <div class="d-flex flex-column gap-3">
+                        <div class="rounded-2 overflow-hidden border" style="border-color: #E5E7EB !important; max-width: 260px;">
+                            <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=floor_plan" target="_blank">
+                                <img src="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=floor_plan" alt="Floor Plan" class="img-fluid d-block" style="min-height:100px;background:#F9FAFB;" onerror="this.parentElement.innerHTML='<div style=\'height:120px;display:flex;align-items:center;justify-content:center;background:#F9FAFB;color:#9CA3AF;font-size:13px;\'><i class=\'bi bi-file-earmark-text fs-1 me-1\'></i> File</div>'">
+                            </a>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=floor_plan" target="_blank" class="btn py-1.5 px-3 fs-12 fw-bold text-uppercase" style="border: 1px solid #E5E7EB; color: #374151; border-radius: 8px;">
+                                <i class="bi bi-eye-fill me-1"></i> View Full
+                            </a>
+                            <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=floor_plan" download class="btn py-1.5 px-3 fs-12 fw-bold text-uppercase" style="border: 1px solid #E5E7EB; color: #374151; border-radius: 8px;">
+                                <i class="bi bi-download me-1"></i> Download
+                            </a>
+                        </div>
+                        <div class="fs-12" style="color: #9CA3AF;">{{ req.floor_plan.name|cut:"land_requests/"|cut:"floor_plan/" }}</div>
+                    </div>
+                    {% else %}
+                    <div style="color: #9CA3AF; font-size: 13px;">No floor plan submitted.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                {% if req.notes %}
+                <div class="p-4 border border-light-glow rounded-3 h-100" style="background-color: #F9FAFB;">
+                    <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-2" style="color: #6B7280;"><i class="bi bi-chat-left-text me-1.5"></i> Additional Notes</h5>
+                    <p class="text-dark fs-13 mb-0" style="white-space: pre-wrap;">{{ req.notes }}</p>
+                </div>
+                {% endif %}
+                {% if not req.notes and not req.floor_plan %}
+                <div class="p-4 border border-light-glow rounded-3 h-100" style="background-color: #F9FAFB;">
+                    <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-2" style="color: #6B7280;"><i class="bi bi-chat-left-text me-1.5"></i> Additional Notes</h5>
+                    <div style="color: #9CA3AF; font-size: 13px;">No additional notes provided.</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% comment %} ── DESCRIPTION (full width) ── {% endcomment %}
+        {% if req.description %}
+        <div class="p-4 border border-light-glow rounded-3 mb-4" style="background-color: #F9FAFB;">
+            <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-2" style="color: #6B7280;"><i class="bi bi-card-text me-1.5"></i> Description</h5>
+            <p class="text-dark fs-14 mb-0" style="white-space: pre-wrap;">{{ req.description }}</p>
+        </div>
+        {% endif %}
+
+        {% comment %} ── FOOTER BACK LINK ── {% endcomment %}
+        <div class="pt-2">
+            <a href="{% url 'landowner_dashboard' %}?section=requests" class="text-decoration-none fw-bold fs-13 font-ranade" style="color: var(--accent-orange, #F96D00);">
+                <i class="bi bi-arrow-left me-1"></i> Back to Registration Requests
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

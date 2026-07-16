@@ -250,3 +250,4 @@ def resolve_ticket(request, ticket_id):
     ticket.save()
 
     return JsonResponse({'status': 'resolved'})
+

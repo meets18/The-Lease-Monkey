@@ -31,46 +31,21 @@
             </div>
         {% endif %}
 
-        <!-- Onboarding Upload Form -->
-        <form method="POST" action="{% url 'onboarding_landowner' %}" enctype="multipart/form-data" class="font-opensans">
+        <!-- Onboarding Get Started -->
+        <form method="POST" action="{% url 'onboarding_landowner' %}" class="font-opensans">
             {% csrf_token %}
             
-            <div class="mb-3">
-                <label for="propertyName" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Property Name</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-dark-glow border-secondary-glow text-muted-glow"><i class="bi bi-buildings"></i></span>
-                    <input type="text" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" id="propertyName" name="property_name" placeholder="e.g. Green Valley Extension" required>
-                </div>
-                <small class="text-muted-glow fs-11 mt-1 d-block">This names the site layout for reference.</small>
-            </div>
-
-            <div class="mb-3">
-                <label for="layoutFile" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Upload Site Layout (Optional)</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-dark-glow border-secondary-glow text-muted-glow"><i class="bi bi-file-earmark-arrow-up"></i></span>
-                    <input type="file" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" id="layoutFile" name="layout_file" accept=".pdf, .jpg, .jpeg, .png">
-                </div>
-                <small class="text-muted-glow fs-11 mt-1 d-block">Accepted formats: PDF, JPG, PNG. Helps our team digitize your plots faster.</small>
-            </div>
-
-            <div class="mb-4">
-                <label for="notes" class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Notes (Optional)</label>
-                <textarea class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" id="notes" name="notes" rows="3" placeholder="e.g. North side is reserved for utility road..."></textarea>
+            <div class="p-3 bg-dark border border-secondary-glow rounded-3 text-center mb-4">
+                <p class="text-white fs-14 mb-0">
+                    To start leasing your plots, you will submit registration requests for each land property, including ownership documents and floor layouts.
+                </p>
             </div>
 
             <div class="d-flex flex-column gap-2 mt-4">
-                <button type="submit" name="action" value="upload" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider">
-                    Upload Layout <i class="bi bi-upload ms-1"></i>
+                <button type="submit" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider">
+                    Let's Get Started <i class="bi bi-arrow-right ms-1"></i>
                 </button>
-                
-                <a href="{% url 'onboarding_landowner' %}?action=skip" class="btn btn-outline-secondary w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider border-secondary-glow text-muted-glow" style="background: rgba(255,255,255,0.02); text-decoration: none; display: block; text-align: center;">
-                    Skip for now
-                </a>
             </div>
-
-            <p class="text-center text-muted-glow fs-12 mt-3 mb-0">
-                You can upload your layout documents later at any time from your landowner dashboard.
-            </p>
         </form>
 
     </div>
