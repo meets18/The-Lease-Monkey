@@ -46,7 +46,7 @@
 
         <div class="row g-4 mb-4">
             <!-- Details -->
-            <div class="col-md-6">
+            <div class="col-lg-4 col-md-6">
                 <div class="p-3 border border-light-glow rounded-3 h-100" style="background-color: #f9fafb;">
                     <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-3" style="color: var(--accent-orange) !important;">Property Details</h5>
                     <div class="mb-2 fs-14 text-dark">
@@ -87,8 +87,55 @@
                 </div>
             </div>
 
+            <!-- Landowner Info -->
+            <div class="col-lg-4 col-md-6">
+                <div class="p-3 border border-light-glow rounded-3 h-100" style="background-color: #f9fafb;">
+                    <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-3" style="color: var(--accent-orange) !important;">Landowner Profile</h5>
+                    <div class="mb-2 fs-14 text-dark">
+                        <span class="text-muted me-2">Username:</span>
+                        <strong class="text-dark font-ranade">{{ req.owner.username }}</strong>
+                    </div>
+                    <div class="mb-2 fs-14 text-dark">
+                        <span class="text-muted me-2">Full Name:</span>
+                        <strong class="text-dark">{{ req.owner.get_full_name|default:req.owner.username }}</strong>
+                    </div>
+                    <div class="mb-2 fs-14 text-dark">
+                        <span class="text-muted me-2">Email:</span>
+                        <strong class="text-dark">{{ req.owner.email }}</strong>
+                    </div>
+                    {% if req.owner.landowner_application %}
+                        {% with app=req.owner.landowner_application %}
+                        <div class="mb-2 fs-14 text-dark">
+                            <span class="text-muted me-2">Phone:</span>
+                            <strong class="text-dark">{{ app.mobile_number }}</strong>
+                        </div>
+                        <div class="mb-2 fs-14 text-dark">
+                            <span class="text-muted me-2">Aadhaar Number:</span>
+                            <strong class="text-dark">{{ app.aadhaar_number }}</strong>
+                        </div>
+                        <div class="mb-2 fs-14 text-dark">
+                            <span class="text-muted me-2">PAN Number:</span>
+                            <strong class="text-dark">{{ app.pan_number }}</strong>
+                        </div>
+                        <div class="d-flex flex-column gap-2 mt-3 pt-2 border-top border-light-glow">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="fs-12 text-muted fw-bold">Aadhaar Card Document:</span>
+                                <a href="{% url 'core:serve_protected_file' 'identity' app.id %}?doc=aadhaar" target="_blank" class="btn btn-sm btn-outline-secondary fs-10 py-0.5 px-2" style="border-radius: var(--radius-btn);">View <i class="bi bi-eye"></i></a>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="fs-12 text-muted fw-bold">PAN Card Document:</span>
+                                <a href="{% url 'core:serve_protected_file' 'identity' app.id %}?doc=pan" target="_blank" class="btn btn-sm btn-outline-secondary fs-10 py-0.5 px-2" style="border-radius: var(--radius-btn);">View <i class="bi bi-eye"></i></a>
+                            </div>
+                        </div>
+                        {% endwith %}
+                    {% else %}
+                        <div class="fs-13 text-muted mt-2 italic"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> Onboarding application details not found.</div>
+                    {% endif %}
+                </div>
+            </div>
+
             <!-- Documents -->
-            <div class="col-md-6">
+            <div class="col-lg-4 col-md-6">
                 <div class="p-3 border border-light-glow rounded-3 h-100" style="background-color: #f9fafb;">
                     <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-3" style="color: var(--accent-orange) !important;">Submitted Documents</h5>
                     <div class="d-flex flex-column gap-2.5">
@@ -120,6 +167,14 @@
                                 View <i class="bi bi-eye-fill ms-0.5"></i>
                             </a>
                         </div>
+                        {% if req.plot_pricing_csv %}
+                        <div class="d-flex align-items-center justify-content-between p-2 bg-white border border-light-glow rounded-2">
+                            <span class="fs-13 text-dark fw-bold"><i class="bi bi-file-earmark-spreadsheet text-success me-1.5"></i> Sizing & Pricing CSV</span>
+                            <a href="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=pricing_csv" target="_blank" class="btn btn-sm" style="border: 1px solid var(--accent-orange); color: var(--accent-orange); border-radius: var(--radius-btn); padding: 4px 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--accent-orange)'; this.style.color='#FFFFFF';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--accent-orange)';">
+                                Download <i class="bi bi-download ms-0.5"></i>
+                            </a>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -145,6 +200,27 @@
             <p class="fs-14 mb-0">{{ req.rejection_reason }}</p>
         </div>
         {% endif %}
+
+        <!-- Admin-Landowner Communication -->
+        <div class="mb-4 p-4 border border-light-glow rounded-3 bg-white">
+            <h5 class="font-ranade fw-bold mb-3 text-dark"><i class="bi bi-chat-left-dots text-primary me-2"></i> Request Info / Message Landowner</h5>
+            {% if req.admin_message %}
+                <div class="p-3 mb-3 border rounded-2" style="background-color: #f8fafc; border-color: #e2e8f0;">
+                    <div class="fs-12 text-muted fw-bold mb-1">CURRENT ACTIVE MESSAGE SENT:</div>
+                    <p class="fs-14 text-dark mb-0 font-opensans" style="white-space: pre-wrap;">{{ req.admin_message }}</p>
+                </div>
+            {% endif %}
+            <form method="POST" action="{% url 'lands:admin_update_request_message' req.id %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="adminMessageText" class="form-label fs-12 fw-bold text-muted text-uppercase tracking-wider">New Message / Information request</label>
+                    <textarea class="form-control bg-white text-dark fs-14 border border-light-glow" id="adminMessageText" name="admin_message" rows="3" required placeholder="e.g. Please clarify plot dimensions, or re-upload a higher quality registry document..."></textarea>
+                </div>
+                <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2 px-3" style="background-color: var(--accent-orange); border: none; border-radius: var(--radius-btn);">
+                    Send Message <i class="bi bi-send ms-1"></i>
+                </button>
+            </form>
+        </div>
 
         <!-- Actions Panel -->
         <div class="border-top border-light-glow pt-4">
@@ -220,40 +296,6 @@
         </div>
     </div>
 
-    <!-- Rejection Modal -->
-    <div class="modal fade" id="rejectRequestModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-white p-3 font-opensans" style="border-radius: var(--radius-card); border: 1px solid var(--border-light-glow);">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title font-ranade fw-bold text-dark fs-18">Reject Land Registration</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form method="POST" id="rejectForm" action="{% url 'lands:admin_reject_land_request' req.id %}">
-                    {% csrf_token %}
-                    <div class="modal-body py-3">
-                        <div class="mb-3">
-                            <label for="rejectReason" class="form-label fs-13 text-muted">Reason for Rejection *</label>
-                            <textarea class="form-control bg-light text-dark fs-14 py-2" id="rejectReason" name="rejection_reason" rows="3" required placeholder="Describe the reason (e.g. invalid ownership documents, illegible floor plan layout)..." style="border-radius: var(--radius-input);"></textarea>
-                        </div>
-                        
-                        <div class="form-check form-switch mb-2">
-                            <input class="form-check-input" type="checkbox" id="sendEmailCheckbox" name="send_email" value="true" checked>
-                            <label class="form-check-label fs-13 text-dark" for="sendEmailCheckbox">Send Email Notification</label>
-                        </div>
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" id="sendInAppCheckbox" name="send_inapp" value="true" checked>
-                            <label class="form-check-label fs-13 text-dark" for="sendInAppCheckbox">Send In-App Notification</label>
-                        </div>
-                    </div>
-                    <div class="modal-footer border-0 pt-0">
-                        <button type="button" class="btn btn-outline-secondary fs-12 fw-bold text-uppercase" data-bs-dismiss="modal" style="border-radius: var(--radius-btn);">Cancel</button>
-                        <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2 px-3" style="background-color: var(--color-danger); border-radius: var(--radius-btn); border: none;">Reject Request</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <!-- Admin Remarks Panel -->
     <div class="card bg-white border border-light-glow shadow-sm p-4 font-opensans rounded-3">
         <h4 class="h5 font-ranade fw-bold mb-3 text-dark"><i class="bi bi-pencil-square text-warning me-1"></i> Internal Admin Remarks</h4>
@@ -269,10 +311,111 @@
     </div>
 </div>
 
+<!-- Rejection Modal (Outside relative containers to avoid backdrop issue) -->
+<div class="modal fade" id="rejectRequestModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-white p-3 font-opensans" style="border-radius: var(--radius-card); border: 1px solid var(--border-light-glow);">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title font-ranade fw-bold text-dark fs-18">Reject Land Registration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" id="rejectForm" action="{% url 'lands:admin_reject_land_request' req.id %}">
+                {% csrf_token %}
+                <div class="modal-body py-3">
+                    <div class="mb-3">
+                        <label for="rejectReason" class="form-label fs-13 text-muted">Reason for Rejection *</label>
+                        <textarea class="form-control bg-light text-dark fs-14 py-2" id="rejectReason" name="rejection_reason" rows="3" required placeholder="Describe the reason (e.g. invalid ownership documents, illegible floor plan layout)..." style="border-radius: var(--radius-input);"></textarea>
+                    </div>
+                    <div id="rejectError" class="text-danger fs-13 mt-2 d-none"></div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary fs-12 fw-bold text-uppercase" id="rejectCancelBtn" data-bs-dismiss="modal" style="border-radius: var(--radius-btn);">Cancel</button>
+                    <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2 px-3" id="rejectSubmitBtn" style="background-color: var(--color-danger); border-radius: var(--radius-btn); border: none;">Reject Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     function openRejectModal() {
         const modal = new bootstrap.Modal(document.getElementById('rejectRequestModal'));
+        document.getElementById('rejectError').classList.add('d-none');
+        document.getElementById('rejectReason').value = '';
         modal.show();
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('rejectForm');
+        if (!form) return;
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const reason = document.getElementById('rejectReason').value.trim();
+            if (!reason) {
+                document.getElementById('rejectReason').reportValidity();
+                return;
+            }
+
+            const submitBtn = document.getElementById('rejectSubmitBtn');
+            const cancelBtn = document.getElementById('rejectCancelBtn');
+            const errorEl = document.getElementById('rejectError');
+
+            submitBtn.disabled = true;
+            cancelBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Rejecting...';
+
+            const formData = new FormData(form);
+
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+                },
+                body: formData,
+            })
+            .then(function (res) {
+                return res.json().then(function (data) {
+                    return { status: res.status, data: data };
+                });
+            })
+            .then(function (result) {
+                if (result.status >= 200 && result.status < 300 && result.data.status === 'ok') {
+                    var modalEl = document.getElementById('rejectRequestModal');
+                    var modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) {
+                        modal.hide();
+                    }
+                    var backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(function (b) { b.remove(); });
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+
+                    if (result.data.redirect_url) {
+                        window.location.href = result.data.redirect_url;
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    var errMsg = result.data.error || result.data.errors || 'Rejection failed. Please try again.';
+                    if (Array.isArray(errMsg)) errMsg = errMsg.join(' ');
+                    errorEl.textContent = errMsg;
+                    errorEl.classList.remove('d-none');
+                    submitBtn.disabled = false;
+                    cancelBtn.disabled = false;
+                    submitBtn.innerHTML = 'Reject Request';
+                }
+            })
+            .catch(function () {
+                errorEl.textContent = 'Network error. Please try again.';
+                errorEl.classList.remove('d-none');
+                submitBtn.disabled = false;
+                cancelBtn.disabled = false;
+                submitBtn.innerHTML = 'Reject Request';
+        });
+    });
 </script>
 {% endblock %}

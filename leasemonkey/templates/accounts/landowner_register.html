@@ -1,5 +1,5 @@
 ﻿{% extends "base.html" %}
-{% load static %}
+{% load static wizard_tags %}
 
 {% block title %}Landowner Registration — The Lease Monkey{% endblock %}
 
@@ -339,25 +339,7 @@
             <p>Complete all steps to submit your application</p>
         </div>
 
-        <!-- Stepper -->
-        <div class="lo-stepper">
-            {% for s in "123456"|make_list %}
-            <div class="lo-step{% if forloop.counter0 < step|add:'-1' %} completed{% elif forloop.counter0 == step|add:'-1' %} active{% endif %}">
-                <div class="lo-step-circle">
-                    {% if forloop.counter0 < step|add:'-1' %}<i class="bi bi-check" style="font-size:1rem;"></i>{% else %}{{ forloop.counter }}{% endif %}
-                </div>
-                <span class="lo-step-label">
-                    {% if forloop.counter0 == 0 %}Personal
-                    {% elif forloop.counter0 == 1 %}Government
-                    {% elif forloop.counter0 == 2 %}Land
-                    {% elif forloop.counter0 == 3 %}Documents
-                    {% elif forloop.counter0 == 4 %}Verify
-                    {% elif forloop.counter0 == 5 %}Review{% endif %}
-                </span>
-            </div>
-            {% if not forloop.last %}<div class="lo-step-connector{% if forloop.counter0 < step|add:'-1' %} completed{% endif %}"></div>{% endif %}
-            {% endfor %}
-        </div>
+        {% include 'components/wizard_stepper.html' with ws_steps='Personal,Government,Land,Documents,Verify,Review' ws_current=step ws_prefix='lr' ws_theme='light' %}
         {% endif %}
 
         <!-- Messages -->

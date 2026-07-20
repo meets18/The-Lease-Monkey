@@ -7,10 +7,58 @@
 <!-- Leaflet CSS & JS CDNs -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- PDF.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>
+    if (window.pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    }
+</script>
 
-<div class="container-fluid min-vh-100 p-0" style="position: relative; z-index: 10; padding-top: 75px !important;">
+<div id="boundaryCreatorWrapper" class="container-fluid min-vh-100 p-0" style="position: relative; z-index: 10; padding-top: 75px !important;">
     <!-- Map Canvas Viewport -->
     <div id="mapCreator" style="width: 100%; height: calc(100vh - 75px); background: #0b0e14;"></div>
+
+    {% if land.registration_request.floor_plan %}
+        {% if ".pdf" in land.registration_request.floor_plan.name|lower %}
+            <!-- PDF Thumbnail Preview -->
+            <div id="floorPlanWidget" class="floor-plan-widget glass-panel" style="position: absolute; bottom: 30px; right: 20px; z-index: 1000; width: 80px; height: 80px; cursor: pointer; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 2px solid #F96D00; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.5); transition: all 0.2s ease; display: flex; flex-direction: column; align-items: center; justify-content: center;" onclick="openFullscreenViewer();" title="Click to view full layout plan">
+                <i class="bi bi-file-earmark-pdf-fill fs-2" style="color: #EF4444;"></i>
+                <div style="font-size: 8px; color: #FFF; font-weight: bold; margin-top: 2px; text-transform: uppercase;">PDF LAYOUT</div>
+            </div>
+        {% else %}
+            <!-- Image Thumbnail Preview -->
+            <div id="floorPlanWidget" class="floor-plan-widget glass-panel" style="position: absolute; bottom: 30px; right: 20px; z-index: 1000; width: 80px; height: 80px; cursor: pointer; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 2px solid #F96D00; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.5); transition: all 0.2s ease;" onclick="openFullscreenViewer();" title="Click to view full layout plan">
+                <img src="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" style="width: 100%; height: 100%; object-fit: cover;" />
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.6); color: #FFF; font-size: 8px; text-align: center; padding: 2px 0; font-family: 'Open Sans', sans-serif;">LAYOUT</div>
+            </div>
+        {% endif %}
+
+        <!-- Fullscreen Floor Plan Viewer Overlay -->
+        <div id="fullscreenFloorPlanViewer" class="fullscreen-viewer-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 14, 20, 0.95); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
+            <!-- Controls Bar -->
+            <div class="viewer-controls d-flex gap-3 mb-3 text-white justify-content-center align-items-center bg-dark bg-opacity-75 p-2 px-4 rounded-pill" style="border: 1px solid rgba(255,255,255,0.15); pointer-events: auto;">
+                {% if ".pdf" in land.registration_request.floor_plan.name|lower %}
+                    <a href="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" target="_blank" class="btn btn-dark btn-sm text-white fs-12 fw-bold text-decoration-none" title="Open PDF in new tab" style="background: transparent; border: none; font-family: 'Open Sans', sans-serif;"><i class="bi bi-box-arrow-up-right me-1 text-cyan-glow"></i> Open in New Tab</a>
+                {% else %}
+                    <button type="button" class="btn btn-dark btn-sm rounded-circle text-white" onclick="adjustViewerZoom(1.2);" title="Zoom In" style="background: transparent; border: none;"><i class="bi bi-zoom-in fs-5 text-cyan-glow"></i></button>
+                    <button type="button" class="btn btn-dark btn-sm rounded-circle text-white" onclick="adjustViewerZoom(0.8);" title="Zoom Out" style="background: transparent; border: none;"><i class="bi bi-zoom-out fs-5 text-cyan-glow"></i></button>
+                    <button type="button" class="btn btn-dark btn-sm text-white" onclick="rotateViewerImage();" title="Rotate" style="background: transparent; border: none;"><i class="bi bi-arrow-clockwise fs-5 text-cyan-glow"></i></button>
+                    <a href="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" target="_blank" class="btn btn-dark btn-sm text-white" title="Open PDF in new tab" style="background: transparent; border: none;"><i class="bi bi-box-arrow-up-right fs-5 text-cyan-glow"></i></a>
+                {% endif %}
+                <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2);"></div>
+                <button type="button" class="btn btn-danger btn-sm rounded-pill px-3 fw-bold" onclick="closeFullscreenViewer();" style="border: none;">Close <i class="bi bi-x-lg ms-1"></i></button>
+            </div>
+            <!-- Image Container -->
+            <div class="viewer-image-container" style="width: 90%; height: 80%; overflow: auto; display: flex; justify-content: center; align-items: center; border-radius: 8px; background: rgba(255,255,255,0.02); padding: 20px; border: 1px solid rgba(255,255,255,0.05);">
+                {% if ".pdf" in land.registration_request.floor_plan.name|lower %}
+                    <iframe src="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" style="width: 100%; height: 100%; border: none; border-radius: 6px; background: #FFFFFF;"></iframe>
+                {% else %}
+                    <img id="viewerImage" src="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.2s ease;" />
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
 
     <!-- Floating Address Search Bar -->
     <div id="mapSearchBar" style="position: absolute; top: 90px; left: 50%; transform: translateX(-50%); z-index: 1100; width: 420px; max-width: calc(100vw - 40px);">
@@ -74,6 +122,43 @@
 
         <div class="creator-divider"></div>
 
+        <!-- Site Plan Overlay -->
+        <div class="creator-section">
+            <div class="creator-section-label">Site Plan Overlay</div>
+            <div class="mb-2">
+                <input type="file" id="sitePlanUpload" accept="image/*,application/pdf" class="form-control form-control-sm bg-dark text-white border-secondary" style="font-size: 11px; cursor: pointer;" />
+            </div>
+            <div id="overlayControls" style="display: none; background: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <div class="mb-2">
+                    <label class="creator-prop-label d-flex justify-content-between mb-1" style="font-size: 10px; color: #CBD5E1;">
+                        <span>Opacity</span>
+                        <span id="overlayOpacityLabel">55%</span>
+                    </label>
+                    <input type="range" id="overlayOpacity" min="0" max="1" step="0.05" value="0.55" style="width: 100%; cursor: pointer;" oninput="updateOverlayOpacity(this.value);" />
+                </div>
+                <div class="mb-2">
+                    <label class="creator-prop-label d-flex justify-content-between mb-1" style="font-size: 10px; color: #CBD5E1;">
+                        <span>Rotation</span>
+                        <span id="overlayRotationLabel">0°</span>
+                    </label>
+                    <input type="range" id="overlayRotation" min="-180" max="180" step="1" value="0" style="width: 100%; cursor: pointer;" oninput="updateOverlayRotation(this.value);" />
+                </div>
+                <div class="mb-2">
+                    <label class="creator-prop-label d-flex justify-content-between mb-1" style="font-size: 10px; color: #CBD5E1;">
+                        <span>Size Scale</span>
+                        <span id="overlayScaleLabel">1.0x</span>
+                    </label>
+                    <input type="range" id="overlayScale" min="0.1" max="10.0" step="0.05" value="1.0" style="width: 100%; cursor: pointer;" oninput="updateOverlayScale(this.value);" />
+                </div>
+                <div class="d-flex gap-2 mt-2">
+                    <button type="button" id="btnToggleOverlay" class="btn btn-xs btn-outline-info flex-grow-1 py-1" style="font-size: 10px; border-radius: 4px;" onclick="toggleOverlayVisibility();">Hide</button>
+                    <button type="button" class="btn btn-xs btn-outline-danger flex-grow-1 py-1" style="font-size: 10px; border-radius: 4px;" onclick="removeOverlay();">Remove</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="creator-divider"></div>
+
         <!-- Instructions -->
         <div class="creator-section">
             <div class="creator-section-label">Instructions</div>
@@ -130,6 +215,16 @@
     let markers = [];
     let boundaryPolygon = null;
     let locationPinMarker = null; // The address pin marker (distinct from boundary markers)
+
+    // Site Plan Overlay state variables
+    let sitePlanOverlay = null;
+    let overlayCenterMarker = null;
+    let overlayScaleMarker = null;
+    let overlayRotation = 0;
+    let overlayScale = 1.0;
+    let overlayOpacity = 0.55;
+    let overlayBaseBounds = null;
+    let isOverlayVisible = true;
 
     // Get cookie helper
     function getCookie(name) {
@@ -575,6 +670,268 @@
             saveButton.disabled = false;
             saveButton.innerHTML = 'Save Boundary <i class="bi bi-check2 ms-1"></i>';
         });
+    }
+
+    // JS functions for custom floor plan fullscreen viewer
+    let viewerZoom = 1.0;
+    let viewerRotation = 0;
+
+    function openFullscreenViewer() {
+        viewerZoom = 1.0;
+        viewerRotation = 0;
+        const img = document.getElementById('viewerImage');
+        if (img) {
+            img.style.transform = 'none';
+            img.style.width = 'auto';
+        }
+        const viewer = document.getElementById('fullscreenFloorPlanViewer');
+        if (viewer) {
+            viewer.style.display = 'flex';
+        }
+        // Boost parent container z-index above navbar
+        const parent = document.getElementById('boundaryCreatorWrapper');
+        if (parent) parent.style.zIndex = '100050';
+    }
+
+    function closeFullscreenViewer() {
+        const viewer = document.getElementById('fullscreenFloorPlanViewer');
+        if (viewer) {
+            viewer.style.display = 'none';
+        }
+        // Restore parent container z-index
+        const parent = document.getElementById('boundaryCreatorWrapper');
+        if (parent) parent.style.zIndex = '10';
+    }
+
+    function adjustViewerZoom(factor) {
+        const img = document.getElementById('viewerImage');
+        if (!img) return;
+        viewerZoom *= factor;
+        if (viewerZoom < 0.2) viewerZoom = 0.2;
+        if (viewerZoom > 5.0) viewerZoom = 5.0;
+        applyViewerTransform();
+    }
+
+    function rotateViewerImage() {
+        viewerRotation = (viewerRotation + 90) % 360;
+        applyViewerTransform();
+    }
+
+    function applyViewerTransform() {
+        const img = document.getElementById('viewerImage');
+        if (img) {
+            img.style.transform = `rotate(${viewerRotation}deg) scale(${viewerZoom})`;
+        }
+    }
+
+    // ─── Site Plan Overlay Engine ───────────────────────────────────────────
+    document.getElementById('sitePlanUpload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        removeOverlay();
+
+        if (file.type === 'application/pdf') {
+            loadPdfOverlay(file);
+        } else if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                createOverlay(evt.target.result);
+            };
+            reader.readAsDataURL(file);
+        } else {
+            alert('Unsupported file format. Please upload an image (PNG/JPEG) or PDF.');
+        }
+    });
+
+    function loadPdfOverlay(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const typedarray = new Uint8Array(e.target.result);
+            pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
+                pdf.getPage(1).then(function(page) {
+                    const viewport = page.getViewport({ scale: 2.0 });
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport
+                    };
+
+                    page.render(renderContext).promise.then(function() {
+                        const dataUrl = canvas.toDataURL('image/png');
+                        createOverlay(dataUrl);
+                    });
+                });
+            }).catch(err => {
+                alert("Error reading PDF layout sheet: " + err.message);
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function createOverlay(imgUrl) {
+        const mapCenter = map.getCenter();
+        
+        // Define initial layout bounding box roughly 100 meters wide
+        const latDelta = 0.0006;
+        const lngDelta = 0.0008;
+
+        overlayBaseBounds = L.latLngBounds(
+            [mapCenter.lat - latDelta, mapCenter.lng - lngDelta],
+            [mapCenter.lat + latDelta, mapCenter.lng + lngDelta]
+        );
+
+        sitePlanOverlay = L.imageOverlay(imgUrl, overlayBaseBounds, {
+            opacity: overlayOpacity,
+            interactive: true,
+            zIndex: 500
+        }).addTo(map);
+
+        // Center move handle marker
+        const moveIcon = L.divIcon({
+            className: '',
+            html: '<div style="background: rgba(15,23,42,0.9); border: 2px solid #00E5FF; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: move; box-shadow: 0 2px 6px rgba(0,0,0,0.5);"><i class="bi bi-arrows-move" style="color: #00E5FF; font-size: 11px;"></i></div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+
+        overlayCenterMarker = L.marker(mapCenter, {
+            icon: moveIcon,
+            draggable: true,
+            zIndexOffset: 1000
+        }).addTo(map);
+
+        let lastCenter = mapCenter;
+        overlayCenterMarker.on('dragstart', function() {
+            lastCenter = overlayCenterMarker.getLatLng();
+        });
+
+        overlayCenterMarker.on('drag', function() {
+            const newCenter = overlayCenterMarker.getLatLng();
+            const latDiff = newCenter.lat - lastCenter.lat;
+            const lngDiff = newCenter.lng - lastCenter.lng;
+
+            const baseNE = overlayBaseBounds.getNorthEast();
+            const baseSW = overlayBaseBounds.getSouthWest();
+            overlayBaseBounds = L.latLngBounds(
+                [baseSW.lat + latDiff, baseSW.lng + lngDiff],
+                [baseNE.lat + latDiff, baseNE.lng + lngDiff]
+            );
+
+            lastCenter = newCenter;
+            updateOverlayScale(overlayScale);
+        });
+
+        // Trigger loading updates
+        sitePlanOverlay.on('load', applyOverlayTransform);
+        map.on('zoom move', applyOverlayTransform);
+
+        // Show UI controls panel
+        document.getElementById('overlayControls').style.display = 'block';
+        resetOverlaySliders();
+    }
+
+    function applyOverlayTransform() {
+        if (!sitePlanOverlay) return;
+        const img = sitePlanOverlay.getElement();
+        if (!img) return;
+
+        // Extract Leaflet's base positioning transform (translate3d / matrix)
+        let baseTransform = img.style.transform || '';
+        baseTransform = baseTransform.replace(/rotate\([^)]+\)/g, '').replace(/scale\([^)]+\)/g, '').trim();
+
+        img.style.transformOrigin = 'center center';
+        img.style.transform = `${baseTransform} rotate(${overlayRotation}deg)`;
+    }
+
+    function updateOverlayOpacity(val) {
+        overlayOpacity = parseFloat(val);
+        document.getElementById('overlayOpacityLabel').innerText = Math.round(overlayOpacity * 100) + '%';
+        if (sitePlanOverlay) {
+            sitePlanOverlay.setOpacity(overlayOpacity);
+        }
+    }
+
+    function updateOverlayRotation(val) {
+        overlayRotation = parseInt(val);
+        document.getElementById('overlayRotationLabel').innerText = overlayRotation + '°';
+        applyOverlayTransform();
+    }
+
+    function updateOverlayScale(val) {
+        overlayScale = parseFloat(val);
+        document.getElementById('overlayScaleLabel').innerText = overlayScale.toFixed(2) + 'x';
+        if (!sitePlanOverlay || !overlayBaseBounds) return;
+
+        const center = overlayBaseBounds.getCenter();
+        const northEast = overlayBaseBounds.getNorthEast();
+
+        const latDiff = (northEast.lat - center.lat) * overlayScale;
+        const lngDiff = (northEast.lng - center.lng) * overlayScale;
+
+        const newBounds = L.latLngBounds(
+            [center.lat - latDiff, center.lng - lngDiff],
+            [center.lat + latDiff, center.lng + lngDiff]
+        );
+
+        sitePlanOverlay.setBounds(newBounds);
+        applyOverlayTransform();
+    }
+
+    function toggleOverlayVisibility() {
+        if (!sitePlanOverlay) return;
+        const btn = document.getElementById('btnToggleOverlay');
+        if (isOverlayVisible) {
+            sitePlanOverlay.remove();
+            if (overlayCenterMarker) overlayCenterMarker.remove();
+            btn.innerText = 'Show';
+            btn.className = 'btn btn-xs btn-info flex-grow-1 py-1';
+            isOverlayVisible = false;
+        } else {
+            sitePlanOverlay.addTo(map);
+            if (overlayCenterMarker) overlayCenterMarker.addTo(map);
+            btn.innerText = 'Hide';
+            btn.className = 'btn btn-xs btn-outline-info flex-grow-1 py-1';
+            isOverlayVisible = true;
+            applyOverlayTransform();
+        }
+    }
+
+    function removeOverlay() {
+        if (sitePlanOverlay) {
+            sitePlanOverlay.remove();
+            sitePlanOverlay = null;
+        }
+        if (overlayCenterMarker) {
+            overlayCenterMarker.remove();
+            overlayCenterMarker = null;
+        }
+        map.off('zoom move', applyOverlayTransform);
+        overlayBaseBounds = null;
+        document.getElementById('overlayControls').style.display = 'none';
+        document.getElementById('sitePlanUpload').value = '';
+    }
+
+    function resetOverlaySliders() {
+        overlayOpacity = 0.55;
+        overlayRotation = 0;
+        overlayScale = 1.0;
+        isOverlayVisible = true;
+
+        document.getElementById('overlayOpacity').value = 0.55;
+        document.getElementById('overlayOpacityLabel').innerText = '55%';
+        document.getElementById('overlayRotation').value = 0;
+        document.getElementById('overlayRotationLabel').innerText = '0°';
+        document.getElementById('overlayScale').value = 1.0;
+        document.getElementById('overlayScaleLabel').innerText = '1.0x';
+
+        const btn = document.getElementById('btnToggleOverlay');
+        btn.innerText = 'Hide';
+        btn.className = 'btn btn-xs btn-outline-info flex-grow-1 py-1';
     }
 </script>
 

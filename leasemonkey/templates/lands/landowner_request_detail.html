@@ -336,6 +336,19 @@
                         </a>
                     </div>
                 </div>
+        </div>
+        {% endif %}
+
+        {% if req.admin_message %}
+        <div class="alert border-0 shadow-sm rounded-3 p-3 mb-4 fs-14" style="background-color: #EFF6FF; border-left: 4px solid #2563EB !important; color: #1E3A8A;">
+            <div class="d-flex align-items-start gap-2">
+                <div style="font-size: 16px; flex-shrink: 0; margin-top: 1px;">
+                    <i class="bi bi-chat-left-text-fill" style="color: #2563EB;"></i>
+                </div>
+                <div>
+                    <strong class="fw-bold d-block mb-1" style="color: #1D4ED8;">Message from Administrator</strong>
+                    <div style="white-space: pre-wrap;">{{ req.admin_message }}</div>
+                </div>
             </div>
         </div>
         {% endif %}
@@ -527,7 +540,6 @@
             <p class="text-dark fs-14 mb-0" style="white-space: pre-wrap;">{{ req.description }}</p>
         </div>
         {% endif %}
-
         {% comment %} ── FOOTER BACK LINK ── {% endcomment %}
         <div class="pt-2">
             <a href="{% url 'landowner_dashboard' %}?section=requests" class="text-decoration-none fw-bold fs-13 font-ranade" style="color: var(--accent-orange, #F96D00);">

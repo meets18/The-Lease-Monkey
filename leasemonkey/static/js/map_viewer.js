@@ -211,6 +211,24 @@ function updateRoadWeights() {
   });
 }
 
+function updatePlotLabelVisibility() {
+  const currentZoom = map.getZoom();
+  const showLabels = currentZoom >= 17.5;
+  mapPolygons.forEach(polygon => {
+    if (polygon.labelMarker) {
+      if (showLabels && !satelliteActive) {
+        if (!map.hasLayer(polygon.labelMarker)) {
+          polygon.labelMarker.addTo(map);
+        }
+      } else {
+        if (map.hasLayer(polygon.labelMarker)) {
+          map.removeLayer(polygon.labelMarker);
+        }
+      }
+    }
+  });
+}
+
 let is3DActive = false;
 let building3DLayers = [];
 
@@ -388,6 +406,7 @@ function initMap() {
 
   // Listen to map zoom changes to dynamically scale road weights
   map.on('zoomend', updateRoadWeights);
+  map.on('zoomend', updatePlotLabelVisibility);
 
   // If satellite mode is active on load, add satellite layer and toggle class
   if (satelliteActive) {
@@ -444,19 +463,26 @@ function initMap() {
     });
   }
 
-  // Add road label in the central corridor between North and South plot rows
-  if (typeof landConfig === 'undefined' || landConfig.slug === 'demo-land') {
-    const roadIcon = L.divIcon({
-      className: 'road-label-container',
-      html: '<div class="map-road-label">12M WIDE ACCESS ROAD</div>',
-      iconSize: [250, 20],
-      iconAnchor: [125, 10]
-    });
-    L.marker([26.78851, 75.8363], { icon: roadIcon, interactive: false }).addTo(map);
-  } else {
+  if (typeof landConfig !== 'undefined' && landConfig.slug !== 'demo-land') {
     // Render database roads and gates for custom properties
     if (landConfig.roads) {
-      landConfig.roads.forEach(road => renderRoadOnMap(road));
+      // 1. Draw all outlines
+      const outlines = landConfig.roads.map(road => renderRoadOutline(road));
+      // 2. Draw all solid surfaces
+      const polylines = landConfig.roads.map(road => renderRoadSurface(road));
+      // 3. Draw all stripes
+      const stripes = landConfig.roads.map(road => renderRoadStripe(road));
+      
+      // Populate layer tracking for scaling zoom adjustments
+      landConfig.roads.forEach((road, idx) => {
+        const roadWidth = road.width || road.width_meters || 9.0;
+        renderedRoadLayers.push({
+          outline: outlines[idx],
+          polyline: polylines[idx],
+          stripe: stripes[idx],
+          width: roadWidth
+        });
+      });
     }
     if (landConfig.gates) {
       landConfig.gates.forEach(gate => renderGateOnMap(gate));
@@ -542,6 +568,9 @@ function initMap() {
   setupFilters();
   setupSearch();
   setupUtilities();
+
+  // Apply initial plot label visibility
+  updatePlotLabelVisibility();
 }
 
 // Select Map Plot polygon
@@ -669,6 +698,7 @@ function setupToggleControls() {
 
       // Hide road and gate text labels on satellite layer
       activeLabelMarkers.forEach(m => map.removeLayer(m));
+      updatePlotLabelVisibility();
     } else {
       satelliteBtn.classList.remove('active-cyan-btn');
       if (mapEl) mapEl.classList.remove('satellite-active');
@@ -693,6 +723,7 @@ function setupToggleControls() {
 
       // Show road and gate text labels back on vector layout
       activeLabelMarkers.forEach(m => m.addTo(map));
+      updatePlotLabelVisibility();
     }
 
     requestAnimationFrame(() => {
@@ -884,6 +915,9 @@ function closeDetailsPanel() {
 // Centroid calculator helper
 function getPolygonCentroid(latlngs) {
   let pts = latlngs;
+  if (pts.length === 1 && Array.isArray(pts[0])) {
+    pts = pts[0];
+  }
   let points = pts.map(p => {
     if (Array.isArray(p)) {
       return { lat: p[0], lng: p[1] };
@@ -892,44 +926,34 @@ function getPolygonCentroid(latlngs) {
   });
 
   if (points.length === 0) return { lat: 0, lng: 0 };
-  if (points.length < 3) return points[0];
+  
+  // Filter unique vertices
+  let uniquePoints = [];
+  let seen = new Set();
+  points.forEach(p => {
+    let key = `${p.lat.toFixed(8)}_${p.lng.toFixed(8)}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniquePoints.push(p);
+    }
+  });
 
-  let first = points[0];
-  let last = points[points.length - 1];
-  let closedPts = [...points];
-  if (first.lat !== last.lat || first.lng !== last.lng) {
-    closedPts.push(first);
-  }
+  if (uniquePoints.length === 0) return points[0];
 
-  let area = 0;
-  let cx = 0;
-  let cy = 0;
-  let n = closedPts.length - 1;
+  let sumLat = 0;
+  let sumLng = 0;
+  uniquePoints.forEach(p => {
+    sumLat += p.lat;
+    sumLng += p.lng;
+  });
 
-  for (let i = 0; i < n; i++) {
-    let p1 = closedPts[i];
-    let p2 = closedPts[i+1];
-    let factor = (p1.lat * p2.lng) - (p2.lat * p1.lng);
-    area += factor;
-    cx += (p1.lat + p2.lat) * factor;
-    cy += (p1.lng + p2.lng) * factor;
-  }
-
-  area = area / 2.0;
-  if (area === 0) return points[0];
-
-  cx = cx / (6.0 * area);
-  cy = cy / (6.0 * area);
-
-  return { lat: cx, lng: cy };
+  return { lat: sumLat / uniquePoints.length, lng: sumLng / uniquePoints.length };
 }
 
-function renderRoadOnMap(road) {
+function renderRoadOutline(road) {
   const currentZoom = map.getZoom();
   const roadWidth = road.width || road.width_meters || 9.0;
-
-  // ── Thin dark shadow outline ────────────────────────────────────────────
-  const outline = L.polyline(road.coordinates, {
+  return L.polyline(road.coordinates, {
     color: '#2a2d33',
     weight: calculateRoadOutlineWeight(roadWidth, currentZoom),
     opacity: 0.9,
@@ -937,9 +961,12 @@ function renderRoadOnMap(road) {
     lineCap: 'butt',
     lineJoin: 'miter'
   }).addTo(map);
+}
 
-  // ── Solid road surface (softer warm grey) ────────────────────────────────
-  const polyline = L.polyline(road.coordinates, {
+function renderRoadSurface(road) {
+  const currentZoom = map.getZoom();
+  const roadWidth = road.width || road.width_meters || 9.0;
+  return L.polyline(road.coordinates, {
     color: '#484b50',
     weight: calculateRoadWeight(roadWidth, currentZoom),
     opacity: 0.85,
@@ -947,42 +974,29 @@ function renderRoadOnMap(road) {
     lineCap: 'butt',
     lineJoin: 'miter'
   }).addTo(map);
+}
 
-  // ── Clean lane dividing strip ────────────────────────────────────────────
-  const stripe = L.polyline(road.coordinates, {
+function renderRoadStripe(road) {
+  const currentZoom = map.getZoom();
+  return L.polyline(road.coordinates, {
     color: '#7a8088',
     weight: calculateRoadStripeWeight(currentZoom),
     dashArray: '6, 12',
     opacity: 0.45,
     interactive: false
   }).addTo(map);
+}
 
-  // Road text tag indicator
-  const coords = road.coordinates;
-  const centerIdx = Math.floor(coords.length / 2);
-  const centerPt = coords[centerIdx];
-
-  const labelMarker = L.marker(centerPt, {
-    icon: L.divIcon({
-      className: 'road-label-tooltip',
-      html: `<span class="road-name-text text-uppercase">${road.name}</span>`,
-      iconSize: [200, 20]
-    }),
-    interactive: false
-  });
-
-  // Push to dynamic toggle list
-  activeLabelMarkers.push(labelMarker);
-
-  // Render on initial load only if satellite view is disabled
-  if (!satelliteActive) {
-    labelMarker.addTo(map);
-  }
+function renderRoadOnMap(road) {
+  const outline = renderRoadOutline(road);
+  const polyline = renderRoadSurface(road);
+  const stripe = renderRoadStripe(road);
+  const roadWidth = road.width || road.width_meters || 9.0;
 
   renderedRoadLayers.push({
     outline: outline,
     polyline: polyline,
-    stripe: stripe, // road lane dividing stripe
+    stripe: stripe,
     width: roadWidth
   });
 }
@@ -998,26 +1012,24 @@ function renderGateOnMap(gate) {
     gateLabel = 'ENTRY/EXIT';
   }
 
-  // 1. Static Pin Marker icon (always visible)
+  // 1. Neon glowing pulser ring at the gate coordinates
   L.marker([gate.latitude, gate.longitude], {
     icon: L.divIcon({
-      className: 'gate-marker-tooltip-icon-only',
-      html: `<div class="gate-pin-icon" style="background-color: ${gateColor}; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.6);">
-                <i class="bi bi-geo-alt-fill text-dark" style="font-size: 11px; line-height: 1;"></i>
-             </div>`,
-      iconSize: [22, 22],
-      iconAnchor: [11, 11]
+      className: 'gate-highlight-wrap',
+      html: `<div class="gate-pulse-ring" style="color: ${gateColor};"></div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
     }),
     interactive: false
   }).addTo(map);
 
-  // 2. Gate text label (hidden in satellite view)
+  // 2. High-contrast text label placed cleanly outside the point (above the gate coordinate)
   const labelMarker = L.marker([gate.latitude, gate.longitude], {
     icon: L.divIcon({
-      className: 'gate-label-tooltip',
-      html: `<div class="gate-pin-label-text" style="color: #ffffff; font-family: 'Ranade', sans-serif; font-size: 11px; font-weight: 700; white-space: nowrap; margin-left: 26px; margin-top: -3px; text-shadow: 0 1px 4px rgba(0,0,0,0.8);">${gate.name} (${gateLabel})</div>`,
-      iconSize: [150, 20],
-      iconAnchor: [0, 10]
+      className: 'gate-label-outside',
+      html: `<div class="gate-outside-text text-uppercase" style="color: ${gateColor}; font-family: 'Ranade', sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.1em;">${gateLabel}</div>`,
+      iconSize: [120, 24],
+      iconAnchor: [60, 30] // Positioned 30px above the highlight so it sits outside
     }),
     interactive: false
   });

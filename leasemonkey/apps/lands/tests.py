@@ -31,7 +31,8 @@ class PurchaseRequestFormTests(TestCase):
             owner=self.owner,
             slug="test-land",
             area=10.0,
-            average_plot_price=1500000
+            average_plot_price=1500000,
+            is_live=True
         )
         self.plot = Plot.objects.create(
             land=self.land,
@@ -76,3 +77,97 @@ class PurchaseRequestFormTests(TestCase):
         self.assertEqual(pr.email, 'pr_buyer@test.com')
         self.assertEqual(pr.phone_number, '+919876543210')
         self.assertEqual(pr.proposed_amount, 1450000)
+from apps.lands.models import LandRegistrationRequest
+from django.core.exceptions import PermissionDenied
+
+class SecurityAndChatTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.landowner = User.objects.create_user(
+            username='landowner_test',
+            email='landowner@test.com',
+            password='Password123!',
+            role='LAND_OWNER',
+            is_verified=True
+        )
+        self.admin = User.objects.create_user(
+            username='admin_test',
+            email='admin@test.com',
+            password='Password123!',
+            role='ADMIN',
+            is_superuser=True,
+            is_verified=True
+        )
+        self.buyer = User.objects.create_user(
+            username='buyer_test',
+            email='buyer@test.com',
+            password='Password123!',
+            role='BUYER',
+            is_verified=True
+        )
+        self.req = LandRegistrationRequest.objects.create(
+            owner=self.landowner,
+            property_name='Greenfields',
+            state='Rajasthan',
+            district='Jaipur',
+            city_village='Jaipur',
+            pin_code='302001',
+            location='26.9, 75.8',
+            average_plot_price=2000000,
+            status='pending'
+        )
+        self.land = Land.objects.create(
+            owner=self.landowner,
+            name='Greenfields',
+            slug='greenfields',
+            area=5.0,
+            average_plot_price=2000000,
+            is_live=False
+        )
+
+    def test_resubmission_locking(self):
+        self.client.login(username='landowner_test', password='Password123!')
+        url = reverse('lands:landowner_request_data', kwargs={'req_id': self.req.id})
+        
+        # 1. Under pending review, it should be locked
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Only rejected requests', response.json()['error'])
+
+        # 2. Under rejected, it should allow pre-fill
+        self.req.status = 'rejected'
+        self.req.save()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['property_name'], 'Greenfields')
+
+    def test_digitization_gating(self):
+        url = reverse('lands:plot_viewer', kwargs={'slug': 'greenfields'})
+        
+        # 1. Anonymous/unauthenticated user gets 403 PermissionDenied
+        self.client.logout()
+        try:
+            response = self.client.get(url)
+            # Django test client might return 403 or raise PermissionDenied
+            self.assertEqual(response.status_code, 403)
+        except PermissionDenied:
+            pass
+
+        # 2. Buyer user gets 403 PermissionDenied
+        self.client.login(username='buyer_test', password='Password123!')
+        try:
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 403)
+        except PermissionDenied:
+            pass
+
+        # 3. Land owner gets 200 success
+        self.client.login(username='landowner_test', password='Password123!')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        # 4. Admin gets 200 success
+        self.client.login(username='admin_test', password='Password123!')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+

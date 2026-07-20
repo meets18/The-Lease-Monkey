@@ -290,7 +290,6 @@ div[style*="z-index: 1000000"],
     user-select: none;
 }
 
-/* Permanent plot number text tooltip styles */
 .plot-number-tooltip {
     background: transparent !important;
     border: none !important;
@@ -298,12 +297,17 @@ div[style*="z-index: 1000000"],
     color: #1a1a1a !important;
     font-family: 'Ranade', sans-serif;
     font-weight: 700;
-    transform: rotate(20deg);
-    transform-origin: center;
     font-size: 12px !important;
     pointer-events: none !important;
     user-select: none !important;
     text-shadow: 0 0 4px rgba(255,255,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.plot-number-tooltip div {
+    transform: rotate(20deg);
+    transform-origin: center;
 }
 
 /* Hide plot text and road markers when satellite map is active */

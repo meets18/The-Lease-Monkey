@@ -1,6 +1,7 @@
 import os
 import json
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -214,6 +215,50 @@ def land_creator(request):
     }
     return render(request, 'lands/creator.html', context)
 
+def handle_land_deletion(land):
+    """
+    Helper function to reject any linked LandRegistrationRequest when its Land object is deleted,
+    and notify the landowner.
+    """
+    req = getattr(land, 'registration_request', None)
+    if req:
+        from apps.core.models import Notification
+        from django.core.mail import send_mail
+        from django.conf import settings
+        from django.utils import timezone
+
+        req.status = 'rejected'
+        req.rejection_reason = f"The digitized land layout/draft for '{req.property_name}' was deleted or discarded by the administrator."
+        req.reviewed_at = timezone.now()
+        req.save(update_fields=['status', 'rejection_reason', 'reviewed_at'])
+
+        # Notify landowner
+        Notification.objects.create(
+            recipient=req.owner,
+            sender=req.owner,
+            notif_type='land_request_rejected',
+            title='❌ Land Layout Deleted',
+            message=f"Your land registration request for '{req.property_name}' was rejected because the digitized land layout was deleted by the administrator."
+        )
+
+        # Email
+        subject = f"Lease Monkey: Land Registration Layout Deleted — {req.property_name}"
+        email_body = (
+            f"Hello {req.owner.get_full_name() or req.owner.username},\n\n"
+            f"We are writing to inform you that your land registration request for '{req.property_name}' has been rejected "
+            f"because the digitized land layout draft was deleted/discarded by the administrator.\n\n"
+            f"Please log in to your dashboard to resubmit or update your request.\n\n"
+            f"— The Lease Monkey Team"
+        )
+        send_mail(
+            subject=subject,
+            message=email_body,
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[req.owner.email],
+            fail_silently=True
+        )
+
+
 @login_required
 def discard_land_draft(request, slug):
     """Discards a newly created land draft if boundary plotting wasn't completed."""
@@ -232,6 +277,7 @@ def discard_land_draft(request, slug):
         return redirect('admin_dashboard')
 
     name = land.name
+    handle_land_deletion(land)
     land.delete()
     messages.success(request, f"Draft land '{name}' was discarded because no boundary was saved.")
     return redirect('admin_dashboard')
@@ -403,6 +449,7 @@ def delete_land(request, slug):
         
     land = get_object_or_404(Land, slug=slug)
     name = land.name
+    handle_land_deletion(land)
     land.delete()
     messages.success(request, f"Land '{name}' and all its plots and buildings have been deleted successfully.")
     return redirect('admin_dashboard')
@@ -1095,27 +1142,35 @@ def submit_purchase_request(request, slug, plot_number):
         if not recent_otp or (timezone.now() - recent_otp.created_at).total_seconds() > 1800:
             return JsonResponse({'error': 'Email not verified or verification expired.'}, status=400)
             
-        land = get_object_or_404(Land, slug=slug)
-        if not land.is_live:
-            return JsonResponse({'error': 'This land layout is currently offline/under construction.'}, status=400)
-        
-        # Check for existing pending request
-        if PurchaseRequest.objects.filter(buyer=request.user, land=land, plot_number=plot_number, status__in=['pending', 'meeting_scheduled']).exists():
-            return JsonResponse({'error': 'You already have an active request for this plot.'}, status=400)
+        from django.db import transaction
+
+        with transaction.atomic():
+            land = get_object_or_404(Land, slug=slug)
+            if not land.is_live:
+                return JsonResponse({'error': 'This land layout is currently offline/under construction.'}, status=400)
             
-        # Create request
-        pr = PurchaseRequest.objects.create(
-            buyer=request.user,
-            land=land,
-            plot_number=plot_number,
-            full_name=full_name,
-            aadhaar_number=aadhaar_number,
-            pan_number=pan_number,
-            email=email,
-            phone_number=phone_number,
-            proposed_amount=proposed_amount,
-            status='pending'
-        )
+            # Lock the plot check to prevent double reservation
+            plot = land.plots.select_for_update().filter(plot_number=plot_number).first()
+            if plot and plot.status == 'sold':
+                return JsonResponse({'error': 'This plot has already been sold.'}, status=400)
+
+            # Check for existing pending request
+            if PurchaseRequest.objects.filter(buyer=request.user, land=land, plot_number=plot_number, status__in=['pending', 'meeting_scheduled']).exists():
+                return JsonResponse({'error': 'You already have an active request for this plot.'}, status=400)
+                
+            # Create request
+            pr = PurchaseRequest.objects.create(
+                buyer=request.user,
+                land=land,
+                plot_number=plot_number,
+                full_name=full_name,
+                aadhaar_number=aadhaar_number,
+                pan_number=pan_number,
+                email=email,
+                phone_number=phone_number,
+                proposed_amount=proposed_amount,
+                status='pending'
+            )
         
         # Notify landowner
         Notification.objects.create(
@@ -1161,7 +1216,10 @@ def purchase_request_action(request, request_id):
     if request.user.role != 'LAND_OWNER':
         return JsonResponse({'error': 'Only landowners can manage purchase requests.'}, status=403)
         
-    pr = get_object_or_404(PurchaseRequest, id=request_id, land__owner=request.user)
+    from django.db import transaction
+
+    with transaction.atomic():
+        pr = get_object_or_404(PurchaseRequest.objects.select_for_update(), id=request_id, land__owner=request.user)
     
     try:
         data = json.loads(request.body)
@@ -1227,7 +1285,7 @@ def purchase_request_action(request, request_id):
             pr.save()
 
             # Update plot status to reserved
-            plot = pr.land.plots.filter(plot_number=pr.plot_number).first()
+            plot = pr.land.plots.select_for_update().filter(plot_number=pr.plot_number).first()
             if plot:
                 plot.status = 'reserved'
                 plot.save()
@@ -1295,7 +1353,7 @@ def purchase_request_action(request, request_id):
             pr.save()
             
             # Update plot status to sold
-            plot = pr.land.plots.filter(plot_number=pr.plot_number).first()
+            plot = pr.land.plots.select_for_update().filter(plot_number=pr.plot_number).first()
             if plot:
                 plot.status = 'sold'
                 plot.save()
@@ -1363,7 +1421,7 @@ def purchase_request_action(request, request_id):
             
             # Revert plot status to available if it was reserved
             if was_meeting_scheduled:
-                plot = pr.land.plots.filter(plot_number=pr.plot_number).first()
+                plot = pr.land.plots.select_for_update().filter(plot_number=pr.plot_number).first()
                 if plot and plot.status == 'reserved':
                     plot.status = 'available'
                     plot.save()
@@ -1454,7 +1512,7 @@ def submit_land_request(request):
         
         # Location Details
         state = request.POST.get('state', '').strip()
-        district = request.POST.get('district', '').strip()
+        district = ''
         city_village = request.POST.get('city_village', '').strip()
         complete_address = request.POST.get('complete_address', '').strip()
         pin_code = request.POST.get('pin_code', '').strip()
@@ -1469,14 +1527,13 @@ def submit_land_request(request):
         registry_sale_deed = request.FILES.get('registry_sale_deed')
         supporting_documents = request.FILES.get('supporting_documents')
         floor_plan = request.FILES.get('floor_plan')
+        plot_pricing_csv = request.FILES.get('plot_pricing_csv')
 
         errors = []
         if not property_name:
             errors.append("Property name is required.")
         if not state:
             errors.append("State is required.")
-        if not district:
-            errors.append("District is required.")
         if not city_village:
             errors.append("City / Village is required.")
         if not complete_address:
@@ -1489,6 +1546,10 @@ def submit_land_request(request):
             errors.append("Please upload at least one ownership document.")
         if not floor_plan:
             errors.append("Site floor plan layout is required.")
+        if not plot_pricing_csv:
+            errors.append("Plot sizing and pricing sheet (CSV) is required.")
+        elif not plot_pricing_csv.name.lower().endswith('.csv'):
+            errors.append("Plot pricing sheet must be a valid CSV file.")
 
         try:
             avg_price = float(avg_price_str) if avg_price_str else None
@@ -1505,8 +1566,8 @@ def submit_land_request(request):
                 messages.error(request, err)
             return redirect('landowner_dashboard')
 
-        # Backward compatibility location string
-        location = f"{city_village}, {district}, {state} {pin_code}"
+        # Precise geocoding search location string: Address + City + State + PIN Code
+        location = f"{complete_address}, {city_village}, {state} {pin_code}"
 
         from apps.lands.models import LandRegistrationRequest
         req = LandRegistrationRequest.objects.create(
@@ -1526,7 +1587,13 @@ def submit_land_request(request):
             registry_sale_deed=registry_sale_deed,
             supporting_documents=supporting_documents,
             floor_plan=floor_plan,
+            plot_pricing_csv=plot_pricing_csv,
         )
+
+        app = getattr(request.user, 'landowner_application', None)
+        aadhaar_str = app.aadhaar_number if app else "N/A"
+        pan_str = app.pan_number if app else "N/A"
+        phone_str = app.mobile_number if app else "N/A"
 
         from apps.core.models import Notification
         from django.core.mail import send_mail
@@ -1542,6 +1609,11 @@ def submit_land_request(request):
                 message=(
                     f'{request.user.get_full_name() or request.user.username} has submitted a land '
                     f'registration request for property: "{property_name}" in {location}.\n\n'
+                    f'Landowner Name: {request.user.get_full_name() or request.user.username}\n'
+                    f'Email: {request.user.email}\n'
+                    f'Phone: {phone_str}\n'
+                    f'Aadhaar: {aadhaar_str}\n'
+                    f'PAN: {pan_str}\n\n'
                     f'Please review it from the admin dashboard.'
                 )
             )
@@ -1551,8 +1623,13 @@ def submit_land_request(request):
                 f'Hello Admin,\n\n'
                 f'A new land registration request has been submitted.\n\n'
                 f'Property Name : {property_name}\n'
-                f'Location      : {location}\n'
-                f'Submitted by  : {request.user.get_full_name() or request.user.username} ({request.user.email})\n\n'
+                f'Location      : {location}\n\n'
+                f'--- LANDOWNER PROFILE ---\n'
+                f'Name          : {request.user.get_full_name() or request.user.username}\n'
+                f'Email         : {request.user.email}\n'
+                f'Phone         : {phone_str}\n'
+                f'Aadhaar Number: {aadhaar_str}\n'
+                f'PAN Number    : {pan_str}\n\n'
                 f'Please log in to the admin dashboard to review it.\n\n'
                 f'— Lease Monkey System'
             ),
@@ -1580,6 +1657,8 @@ def landowner_request_data(request, req_id):
     """Returns JSON data for a land registration request (used for resubmission pre-fill)."""
     from apps.lands.models import LandRegistrationRequest
     req = get_object_or_404(LandRegistrationRequest, pk=req_id, owner=request.user)
+    if req.status != 'rejected':
+        return JsonResponse({'error': 'Only rejected requests can be resubmitted.'}, status=400)
     return JsonResponse({
         'property_name': req.property_name,
         'state': req.state,
@@ -1674,8 +1753,8 @@ def admin_register_land_from_request(request, req_id):
         messages.error(request, f"A land named '{req.property_name}' already exists. Edit the request before registering.")
         return redirect('lands:admin_land_request_detail', req_id=req_id)
 
-    # Use the precise location fields for the land's location field
-    location = f"{req.city_village}, {req.district}, {req.state} {req.pin_code}" if req.city_village else req.location
+    # Use the precise location fields (including complete address) for geocoding pinpoint accuracy
+    location = f"{req.complete_address}, {req.city_village}, {req.state} {req.pin_code}" if req.city_village else req.location
 
     land = Land.objects.create(
         name=req.property_name,
@@ -1697,6 +1776,55 @@ def admin_register_land_from_request(request, req_id):
 
 
 @login_required
+def admin_update_request_message(request, req_id):
+    """Allows admin to send a message or request information from the landowner."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=400)
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        raise PermissionDenied
+
+    from apps.lands.models import LandRegistrationRequest
+    from apps.core.models import Notification
+    from django.core.mail import send_mail
+    from django.conf import settings
+
+    req = get_object_or_404(LandRegistrationRequest, pk=req_id)
+    message = request.POST.get('admin_message', '').strip()
+
+    req.admin_message = message
+    req.save(update_fields=['admin_message'])
+
+    # Send Notification to Landowner
+    Notification.objects.create(
+        recipient=req.owner,
+        sender=request.user,
+        notif_type='lo_registration_request',
+        title="Information Request on Property Registration",
+        message=f"Administrator sent a message regarding '{req.property_name}': {message[:80]}..."
+    )
+
+    # Send Email
+    subject = f"Lease Monkey: Information required for {req.property_name}"
+    email_body = (
+        f"Hello {req.owner.get_full_name() or req.owner.username},\n\n"
+        f"The administrator has sent a message or requested more information regarding your land registration request for '{req.property_name}':\n\n"
+        f"Message:\n\"{message}\"\n\n"
+        f"Please review this and make necessary improvements or respond accordingly.\n\n"
+        f"— The Lease Monkey Team"
+    )
+    send_mail(
+        subject=subject,
+        message=email_body,
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[req.owner.email],
+        fail_silently=True
+    )
+
+    messages.success(request, "Message sent to landowner successfully.")
+    return redirect('lands:admin_land_request_detail', req_id=req_id)
+
+
+@login_required
 def admin_reject_land_request(request, req_id):
     """Rejects a land registration request and conditionally notifies the landowner."""
     if request.method != 'POST':
@@ -1712,8 +1840,14 @@ def admin_reject_land_request(request, req_id):
 
     req = get_object_or_404(LandRegistrationRequest, pk=req_id)
     reason = request.POST.get('rejection_reason', '').strip()
-    send_email = request.POST.get('send_email', 'false').lower() == 'true'
-    send_inapp = request.POST.get('send_inapp', 'false').lower() == 'true'
+    send_email = True
+    send_inapp = True
+
+    if not reason:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'status': 'error', 'error': 'Rejection reason is required.'}, status=400)
+        messages.error(request, 'Rejection reason is required.')
+        return redirect('lands:admin_land_request_detail', req_id=req.id)
 
     req.status = 'rejected'
     req.rejection_reason = reason
@@ -1751,6 +1885,10 @@ def admin_reject_land_request(request, req_id):
         )
 
     messages.success(request, f"Request for '{req.property_name}' rejected. Landowner notified.")
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'ok', 'redirect_url': reverse('admin_dashboard')})
+
     return redirect('admin_dashboard')
 
 
@@ -1881,3 +2019,22 @@ def toggle_land_live(request, slug):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({'is_live': land.is_live, 'message': msg})
     return redirect('admin_dashboard')
+
+
+import csv
+from django.http import HttpResponse
+
+def download_sample_csv(request):
+    """Generates and returns a downloadable sample plot pricing CSV template."""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="leasemonkey_plot_pricing_template.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Plot Number', 'Area (sq ft)', 'Facing', 'Expected Price (₹)', 'Notes'])
+    writer.writerow(['A-1', '1200', 'East', '1200000', 'Premium Corner Plot'])
+    writer.writerow(['A-2', '1000', 'North', '1000000', 'Standard facing'])
+    writer.writerow(['A-3', '1500', 'West', '1400000', 'Road side'])
+
+    return response
+
+

@@ -25,6 +25,8 @@ urlpatterns = [
     path('plots/<slug:slug>/delete-photo/<int:photo_id>/', views.delete_gallery_photo, name='delete_gallery_photo'),
     path('plots/<slug:slug>/update-photo-caption/<int:photo_id>/',   views.update_photo_caption,   name='update_photo_caption'),
 
+    path('download-sample-csv/', views.download_sample_csv, name='download_sample_csv'),
+
     # ── Landowner Deletion Requests ───────────────────────────────────────────
     path('request-delete-land/<slug:slug>/',                         views.request_land_deletion,  name='request_land_deletion'),
     path('request-delete-plot/<slug:slug>/<str:plot_number>/',       views.request_plot_deletion,  name='request_plot_deletion'),
@@ -51,6 +53,7 @@ urlpatterns = [
     path('admin/land-requests/<int:req_id>/review/', views.admin_set_request_review, name='admin_set_request_review'),
     path('admin/land-requests/<int:req_id>/register/', views.admin_register_land_from_request, name='admin_register_land'),
     path('admin/land-requests/<int:req_id>/reject/', views.admin_reject_land_request, name='admin_reject_land_request'),
+    path('admin/land-requests/<int:req_id>/message/', views.admin_update_request_message, name='admin_update_request_message'),
     path('admin/land-requests/<int:req_id>/finish/', views.admin_finish_registration, name='admin_finish_registration'),
 
     # ── Admin: Live / Draft Toggle ──────────────────────────────────────────────

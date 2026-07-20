@@ -1,0 +1,143 @@
+{% load wizard_tags %}
+<style>
+    .ws-wrapper {
+        width: 100%;
+        padding: 0.75rem 0.5rem;
+    }
+    .ws-steps {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        max-width: 640px;
+        margin: 0 auto;
+        gap: 0;
+    }
+    .ws-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 48px;
+        position: relative;
+        z-index: 2;
+        flex-shrink: 0;
+    }
+    .ws-circle {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+        flex-shrink: 0;
+        box-sizing: border-box;
+        background: rgba(255,255,255,0.1);
+        border: 2px solid rgba(255,255,255,0.15);
+        color: rgba(255,255,255,0.4);
+    }
+    .ws-step.active .ws-circle {
+        background: #F96D00;
+        border-color: #F96D00;
+        color: white;
+    }
+    .ws-step.completed .ws-circle {
+        background: #10B981;
+        border-color: #10B981;
+        color: white;
+    }
+    .ws-label {
+        font-size: 0.6rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: rgba(255,255,255,0.5);
+        margin-top: 6px;
+        white-space: nowrap;
+        text-align: center;
+        transition: color 0.3s ease;
+    }
+    .ws-step.active .ws-label {
+        color: #F96D00;
+    }
+    .ws-step.completed .ws-label {
+        color: #10B981;
+    }
+    .ws-line {
+        flex: 1;
+        height: 2px;
+        background: rgba(255,255,255,0.15);
+        align-self: center;
+        margin: 0 6px;
+        margin-top: 15px;
+        transition: background 0.3s ease;
+        border-radius: 1px;
+        min-width: 8px;
+    }
+    .ws-line.completed {
+        background: #10B981;
+    }
+
+    /* Light theme override */
+    .ws-wrapper.ws-light .ws-circle {
+        background: #FFF5EC;
+        border-color: #F96D00;
+        color: #F96D00;
+    }
+    .ws-wrapper.ws-light .ws-step.active .ws-circle {
+        background: #F96D00;
+        border-color: #F96D00;
+        color: white;
+        box-shadow: 0 0 10px rgba(249, 109, 0, 0.4);
+    }
+    .ws-wrapper.ws-light .ws-step.completed .ws-circle {
+        background: #10B981;
+        border-color: #10B981;
+        color: white;
+    }
+    .ws-wrapper.ws-light .ws-label {
+        color: #F96D00;
+    }
+    .ws-wrapper.ws-light .ws-step.active .ws-label {
+        color: #F96D00;
+        font-weight: bold;
+    }
+    .ws-wrapper.ws-light .ws-step.completed .ws-label {
+        color: #10B981;
+    }
+    .ws-wrapper.ws-light .ws-line {
+        background: #F96D00;
+    }
+    .ws-wrapper.ws-light .ws-line.completed {
+        background: #10B981;
+    }
+
+    @media (max-width: 576px) {
+        .ws-circle { width: 28px; height: 28px; font-size: 0.75rem; }
+        .ws-label { font-size: 0.55rem; }
+        .ws-line { margin: 0 4px; margin-top: 13px; min-width: 4px; }
+        .ws-step { min-width: 36px; }
+    }
+</style>
+<div class="ws-wrapper {% if ws_theme == 'light' %}ws-light{% endif %}" id="{{ ws_prefix }}-stepper">
+    <div class="ws-steps">
+        {% for ws_label in ws_steps|split:',' %}
+        {% with ws_num=forloop.counter %}
+        <div class="ws-step{% if ws_num < ws_current %} completed{% elif ws_num == ws_current %} active{% endif %}" data-step="{{ ws_num }}" id="{{ ws_prefix }}-step-{{ ws_num }}">
+            <div class="ws-circle" id="{{ ws_prefix }}-step-circle-{{ ws_num }}">
+                {% if ws_num < ws_current %}
+                <i class="bi bi-check" style="font-size:0.9rem;"></i>
+                {% else %}
+                {{ ws_num }}
+                {% endif %}
+            </div>
+            <span class="ws-label" id="{{ ws_prefix }}-step-text-{{ ws_num }}">{{ ws_label }}</span>
+        </div>
+        {% if not forloop.last %}
+        <div class="ws-line{% if ws_num < ws_current %} completed{% endif %}" id="{{ ws_prefix }}-step-line-{{ ws_num }}"></div>
+        {% endif %}
+        {% endwith %}
+        {% endfor %}
+    </div>
+</div>

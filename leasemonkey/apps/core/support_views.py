@@ -346,6 +346,19 @@ def update_ticket_status_ajax(request, ticket_id):
         return JsonResponse({'error': f'Invalid status. Valid: {", ".join(valid_statuses)}'}, status=400)
 
     old_status = ticket.status
+    if old_status == new_status:
+        return JsonResponse({'status': 'ok', 'message': 'Status is already set to ' + new_status})
+
+    # Hierarchy transition gating rules
+    if old_status == 'closed':
+        return JsonResponse({'error': 'Cannot change status of a closed ticket.'}, status=400)
+
+    if old_status == 'resolved' and new_status != 'closed':
+        return JsonResponse({'error': 'Resolved tickets can only be marked as Closed.'}, status=400)
+
+    if old_status in ['in_progress', 'waiting'] and new_status == 'open':
+        return JsonResponse({'error': 'Cannot set status back to Open.'}, status=400)
+
     ticket.status = new_status
     ticket.save()
 

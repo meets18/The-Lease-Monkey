@@ -232,11 +232,28 @@
                 </div>
             </div>
 
+            <!-- Tabs Navigation -->
+            <div class="d-flex gap-2 mb-4 border-bottom border-secondary-glow pb-3">
+                <button type="button" class="btn btn-sm px-3 py-1.5 fs-12 fw-bold text-uppercase rounded-3" 
+                        id="btnNotifsUnread" onclick="setNotifFilter('unread')" style="background-color: var(--accent-orange, #F96D00); color: white; border: none;">
+                    Unread (<span id="countUnreadNotifs">{{ unread_count }}</span>)
+                </button>
+                <button type="button" class="btn btn-sm px-3 py-1.5 fs-12 fw-bold text-uppercase rounded-3" 
+                        id="btnNotifsAll" onclick="setNotifFilter('all')" style="background-color: rgba(255,255,255,0.05); color: #9CA3AF; border: none;">
+                    All Mail
+                </button>
+            </div>
+
             {% if notifications %}
-            <div class="d-flex flex-column gap-3">
+            <div class="d-flex flex-column gap-3" id="buyerNotifContainer">
                 {% for notif in notifications %}
-                <div class="notif-card p-3 rounded-3 border bg-dark-glow d-flex align-items-start gap-3 shadow-sm 
-                            {% if not notif.is_read %}border-cyan-glow{% else %}border-secondary-glow opacity-65{% endif %}">
+                <div class="notif-card p-3 rounded-3 border bg-dark-glow d-flex align-items-start gap-3 shadow-sm transition-all"
+                     data-id="{{ notif.id }}"
+                     data-is-read="{{ notif.is_read|yesno:'true,false' }}"
+                     style="cursor: pointer; transition: transform 0.2s, opacity 0.2s;"
+                     onmouseover="this.style.transform='scale(1.008)';"
+                     onmouseout="this.style.transform='scale(1)';"
+                     onclick="showNotifDetail('{{ notif.id }}', '{{ notif.title|escapejs }}', '{{ notif.message|escapejs }}', '{{ notif.created_at|date:'M d, Y H:i' }}', {{ notif.is_read|yesno:'true,false' }}, this);">
                     <div class="mt-1">
                         {% if notif.notif_type == 'purchase_request' %}
                         <i class="bi bi-envelope-open text-primary-glow fs-4"></i>
@@ -252,9 +269,9 @@
                             </h6>
                             <small class="text-muted-glow fs-11">{{ notif.created_at|timesince }} ago</small>
                         </div>
-                        <p class="text-muted-glow fs-13 mb-0">{{ notif.message }}</p>
+                        <p class="text-muted-glow fs-13 mb-0 text-truncate" style="max-width: 500px;">{{ notif.message }}</p>
                     </div>
-                    <div class="d-flex flex-column gap-2">
+                    <div class="d-flex flex-column gap-2" onclick="event.stopPropagation();">
                         {% if not notif.is_read %}
                         <button class="btn btn-sm btn-outline-secondary border-secondary-glow text-white fs-11 py-1"
                                 onclick="markRead('{{ notif.id }}', this.closest('.notif-card'));">
@@ -268,6 +285,10 @@
                     </div>
                 </div>
                 {% endfor %}
+            </div>
+            <div id="noFilteredNotifsMessage" class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-5 text-center d-none">
+                <i class="bi bi-bell-slash fs-1 text-muted-glow d-block mb-3"></i>
+                <p class="text-muted-glow fs-15 mb-0">No notifications to display in this view.</p>
             </div>
             {% else %}
             <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-5 text-center">
@@ -460,6 +481,7 @@
     function switchTab(tabName) {
         const tabs = { plots: 'sectionPlots', requests: 'sectionRequests', notifs: 'sectionNotifs', saved: 'sectionSaved', support: 'sectionSupport' };
         const links = { plots: 'tabLinkPlots', requests: 'tabLinkRequests', notifs: 'tabLinkNotifs', saved: 'tabLinkSaved', support: 'tabLinkSupport' };
+        if (!tabs[tabName]) return;
         Object.keys(tabs).forEach(t => {
             const sectionEl = document.getElementById(tabs[t]);
             if (sectionEl) {
@@ -468,6 +490,8 @@
             const linkEl = document.getElementById(links[t]);
             if (linkEl) linkEl.classList.toggle('active', t === tabName);
         });
+        sessionStorage.setItem('buyer_active_tab', tabName);
+        window.location.hash = tabName;
     }
 
     function getCsrf() {
@@ -513,13 +537,115 @@
         });
     }
 
-    document.addEventListener("DOMContentLoaded", function() {
-        if (window.location.hash) {
-            const hash = window.location.hash.substring(1);
-            if (['plots', 'requests', 'notifs', 'saved', 'support'].includes(hash)) {
-                switchTab(hash);
+    let currentNotifFilter = 'unread'; // default
+
+    function setNotifFilter(type) {
+        currentNotifFilter = type;
+        const btnUnread = document.getElementById('btnNotifsUnread');
+        const btnAll = document.getElementById('btnNotifsAll');
+        
+        if (type === 'unread') {
+            if (btnUnread) {
+                btnUnread.style.backgroundColor = 'var(--accent-orange, #F96D00)';
+                btnUnread.style.color = 'white';
+            }
+            if (btnAll) {
+                btnAll.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                btnAll.style.color = '#9CA3AF';
+            }
+        } else {
+            if (btnUnread) {
+                btnUnread.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                btnUnread.style.color = '#9CA3AF';
+            }
+            if (btnAll) {
+                btnAll.style.backgroundColor = 'var(--accent-orange, #F96D00)';
+                btnAll.style.color = 'white';
             }
         }
+        
+        applyNotifVisibility();
+    }
+
+    function applyNotifVisibility() {
+        const cards = document.querySelectorAll('#buyerNotifContainer .notif-card');
+        let visibleCount = 0;
+        
+        cards.forEach(card => {
+            const isRead = card.getAttribute('data-is-read') === 'true';
+            if (currentNotifFilter === 'unread' && isRead) {
+                card.classList.add('d-none');
+            } else {
+                card.classList.remove('d-none');
+                visibleCount++;
+            }
+        });
+        
+        const noMsg = document.getElementById('noFilteredNotifsMessage');
+        if (noMsg) {
+            if (visibleCount === 0) {
+                noMsg.classList.remove('d-none');
+            } else {
+                noMsg.classList.add('d-none');
+            }
+        }
+
+        // Update counts
+        const unreadCountEl = document.getElementById('countUnreadNotifs');
+        if (unreadCountEl) {
+            const unreadCount = document.querySelectorAll('#buyerNotifContainer .notif-card[data-is-read="false"]').length;
+            unreadCountEl.innerText = unreadCount;
+        }
+    }
+
+    function showNotifDetail(notifId, title, message, dateStr, isRead, cardEl) {
+        document.getElementById('notifDetailTitle').innerText = title;
+        document.getElementById('notifDetailMessage').innerText = message;
+        document.getElementById('notifDetailTime').innerText = dateStr;
+        
+        const statusBadge = document.getElementById('notifDetailStatus');
+        if (statusBadge) {
+            statusBadge.className = 'badge ' + (isRead ? 'bg-secondary' : 'bg-info');
+            statusBadge.innerText = isRead ? 'Read' : 'New';
+        }
+        
+        const btnDelete = document.getElementById('btnNotifDetailDelete');
+        if (btnDelete) {
+            btnDelete.onclick = function() {
+                const modalEl = document.getElementById('notifDetailModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+                deleteNotif(notifId, cardEl);
+            };
+        }
+
+        // Trigger read if unread
+        if (!isRead) {
+            markRead(notifId, cardEl);
+            cardEl.setAttribute('data-is-read', 'true');
+            // update visibility if in unread tab
+            setTimeout(() => {
+                applyNotifVisibility();
+            }, 500);
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById('notifDetailModal'));
+        modal.show();
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        applyNotifVisibility();
+
+        let defaultTab = 'plots';
+        const hash = window.location.hash.substring(1);
+        if (hash) {
+            defaultTab = hash;
+        } else {
+            const savedTab = sessionStorage.getItem('buyer_active_tab');
+            if (savedTab) defaultTab = savedTab;
+        }
+        switchTab(defaultTab);
+
         // Cancel confirmation
         document.getElementById('confirmCancelBtn')?.addEventListener('click', executeCancel);
     });
@@ -820,5 +946,31 @@
     background-color: #F59E0B !important;
     box-shadow: 0 0 8px rgba(245, 158, 11, 0.4) !important;
 }
+<!-- Notification Detail Modal -->
+<div class="modal fade" id="notifDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark-glow text-white border border-secondary-glow" style="border-radius: 12px; background-color: #0b0e14 !important;">
+            <div class="modal-header border-bottom border-secondary-glow pb-3">
+                <h5 class="modal-title font-ranade fw-bold text-amber-glow" id="notifDetailTitle">Notification Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="fs-12 text-muted-glow" id="notifDetailTime"></span>
+                    <span class="badge" id="notifDetailStatus"></span>
+                </div>
+                <p class="fs-14 text-white-50 font-opensans" id="notifDetailMessage" style="white-space: pre-wrap; line-height: 1.6;"></p>
+            </div>
+            <div class="modal-footer border-top border-secondary-glow pt-3 d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-outline-danger px-3 py-1.5 fs-12 fw-bold text-uppercase" id="btnNotifDetailDelete">
+                    <i class="bi bi-trash me-1"></i> Delete
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary px-3 py-1.5 fs-12 fw-bold text-uppercase text-white border-secondary-glow" data-bs-dismiss="modal">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 </style>
 {% endblock %}

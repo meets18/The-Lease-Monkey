@@ -519,5 +519,35 @@
             });
         }
     });
+
+    // ── Navbar-aware smooth scroll (fixes Vision / Contact partial-hide) ──
+    // Intercept clicks on anchor hash links and offset by fixed navbar height
+    const NAV_OFFSET = 72; // px — adjust if navbar height changes
+
+    function scrollToAnchor(targetId) {
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        const top = target.getBoundingClientRect().top + window.scrollY - NAV_OFFSET;
+        window.scrollTo({ top, behavior: 'smooth' });
+    }
+
+    document.querySelectorAll('a[href^="#"], a[href^="/#"]').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            const href = this.getAttribute('href');
+            const hash = href.replace(/^\/?#/, '');
+            const target = document.getElementById(hash);
+            if (target) {
+                e.preventDefault();
+                scrollToAnchor(hash);
+                history.replaceState(null, '', '#' + hash);
+            }
+        });
+    });
+
+    // On page load, if URL already has a hash, scroll correctly
+    if (window.location.hash) {
+        const hash = window.location.hash.slice(1);
+        setTimeout(function() { scrollToAnchor(hash); }, 120);
+    }
 </script>
 {% endblock %}

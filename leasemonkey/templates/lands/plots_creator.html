@@ -7,92 +7,489 @@
 <!-- Leaflet CSS & JS CDNs -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- PDF.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>
+    if (window.pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    }
+</script>
 
 <style>
 html, body { overflow: hidden; height: 100%; }
+
+/* Custom premium styling for CSV Sheet Viewer table */
+#fullscreenCsvViewer .table {
+    background: #0f172a !important; /* Rich deep slate navy */
+    border-color: #334155 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+#fullscreenCsvViewer .table th {
+    background: #1e293b !important; /* Slightly lighter slate navy */
+    color: #f8fafc !important; /* Bright slate white */
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 14px 16px !important;
+    border-bottom: 2px solid #334155 !important;
+    border-top: none !important;
+    text-transform: uppercase;
+    font-size: 11px;
+}
+#fullscreenCsvViewer .table td {
+    color: #e2e8f0 !important; /* Clean readable slate gray-white */
+    padding: 12px 16px !important;
+    border-color: #1e293b !important;
+    background: transparent !important;
+    vertical-align: middle;
+}
+#fullscreenCsvViewer .table tbody tr {
+    background: #0f172a !important;
+    transition: background 0.15s ease;
+}
+#fullscreenCsvViewer .table tbody tr:hover {
+    background: #1e293b !important; /* Highlight hovered row */
+}
+#fullscreenCsvViewer .table tbody tr:nth-child(even) {
+    background: #131c2e !important; /* Zebra row background */
+}
+#fullscreenCsvViewer .text-amber-glow {
+    color: #f59e0b !important;
+    text-shadow: 0 0 8px rgba(245, 158, 11, 0.2);
+}
+#fullscreenCsvViewer .text-cyan-glow {
+    color: #06b6d4 !important;
+    text-shadow: 0 0 8px rgba(6, 182, 212, 0.2);
+}
 </style>
-<div style="position: relative; z-index: 10; height: 100vh; overflow: hidden; background: #0b0e14;">
+
+<style>
+/* ── Premium Animations for Plots Creator ───────────────────────── */
+
+/* Sidebar card animate-in on load */
+@keyframes slideInLeft {
+    from { transform: translateX(-28px); opacity: 0; }
+    to   { transform: translateX(0);     opacity: 1; }
+}
+.pcreator-card {
+    animation: slideInLeft 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* Plot cards staggered entrance */
+@keyframes fadeSlideUp {
+    from { transform: translateY(10px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+.pcreator-plot-card {
+    animation: fadeSlideUp 0.3s ease both;
+    transition: background 0.18s, box-shadow 0.18s, transform 0.18s !important;
+}
+.pcreator-plot-card:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Ripple effect on buttons */
+.pcreator-btn-primary,
+.pcreator-btn-secondary-action,
+.pcreator-btn-secondary,
+.pcreator-seg-btn {
+    position: relative !important;
+    overflow: hidden !important;
+    transition: filter 0.18s, transform 0.12s !important;
+}
+.pcreator-btn-primary:active,
+.pcreator-btn-secondary-action:active {
+    transform: scale(0.97) !important;
+    filter: brightness(0.92) !important;
+}
+
+/* View All Plots button hover glow */
+#btnViewAllPlots:hover {
+    background: rgba(0, 178, 255, 0.25) !important;
+    box-shadow: 0 0 10px rgba(0, 178, 255, 0.35) !important;
+}
+
+/* ── All Plots Dialog styles ─────────────────────────────────────── */
+#allPlotsDialogOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9990;
+    background: rgba(8, 12, 22, 0.85);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+}
+#allPlotsDialogOverlay.open {
+    opacity: 1;
+    pointer-events: all;
+}
+#allPlotsDialog {
+    background: #0f172a;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+    width: 92vw;
+    max-width: 860px;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    transform: scale(0.94) translateY(20px);
+    transition: transform 0.3s cubic-bezier(0.22,0.61,0.36,1);
+    overflow: hidden;
+}
+#allPlotsDialogOverlay.open #allPlotsDialog {
+    transform: scale(1) translateY(0);
+}
+.apd-header {
+    padding: 22px 28px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.apd-title {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 800;
+    font-size: 1.15rem;
+    color: #ffffff;
+    margin: 0;
+}
+.apd-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.apd-search {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 13px;
+    padding: 6px 14px;
+    outline: none;
+    width: 200px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: 'Open Sans', sans-serif;
+}
+.apd-search:focus {
+    border-color: #00b2ff;
+    box-shadow: 0 0 10px rgba(0,178,255,0.2);
+}
+.apd-filter {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: #CBD5E1;
+    font-size: 12px;
+    padding: 6px 14px;
+    outline: none;
+    cursor: pointer;
+    font-family: 'Open Sans', sans-serif;
+    appearance: none;
+}
+.apd-close-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.7);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+.apd-close-btn:hover {
+    background: rgba(239,68,68,0.2);
+    border-color: #ef4444;
+    color: #ef4444;
+}
+.apd-body {
+    overflow-y: auto;
+    flex: 1;
+    padding: 20px 28px;
+}
+.apd-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+}
+.apd-plot-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    animation: fadeSlideUp 0.25s ease both;
+}
+.apd-plot-card:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(0,178,255,0.35);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    transform: translateY(-2px);
+}
+.apd-plot-number {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: #ffffff;
+    margin-bottom: 6px;
+}
+.apd-plot-meta {
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 8px;
+    font-family: 'Open Sans', sans-serif;
+}
+.apd-plot-status {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-family: 'Ranade', sans-serif;
+}
+.apd-plot-price {
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    font-family: 'Open Sans', sans-serif;
+    margin-top: 4px;
+}
+.apd-empty {
+    text-align: center;
+    padding: 50px 20px;
+    color: rgba(255,255,255,0.35);
+    font-family: 'Open Sans', sans-serif;
+    font-size: 14px;
+}
+.apd-footer {
+    padding: 14px 28px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+.apd-count-info {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    font-family: 'Open Sans', sans-serif;
+}
+
+/* Fix dropdown opening inside the dialog (not clipped by overflow:hidden) */
+#allPlotsDialog {
+    overflow: visible !important;
+}
+#allPlotsDialog .apd-body {
+    overflow-y: auto;
+}
+.apd-filter {
+    background: #1e293b;
+    color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 8px;
+    font-size: 12px;
+    padding: 6px 14px;
+    outline: none;
+    cursor: pointer;
+    font-family: 'Open Sans', sans-serif;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23cbd5e1' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+}
+.apd-filter option {
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+/* Plot card action row (Edit / Copy / Delete) */
+.apd-plot-card {
+    position: relative;
+    overflow: hidden;
+}
+.apd-plot-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.apd-plot-card:hover .apd-plot-actions {
+    opacity: 1;
+    transform: translateY(0);
+}
+.apd-action-btn {
+    flex: 1;
+    padding: 5px 0;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'Ranade', sans-serif;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+.apd-action-btn.edit {
+    background: rgba(0,178,255,0.15);
+    color: #00b2ff;
+    border: 1px solid rgba(0,178,255,0.3);
+}
+.apd-action-btn.edit:hover {
+    background: rgba(0,178,255,0.3);
+    box-shadow: 0 0 8px rgba(0,178,255,0.3);
+}
+.apd-action-btn.copy {
+    background: rgba(0,255,196,0.12);
+    color: #00ffd2;
+    border: 1px solid rgba(0,255,196,0.3);
+}
+.apd-action-btn.copy:hover {
+    background: rgba(0,255,196,0.25);
+    box-shadow: 0 0 8px rgba(0,255,196,0.25);
+}
+.apd-action-btn.del {
+    background: rgba(239,68,68,0.12);
+    color: #ef4444;
+    border: 1px solid rgba(239,68,68,0.3);
+}
+.apd-action-btn.del:hover {
+    background: rgba(239,68,68,0.25);
+    box-shadow: 0 0 8px rgba(239,68,68,0.2);
+}
+</style>
+
+<!-- All Plots Dialog Overlay -->
+<div id="allPlotsDialogOverlay">
+    <div id="allPlotsDialog">
+        <div class="apd-header">
+            <h5 class="apd-title"><i class="bi bi-grid-3x3-gap me-2" style="color:#00b2ff;"></i>All Plotted Layouts</h5>
+            <div class="apd-controls">
+                <input type="text" id="apdSearchInput" class="apd-search" placeholder="Search plot number..." oninput="filterAllPlotsDialog()">
+                <select id="apdStatusFilter" class="apd-filter" onchange="filterAllPlotsDialog()">
+                    <option value="all">All Status</option>
+                    <option value="available">Available</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="sold">Sold</option>
+                </select>
+                <button class="apd-close-btn" onclick="closeAllPlotsDialog()"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        <div class="apd-body">
+            <div class="apd-grid" id="apdGrid">
+                <div class="apd-empty">No plots mapped yet.</div>
+            </div>
+        </div>
+        <div class="apd-footer">
+            <span class="apd-count-info" id="apdCountInfo">0 plots</span>
+            <span class="apd-count-info" style="font-size:11px; color: rgba(255,255,255,0.25);">Click a card to select & edit that plot</span>
+        </div>
+    </div>
+</div>
+
+<div id="plotCreatorWrapper" style="position: relative; z-index: 10; height: 100vh; overflow: hidden; background: #0b0e14;">
     <!-- Map Canvas Viewport -->
     <div id="mapPlotCreator" style="position: absolute; top: 75px; left: 0; right: 0; bottom: 0; background: #0b0e14;"></div>
 
     {% if land.registration_request.floor_plan %}
-    <!-- Floating Collapsible Floor Plan Panel -->
-    <div id="floorPlanWidget" class="floor-plan-widget glass-panel" style="position: absolute; top: 95px; right: 20px; z-index: 1000; transition: all 0.3s ease; width: 50px; height: 50px; overflow: hidden; padding: 10px; cursor: pointer; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;" onclick="toggleFloorPlanWidget(event);">
-        <!-- Collapsed Toggle Icon -->
-        <div id="floorPlanCollapsed" class="d-flex align-items-center justify-content-center h-100">
-            <i class="bi bi-map-fill fs-4 text-cyan-glow" title="View Site Floor Plan"></i>
-        </div>
-
-        <!-- Expanded content (initially hidden) -->
-        <div id="floorPlanExpanded" style="display: none;">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="font-ranade text-white fw-bold mb-0 fs-13"><i class="bi bi-map text-cyan-glow me-1"></i> Floor Plan</h6>
-                <button type="button" onclick="collapseFloorPlanWidget(event);" class="bg-transparent border-0 fs-12 p-0 lh-1" style="color: #ffffff; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#00ffd2'" onmouseout="this.style.color='#ffffff'">
-                    <i class="bi bi-x-lg"></i>
-                </button>
+        {% if ".pdf" in land.registration_request.floor_plan.name|lower %}
+            <!-- PDF Thumbnail Preview -->
+            <div id="floorPlanWidget" class="floor-plan-widget glass-panel" style="position: absolute; bottom: 30px; right: 20px; z-index: 1000; width: 80px; height: 80px; cursor: pointer; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 2px solid #F96D00; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.5); transition: all 0.2s ease; display: flex; flex-direction: column; align-items: center; justify-content: center;" onclick="openFullscreenViewer();" title="Click to view full layout plan">
+                <i class="bi bi-file-earmark-pdf-fill fs-2" style="color: #EF4444;"></i>
+                <div style="font-size: 8px; color: #FFF; font-weight: bold; margin-top: 2px; text-transform: uppercase;">PDF LAYOUT</div>
             </div>
-            <div class="text-center mb-2 position-relative" style="background: rgba(0,0,0,0.3); border-radius: 4px; padding: 5px;">
-                <img src="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" class="img-fluid rounded border border-secondary-glow" style="max-height: 180px; object-fit: contain; cursor: zoom-in;" onclick="openFullscreenViewer(); event.stopPropagation();">
+        {% else %}
+            <!-- Image Thumbnail Preview -->
+            <div id="floorPlanWidget" class="floor-plan-widget glass-panel" style="position: absolute; bottom: 30px; right: 20px; z-index: 1000; width: 80px; height: 80px; cursor: pointer; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 2px solid #F96D00; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.5); transition: all 0.2s ease;" onclick="openFullscreenViewer();" title="Click to view full layout plan">
+                <img src="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" style="width: 100%; height: 100%; object-fit: cover;" />
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.6); color: #FFF; font-size: 8px; text-align: center; padding: 2px 0; font-family: 'Open Sans', sans-serif;">LAYOUT</div>
             </div>
-            <div class="d-flex gap-1.5">
-                <button type="button" class="btn btn-outline-info w-50 fs-9 text-uppercase fw-bold py-1.5" onclick="openFullscreenViewer(); event.stopPropagation();" style="border-radius: 4px;">
-                    <i class="bi bi-arrows-fullscreen me-0.5"></i> View Full
-                </button>
-                <button type="button" class="btn btn-outline-secondary w-50 fs-9 text-uppercase fw-bold py-1.5" onclick="window.open('{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan', '_blank'); event.stopPropagation();" style="border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); color: #FFF;">
-                    <i class="bi bi-box-arrow-up-right me-0.5"></i> New Tab
-                </button>
+        {% endif %}
+
+        <!-- Fullscreen Floor Plan Viewer Overlay -->
+        <div id="fullscreenFloorPlanViewer" class="fullscreen-viewer-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 14, 20, 0.95); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
+            <!-- Controls Bar -->
+            <div class="viewer-controls d-flex gap-3 mb-3 text-white justify-content-center align-items-center bg-dark bg-opacity-75 p-2 px-4 rounded-pill" style="border: 1px solid rgba(255,255,255,0.15); pointer-events: auto;">
+                {% if ".pdf" in land.registration_request.floor_plan.name|lower %}
+                    <a href="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" target="_blank" class="btn btn-dark btn-sm text-white fs-12 fw-bold text-decoration-none" title="Open PDF in new tab" style="background: transparent; border: none; font-family: 'Open Sans', sans-serif;"><i class="bi bi-box-arrow-up-right me-1 text-cyan-glow"></i> Open in New Tab</a>
+                {% else %}
+                    <button type="button" class="btn btn-dark btn-sm rounded-circle text-white" onclick="adjustViewerZoom(1.2);" title="Zoom In" style="background: transparent; border: none;"><i class="bi bi-zoom-in fs-5 text-cyan-glow"></i></button>
+                    <button type="button" class="btn btn-dark btn-sm rounded-circle text-white" onclick="adjustViewerZoom(0.8);" title="Zoom Out" style="background: transparent; border: none;"><i class="bi bi-zoom-out fs-5 text-cyan-glow"></i></button>
+                    <button type="button" class="btn btn-dark btn-sm text-white" onclick="rotateViewerImage();" title="Rotate" style="background: transparent; border: none;"><i class="bi bi-arrow-clockwise fs-5 text-cyan-glow"></i></button>
+                    <a href="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" target="_blank" class="btn btn-dark btn-sm text-white" title="Open PDF in new tab" style="background: transparent; border: none;"><i class="bi bi-box-arrow-up-right fs-5 text-cyan-glow"></i></a>
+                {% endif %}
+                <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2);"></div>
+                <button type="button" class="btn btn-danger btn-sm rounded-pill px-3 fw-bold" onclick="closeFullscreenViewer();" style="border: none;">Close <i class="bi bi-x-lg ms-1"></i></button>
+            </div>
+            <!-- Image Container -->
+            <div class="viewer-image-container" style="width: 90%; height: 80%; overflow: auto; display: flex; justify-content: center; align-items: center; border-radius: 8px; background: rgba(255,255,255,0.02); padding: 20px; border: 1px solid rgba(255,255,255,0.05);">
+                {% if ".pdf" in land.registration_request.floor_plan.name|lower %}
+                    <iframe src="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" style="width: 100%; height: 100%; border: none; border-radius: 6px; background: #FFFFFF;"></iframe>
+                {% else %}
+                    <img id="viewerImage" src="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.2s ease;" />
+                {% endif %}
             </div>
         </div>
-    </div>
+    {% endif %}
 
-    <!-- Fullscreen Floor Plan Viewer Overlay -->
-    <div id="fullscreenFloorPlanViewer" class="fullscreen-viewer-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 14, 20, 0.95); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
-        <!-- Controls Bar -->
-        <div class="viewer-controls d-flex gap-3 mb-3 text-white justify-content-center align-items-center bg-dark bg-opacity-75 p-2 px-4 rounded-pill" style="border: 1px solid rgba(255,255,255,0.15);">
-            <button type="button" class="btn btn-dark btn-sm rounded-circle text-white" onclick="adjustViewerZoom(1.2);" title="Zoom In" style="background: transparent; border: none;"><i class="bi bi-zoom-in fs-5 text-cyan-glow"></i></button>
-            <button type="button" class="btn btn-dark btn-sm rounded-circle text-white" onclick="adjustViewerZoom(0.8);" title="Zoom Out" style="background: transparent; border: none;"><i class="bi bi-zoom-out fs-5 text-cyan-glow"></i></button>
-            <button type="button" class="btn btn-dark btn-sm text-white" onclick="rotateViewerImage();" title="Rotate" style="background: transparent; border: none;"><i class="bi bi-arrow-clockwise fs-5 text-cyan-glow"></i></button>
-            <a href="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" download class="btn btn-dark btn-sm text-white" title="Download" style="background: transparent; border: none;"><i class="bi bi-download fs-5 text-cyan-glow"></i></a>
-            <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2);"></div>
-            <button type="button" class="btn btn-danger btn-sm rounded-pill px-3 fw-bold" onclick="closeFullscreenViewer();" style="border: none;">Close <i class="bi bi-x-lg ms-1"></i></button>
+    {% if land.registration_request.plot_pricing_csv %}
+        <!-- CSV Spreadsheet Preview Widget -->
+        <div id="csvPricingWidget" class="floor-plan-widget glass-panel" style="position: absolute; bottom: 30px; right: 110px; z-index: 1000; width: 80px; height: 80px; cursor: pointer; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 2px solid #F96D00; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.5); transition: all 0.2s ease; display: flex; flex-direction: column; align-items: center; justify-content: center;" onclick="openCsvViewer();" title="Click to view plot pricing sheet">
+            <i class="bi bi-file-earmark-spreadsheet-fill fs-2" style="color: #10B981;"></i>
+            <div style="font-size: 8px; color: #FFF; font-weight: bold; margin-top: 2px; text-transform: uppercase;">CSV SHEET</div>
         </div>
-        <!-- Image Container -->
-        <div class="viewer-image-container" style="width: 90%; height: 80%; overflow: auto; display: flex; justify-content: center; align-items: center; border-radius: 8px; background: rgba(255,255,255,0.02); padding: 20px; border: 1px solid rgba(255,255,255,0.05);">
-            <img id="viewerImage" src="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.2s ease;" />
+
+        <!-- Fullscreen CSV Viewer Overlay -->
+        <div id="fullscreenCsvViewer" class="fullscreen-viewer-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 14, 20, 0.95); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
+            <!-- Controls Bar -->
+            <div class="viewer-controls d-flex gap-3 mb-3 text-white justify-content-center align-items-center bg-dark bg-opacity-75 p-2 px-4 rounded-pill" style="border: 1px solid rgba(255,255,255,0.15); pointer-events: auto;">
+                <span class="fs-13 fw-bold text-white"><i class="bi bi-file-spreadsheet me-1 text-success-glow"></i> Sizing & Pricing Sheet</span>
+                <input type="text" id="csvSearchInput" class="form-control form-control-sm bg-dark text-white border border-secondary-glow" placeholder="Search plot number..." style="width: 180px; height: 26px; font-size: 11px; outline: none;" oninput="filterCsvTable(this.value);">
+                <a href="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=pricing_csv" target="_blank" class="btn btn-dark btn-sm text-white fs-12 fw-bold text-decoration-none" title="Open CSV in new tab" style="background: transparent; border: none; font-family: 'Open Sans', sans-serif;"><i class="bi bi-box-arrow-up-right me-1 text-cyan-glow"></i> Open Raw File</a>
+                <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2);"></div>
+                <button type="button" class="btn btn-danger btn-sm rounded-pill px-3 fw-bold" onclick="closeCsvViewer();" style="border: none;">Close <i class="bi bi-x-lg ms-1"></i></button>
+            </div>
+            <!-- Sheet Container -->
+            <div class="viewer-image-container" style="width: 90%; height: 80%; overflow: auto; border-radius: 8px; background: rgba(15, 23, 42, 0.9); padding: 20px; border: 1px solid rgba(255,255,255,0.1);">
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover table-bordered fs-13 mb-0" id="csvViewerTable">
+                        <thead>
+                            <tr class="text-white-50 border-secondary">
+                                <th>Plot Number</th>
+                                <th>Area (sq ft)</th>
+                                <th>Facing</th>
+                                <th>Expected Price (₹)</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="csvViewerTableBody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-    </div>
-
-    <script>
-        function toggleFloorPlanWidget(event) {
-            const widget = document.getElementById('floorPlanWidget');
-            const collapsed = document.getElementById('floorPlanCollapsed');
-            const expanded = document.getElementById('floorPlanExpanded');
-            if (widget.style.width === '50px') {
-                // Expand
-                widget.style.width = '260px';
-                widget.style.height = '275px';
-                widget.style.cursor = 'default';
-                collapsed.style.setProperty('display', 'none', 'important');
-                expanded.style.display = 'block';
-            }
-        }
-
-        function collapseFloorPlanWidget(event) {
-            event.stopPropagation();
-            const widget = document.getElementById('floorPlanWidget');
-            const collapsed = document.getElementById('floorPlanCollapsed');
-            const expanded = document.getElementById('floorPlanExpanded');
-            widget.style.width = '50px';
-            widget.style.height = '50px';
-            widget.style.cursor = 'pointer';
-            expanded.style.display = 'none';
-            setTimeout(() => {
-                if (widget.style.width === '50px') {
-                    collapsed.style.setProperty('display', 'flex', 'important');
-                }
-            }, 150);
-        }
-    </script>
     {% endif %}
 
     <!-- Floating Compass HUD -->
@@ -107,40 +504,88 @@ html, body { overflow: hidden; height: 100%; }
     </div>
 
     <!-- Left Controls Panel Overlay -->
-    <div class="pcreator-card" style="position: absolute; top: 95px; left: 20px; z-index: 1000; width: 360px; display: flex; flex-direction: column; max-height: calc(100vh - 115px);">
-        <div style="overflow-y: auto; flex: 1; min-height: 0; overscroll-behavior: contain;">
-        <!-- Header -->
-        <div class="pcreator-header">
-            <h4 class="pcreator-title" style="color: var(--accent-orange) !important; font-weight: 800; font-family: 'Ranade', sans-serif; font-size: 1.15rem; margin-bottom: 6px;">{{ land.name }}</h4>
-            <div class="fs-12 text-white-50 mb-1"><i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i> {% if land.registration_request.district %}{{ land.registration_request.district }}, {{ land.registration_request.state }}{% else %}{{ land.location }}{% endif %}</div>
-            <div class="fs-12 text-white-50 mb-1.5"><i class="bi bi-person-fill text-amber-glow me-1"></i> Owner: {{ land.owner.username }}</div>
-            <div class="mt-2">
-                {% if land.registration_request %}
-                    {% if land.registration_request.status == 'being_added' %}
-                        <span class="badge bg-primary fs-10 text-uppercase px-2.5 py-1" style="background-color: #0284c7 !important; border-radius: 4px;">Status: Digitising</span>
-                    {% elif land.registration_request.status == 'approved' %}
-                        <span class="badge bg-success fs-10 text-uppercase px-2.5 py-1" style="border-radius: 4px;">Status: Digitised</span>
-                    {% elif land.registration_request.status == 'live' %}
-                        <span class="badge bg-success fs-10 text-uppercase px-2.5 py-1" style="background-color: #059669 !important; border-radius: 4px;">Status: Live</span>
+    <div class="pcreator-card" style="position: absolute; top: 95px; left: 20px; z-index: 1000; width: 420px; display: flex; flex-direction: column; max-height: calc(100vh - 115px); padding: 0;">
+        
+        <!-- Sticky Top (Header, Drawing Tools, Site Plan Overlay) -->
+        <div style="padding: 20px 20px 10px; background: #FFFFFF; border-bottom: 1px solid #E5E7EB; flex-shrink: 0; border-radius: 12px 12px 0 0;">
+            <!-- Header -->
+            <div class="pcreator-header">
+                <h4 class="pcreator-title" style="color: var(--accent-orange) !important; font-weight: 800; font-family: 'Ranade', sans-serif; font-size: 1.15rem; margin-bottom: 6px;">{{ land.name }}</h4>
+                <div class="fs-12 text-white-50 mb-1"><i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i> {% if land.registration_request.district %}{{ land.registration_request.district }}, {{ land.registration_request.state }}{% else %}{{ land.location }}{% endif %}</div>
+                <div class="fs-12 text-white-50 mb-1.5"><i class="bi bi-person-fill text-amber-glow me-1"></i> Owner: {{ land.owner.username }}</div>
+                <div class="mt-2">
+                    {% if land.registration_request %}
+                        {% if land.registration_request.status == 'being_added' %}
+                            <span class="badge bg-primary fs-10 text-uppercase px-2.5 py-1" style="background-color: #0284c7 !important; border-radius: 4px;">Status: Digitising</span>
+                        {% elif land.registration_request.status == 'approved' %}
+                            <span class="badge bg-success fs-10 text-uppercase px-2.5 py-1" style="border-radius: 4px;">Status: Digitised</span>
+                        {% elif land.registration_request.status == 'live' %}
+                            <span class="badge bg-success fs-10 text-uppercase px-2.5 py-1" style="background-color: #059669 !important; border-radius: 4px;">Status: Live</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="badge bg-secondary fs-10 text-uppercase px-2.5 py-1" style="border-radius: 4px;">Quick Land</span>
                     {% endif %}
-                {% else %}
-                    <span class="badge bg-secondary fs-10 text-uppercase px-2.5 py-1" style="border-radius: 4px;">Quick Land</span>
-                {% endif %}
+                </div>
+            </div>
+
+            <div class="pcreator-divider" style="margin: 12px 0;"></div>
+
+            <!-- Drawing Tools Section -->
+            <div class="pcreator-section">
+                <div class="pcreator-section-label" style="margin-bottom: 8px;"><i class="bi bi-pencil-square me-1"></i> Drawing Tools</div>
+                <div class="pcreator-segmented" role="group" aria-label="Creator Workspace Modes">
+                    <button type="button" id="tabPlots" class="pcreator-seg-btn active" onclick="setWorkspaceMode('plots')">Plots</button>
+                    <button type="button" id="tabRoads" class="pcreator-seg-btn" onclick="setWorkspaceMode('roads')">Roads</button>
+                    <button type="button" id="tabGates" class="pcreator-seg-btn" onclick="setWorkspaceMode('gates')">Gates</button>
+                    <button type="button" id="tabBuildings" class="pcreator-seg-btn" onclick="setWorkspaceMode('buildings')">Buildings</button>
+                </div>
+            </div>
+
+            <div class="pcreator-divider" style="margin: 12px 0;"></div>
+
+            <!-- Site Plan Overlay Section -->
+            <div class="pcreator-section">
+                <div class="pcreator-section-label" style="margin-bottom: 8px;"><i class="bi bi-image me-1"></i> Site Plan Overlay</div>
+                <div class="mb-2">
+                    <label for="sitePlanUpload" class="btn btn-sm btn-outline-warning w-100 font-opensans fw-bold fs-11 text-uppercase d-inline-flex align-items-center justify-content-center py-2" style="border-radius: 6px; cursor: pointer; border: 1.5px dashed var(--accent-orange, #F96D00); color: var(--accent-orange, #F96D00) !important; background: rgba(249, 109, 0, 0.05); margin-bottom: 0;">
+                        <i class="bi bi-cloud-upload-fill me-2 fs-13"></i> Upload Layout Overlay
+                    </label>
+                    <input type="file" id="sitePlanUpload" accept="image/*,application/pdf" style="display: none;" />
+                </div>
+                <div id="overlayControls" style="display: none; background: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <div class="mb-2">
+                        <label class="pcreator-label d-flex justify-content-between mb-1" style="font-size: 10px; color: #CBD5E1;">
+                            <span>Opacity</span>
+                            <span id="overlayOpacityLabel">55%</span>
+                        </label>
+                        <input type="range" id="overlayOpacity" min="0" max="1" step="0.05" value="0.55" style="width: 100%; cursor: pointer;" oninput="updateOverlayOpacity(this.value);" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="pcreator-label d-flex justify-content-between mb-1" style="font-size: 10px; color: #CBD5E1;">
+                            <span>Rotation</span>
+                            <span id="overlayRotationLabel">0°</span>
+                        </label>
+                        <input type="range" id="overlayRotation" min="-180" max="180" step="1" value="0" style="width: 100%; cursor: pointer;" oninput="updateOverlayRotation(this.value);" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="pcreator-label d-flex justify-content-between mb-1" style="font-size: 10px; color: #CBD5E1;">
+                            <span>Size Scale</span>
+                            <span id="overlayScaleLabel">1.0x</span>
+                        </label>
+                        <input type="range" id="overlayScale" min="0.1" max="10.0" step="0.05" value="1.0" style="width: 100%; cursor: pointer;" oninput="updateOverlayScale(this.value);" />
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <button type="button" id="btnToggleOverlay" class="btn btn-xs btn-outline-info flex-grow-1 py-1" style="font-size: 10px; border-radius: 4px;" onclick="toggleOverlayVisibility();">Hide</button>
+                        <button type="button" class="btn btn-xs btn-outline-danger flex-grow-1 py-1" style="font-size: 10px; border-radius: 4px;" onclick="removeOverlay();">Remove</button>
+                    </div>
+                </div>
+                <!-- Auto-loader status info -->
+                <div id="overlayLoaderStatus" class="fs-10 text-white-50 mt-1" style="display: none;"></div>
             </div>
         </div>
 
-        <div class="pcreator-divider"></div>
-
-        <!-- Drawing Tools Section -->
-        <div class="pcreator-section">
-            <div class="pcreator-section-label"><i class="bi bi-pencil-square me-1"></i> Drawing Tools</div>
-            <div class="pcreator-segmented" role="group" aria-label="Creator Workspace Modes">
-                <button type="button" id="tabPlots" class="pcreator-seg-btn active" onclick="setWorkspaceMode('plots')">Plots</button>
-                <button type="button" id="tabRoads" class="pcreator-seg-btn" onclick="setWorkspaceMode('roads')">Roads</button>
-                <button type="button" id="tabGates" class="pcreator-seg-btn" onclick="setWorkspaceMode('gates')">Gates</button>
-                <button type="button" id="tabBuildings" class="pcreator-seg-btn" onclick="setWorkspaceMode('buildings')">Buildings</button>
-            </div>
-        </div>
+        <!-- Scrollable content area (Forms & Overviews) -->
+        <div style="overflow-y: auto; flex: 1; min-height: 0; overscroll-behavior: contain; padding: 10px 20px 20px;">
 
         <!-- ═══ 1. PLOTS — Plot Details ═══ -->
         <div id="sectionPlots" class="workspace-section">
@@ -150,6 +595,7 @@ html, body { overflow: hidden; height: 100%; }
                     <div class="pcreator-field">
                         <label for="plot_number" class="pcreator-label">Plot Number / Identifier</label>
                         <input type="text" class="pcreator-input" id="plot_number" placeholder="e.g. 101, P5">
+                        <div id="csvAutoFillBadge" class="fs-10 text-success fw-bold mt-1 animate-pulse" style="display: none;"><i class="bi bi-check-circle-fill me-1"></i> Pre-filled from CSV pricing sheet</div>
                     </div>
                     <div class="pcreator-row">
                         <div class="pcreator-field flex-grow-1">
@@ -161,13 +607,28 @@ html, body { overflow: hidden; height: 100%; }
                             <input type="number" class="pcreator-input" id="plot_price" placeholder="e.g. 4500000">
                         </div>
                     </div>
-                    <div class="pcreator-field">
-                        <label for="plot_status" class="pcreator-label">Status</label>
-                        <select class="pcreator-input pcreator-select" id="plot_status">
-                            <option value="available" selected>Available</option>
-                            <option value="reserved">Reserved</option>
-                            <option value="sold">Booked</option>
-                        </select>
+                    <div class="pcreator-row">
+                        <div class="pcreator-field flex-grow-1">
+                            <label for="plot_facing" class="pcreator-label">Facing</label>
+                            <select class="pcreator-input pcreator-select" id="plot_facing">
+                                <option value="North" selected>North</option>
+                                <option value="South">South</option>
+                                <option value="East">East</option>
+                                <option value="West">West</option>
+                                <option value="North-East">North-East</option>
+                                <option value="North-West">North-West</option>
+                                <option value="South-East">South-East</option>
+                                <option value="South-West">South-West</option>
+                            </select>
+                        </div>
+                        <div class="pcreator-field flex-grow-1">
+                            <label for="plot_status" class="pcreator-label">Status</label>
+                            <select class="pcreator-input pcreator-select" id="plot_status">
+                                <option value="available" selected>Available</option>
+                                <option value="reserved">Reserved</option>
+                                <option value="sold">Booked</option>
+                            </select>
+                        </div>
                     </div>
                     <div id="plotBuyerInfo" class="pcreator-deallot" style="display: none;">
                         <div><strong>Allotted To:</strong> <span id="lblPlotBuyer"></span></div>
@@ -207,7 +668,12 @@ html, body { overflow: hidden; height: 100%; }
                 <div class="pcreator-list-section">
                     <div class="pcreator-list-header">
                         <span class="pcreator-list-title">Plotted Layouts</span>
-                        <span class="pcreator-list-badge" id="lblStagedCount">Total: 0</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="pcreator-list-badge" id="lblStagedCount">Total: 0</span>
+                            <button type="button" id="btnViewAllPlots" onclick="openAllPlotsDialog();" title="View all plots in full dialog" style="background: rgba(0, 178, 255, 0.12); border: 1px solid rgba(0, 178, 255, 0.35); color: #00b2ff; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-family: 'Ranade', sans-serif; font-weight: 700; cursor: pointer; letter-spacing: 0.04em; transition: all 0.2s ease; white-space: nowrap;">
+                                <i class="bi bi-grid-3x3-gap me-1"></i> View All
+                            </button>
+                        </div>
                     </div>
                     <div id="stagedPlotsList" class="pcreator-list" style="max-height: 150px;">
                         <div class="pcreator-list-empty">No plots added yet. Trace one above!</div>
@@ -446,6 +912,19 @@ html, body { overflow: hidden; height: 100%; }
     let currentPlotPoints = [];
     let currentPlotMarkers = [];
     let currentPlotPolygon = null;
+
+    // Site Plan Overlay state variables
+    let sitePlanOverlay = null;
+    let overlayCenterMarker = null;
+    let overlayScaleMarker = null;
+    let overlayRotation = 0;
+    let overlayScale = 1.0;
+    let overlayOpacity = 0.55;
+    let overlayBaseBounds = null;
+    let isOverlayVisible = false;
+    let isCustomUpload = false;
+    let lastUploadedDataUrl = null;
+    const landSlug = "{{ land.slug|escapejs }}";
     let registeredPlotLayers = [];
     let editingPlotNumber = null;
 
@@ -503,6 +982,79 @@ html, body { overflow: hidden; height: 100%; }
         }
         return cookieValue;
     }
+
+    // ── All Plots Dialog ─────────────────────────────────────────────────
+    const APD_STATUS_STYLES = {
+        available: { bg: 'rgba(0,255,196,0.12)', color: '#00ffd2', border: 'rgba(0,255,196,0.3)' },
+        reserved:  { bg: 'rgba(255,94,0,0.12)',  color: '#ff6c00', border: 'rgba(255,94,0,0.3)' },
+        sold:      { bg: 'rgba(156,163,175,0.12)', color: '#9ca3af', border: 'rgba(156,163,175,0.3)' },
+        building:  { bg: 'rgba(255,255,255,0.08)', color: '#ffffff', border: 'rgba(255,255,255,0.2)' },
+    };
+
+    function openAllPlotsDialog() {
+        document.getElementById('apdSearchInput').value = '';
+        document.getElementById('apdStatusFilter').value = 'all';
+        renderApdGrid(existingPlots);
+        document.getElementById('allPlotsDialogOverlay').classList.add('open');
+    }
+
+    function closeAllPlotsDialog() {
+        document.getElementById('allPlotsDialogOverlay').classList.remove('open');
+    }
+
+    function filterAllPlotsDialog() {
+        const query = document.getElementById('apdSearchInput').value.toLowerCase();
+        const status = document.getElementById('apdStatusFilter').value;
+        const filtered = existingPlots.filter(p => {
+            const matchesSearch = !query || String(p.number).toLowerCase().includes(query);
+            const matchesStatus = status === 'all' || (p.status || '').toLowerCase() === status;
+            return matchesSearch && matchesStatus;
+        });
+        renderApdGrid(filtered);
+    }
+
+    function renderApdGrid(plots) {
+        const grid = document.getElementById('apdGrid');
+        const plotsOnly = plots.filter(p => p.type !== 'building' && p.status !== 'building');
+        document.getElementById('apdCountInfo').innerText = `${plotsOnly.length} plot${plotsOnly.length !== 1 ? 's' : ''}`;
+
+        if (plotsOnly.length === 0) {
+            grid.innerHTML = '<div class="apd-empty"><i class="bi bi-search" style="font-size:2rem; margin-bottom:12px; display:block;"></i>No plots match your filters.</div>';
+            return;
+        }
+
+        grid.innerHTML = plotsOnly.map((plot, idx) => {
+            const rawStatus = (plot.status || 'available').toLowerCase();
+            const style = APD_STATUS_STYLES[rawStatus] || APD_STATUS_STYLES.available;
+            return `<div class="apd-plot-card" style="animation-delay: ${idx * 0.035}s; border-color: ${style.border};">
+                <div class="apd-plot-number">Plot ${plot.number}</div>
+                <div class="apd-plot-meta">${plot.area || '—'} sq ft &nbsp;·&nbsp; ${plot.facing || '—'}</div>
+                <span class="apd-plot-status" style="background: ${style.bg}; color: ${style.color};">${rawStatus.toUpperCase()}</span>
+                <div class="apd-plot-price">₹${(Number(plot.price) / 100000).toFixed(1)}L</div>
+                <div class="apd-plot-actions" onclick="event.stopPropagation();">
+                    <button class="apd-action-btn edit" onclick="closeAllPlotsDialog(); setTimeout(() => selectPlotForEditing('${plot.number}'), 220);" title="Edit plot">
+                        <i class="bi bi-pencil me-1"></i>Edit
+                    </button>
+                    <button class="apd-action-btn copy" onclick="closeAllPlotsDialog(); setTimeout(() => startPlotDuplication('${plot.number}'), 220);" title="Duplicate plot">
+                        <i class="bi bi-copy me-1"></i>Copy
+                    </button>
+                    <button class="apd-action-btn del" onclick="closeAllPlotsDialog(); setTimeout(() => deleteStagedPlot('${plot.number}', 'plot'), 220);" title="Delete plot">
+                        <i class="bi bi-trash3 me-1"></i>Del
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // Close dialog on backdrop click
+    document.getElementById('allPlotsDialogOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeAllPlotsDialog();
+    });
+
+    // Close dialog on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeAllPlotsDialog();
+    });
 
     // Initialize Map Workspace
     document.addEventListener("DOMContentLoaded", function() {
@@ -623,6 +1175,18 @@ html, body { overflow: hidden; height: 100%; }
             statusSelect.addEventListener('change', handlePlotStatusChange);
             handlePlotStatusChange();
         }
+
+        // CSV plot details auto-fill listener
+        const plotNumInput = document.getElementById('plot_number');
+        if (plotNumInput) {
+            plotNumInput.addEventListener('input', function() {
+                handlePlotNumberInput(this.value);
+            });
+        }
+
+        {% if land.registration_request.plot_pricing_csv %}
+        fetchAndParseCsv();
+        {% endif %}
     });
 
     window.duplicateShapeTemplate = null;
@@ -694,6 +1258,9 @@ html, body { overflow: hidden; height: 100%; }
     // Centroid calculator helper
     function getPolygonCentroid(latlngs) {
         let pts = latlngs;
+        if (pts.length === 1 && Array.isArray(pts[0])) {
+            pts = pts[0];
+        }
         let points = pts.map(p => {
             if (Array.isArray(p)) {
                 return { lat: p[0], lng: p[1] };
@@ -702,36 +1269,28 @@ html, body { overflow: hidden; height: 100%; }
         });
 
         if (points.length === 0) return { lat: 0, lng: 0 };
-        if (points.length < 3) return points[0];
+        
+        // Filter unique vertices
+        let uniquePoints = [];
+        let seen = new Set();
+        points.forEach(p => {
+            let key = `${p.lat.toFixed(8)}_${p.lng.toFixed(8)}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                uniquePoints.push(p);
+            }
+        });
 
-        let first = points[0];
-        let last = points[points.length - 1];
-        let closedPts = [...points];
-        if (first.lat !== last.lat || first.lng !== last.lng) {
-            closedPts.push(first);
-        }
+        if (uniquePoints.length === 0) return points[0];
 
-        let area = 0;
-        let cx = 0;
-        let cy = 0;
-        let n = closedPts.length - 1;
+        let sumLat = 0;
+        let sumLng = 0;
+        uniquePoints.forEach(p => {
+            sumLat += p.lat;
+            sumLng += p.lng;
+        });
 
-        for (let i = 0; i < n; i++) {
-            let p1 = closedPts[i];
-            let p2 = closedPts[i+1];
-            let factor = (p1.lat * p2.lng) - (p2.lat * p1.lng);
-            area += factor;
-            cx += (p1.lat + p2.lat) * factor;
-            cy += (p1.lng + p2.lng) * factor;
-        }
-
-        area = area / 2.0;
-        if (area === 0) return points[0];
-
-        cx = cx / (6.0 * area);
-        cy = cy / (6.0 * area);
-
-        return { lat: cx, lng: cy };
+        return { lat: sumLat / uniquePoints.length, lng: sumLng / uniquePoints.length };
     }
 
     // Ray-casting point-in-polygon helper
@@ -1098,7 +1657,7 @@ html, body { overflow: hidden; height: 100%; }
     function submitPlotRecord() {
         const plotNum = document.getElementById('plot_number').value.trim();
         const areaStr = document.getElementById('plot_area').value.trim() + " sqft";
-        const facingVal = 'North';
+        const facingVal = document.getElementById('plot_facing').value;
         const statusVal = document.getElementById('plot_status').value;
         const priceVal = document.getElementById('plot_price').value.trim();
 
@@ -2043,6 +2602,9 @@ html, body { overflow: hidden; height: 100%; }
         if (viewer) {
             viewer.style.display = 'flex';
         }
+        // Boost parent container z-index above navbar
+        const parent = document.getElementById('plotCreatorWrapper');
+        if (parent) parent.style.zIndex = '100050';
     }
 
     function closeFullscreenViewer() {
@@ -2050,6 +2612,9 @@ html, body { overflow: hidden; height: 100%; }
         if (viewer) {
             viewer.style.display = 'none';
         }
+        // Restore parent container z-index
+        const parent = document.getElementById('plotCreatorWrapper');
+        if (parent) parent.style.zIndex = '10';
     }
 
     function adjustViewerZoom(factor) {
@@ -2104,6 +2669,537 @@ html, body { overflow: hidden; height: 100%; }
             window.location.href = "{% url 'admin_dashboard' %}";
         }
     }
+
+    // ─── CSV Pricing/Sizing Sheet Helpers ─────────────────────────────────────
+    let plotPricingData = {}; // keyed by plot number lowercase
+
+    function fetchAndParseCsv() {
+        {% if land.registration_request %}
+        const csvUrl = "{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=pricing_csv";
+        fetch(csvUrl)
+            .then(res => {
+                if (!res.ok) throw new Error("CSV file not found");
+                return res.text();
+            })
+            .then(text => {
+                parseCsvContent(text);
+            })
+            .catch(err => {
+                console.warn("CSV Loading Error:", err);
+            });
+        {% else %}
+        console.log("No registration request or CSV attached to this land.");
+        {% endif %}
+    }
+
+    function parseCsvContent(text) {
+        const lines = text.split(/\r?\n/);
+        if (lines.length === 0) return;
+
+        const tableBody = document.getElementById('csvViewerTableBody');
+        if (tableBody) tableBody.innerHTML = '';
+
+        // Expecting headers: Plot Number, Area (sq ft), Facing, Expected Price (₹), Notes
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            // Simple split by comma, respecting quotes
+            const cols = [];
+            let inQuotes = false;
+            let current = '';
+            for (let c = 0; c < line.length; c++) {
+                const char = line[c];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    cols.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            cols.push(current.trim());
+
+            if (cols.length < 4) continue;
+
+            const plotNum = cols[0];
+            const area = cols[1];
+            const facing = cols[2];
+            const price = cols[3];
+            const notes = cols[4] || '';
+
+            // Store in lookup cache
+            const plotKey = plotNum.toLowerCase().trim();
+            plotPricingData[plotKey] = {
+                plotNumber: plotNum,
+                area: area,
+                facing: facing,
+                price: price,
+                notes: notes
+            };
+
+            // Add row to table
+            if (tableBody) {
+                const tr = document.createElement('tr');
+                tr.className = 'border-secondary';
+                tr.innerHTML = `
+                    <td class="fw-bold text-amber-glow">${escapeHtml(plotNum)}</td>
+                    <td>${escapeHtml(area)}</td>
+                    <td>${escapeHtml(facing)}</td>
+                    <td class="text-cyan-glow fw-bold">₹${escapeHtml(price)}</td>
+                    <td class="text-white-50">${escapeHtml(notes)}</td>
+                `;
+                tableBody.appendChild(tr);
+            }
+        }
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    function filterCsvTable(query) {
+        const trs = document.querySelectorAll('#csvViewerTableBody tr');
+        const q = query.toLowerCase().trim();
+        trs.forEach(tr => {
+            const text = tr.innerText.toLowerCase();
+            tr.style.display = text.includes(q) ? '' : 'none';
+        });
+    }
+
+    function handlePlotNumberInput(val) {
+        const key = val.trim().toLowerCase();
+        const badge = document.getElementById('csvAutoFillBadge');
+        
+        if (plotPricingData && plotPricingData[key]) {
+            const data = plotPricingData[key];
+            
+            // Populate details form fields
+            const areaInput = document.getElementById('plot_area');
+            const priceInput = document.getElementById('plot_price');
+            const facingSelect = document.getElementById('plot_facing');
+            
+            if (areaInput) areaInput.value = data.area;
+            if (priceInput) priceInput.value = Math.round(Number(data.price));
+            
+            if (facingSelect) {
+                const normFacing = normalizeFacing(data.facing);
+                facingSelect.value = normFacing;
+            }
+            
+            // Show badge
+            if (badge) badge.style.display = 'block';
+        } else {
+            // Hide badge
+            if (badge) badge.style.display = 'none';
+        }
+    }
+
+    function normalizeFacing(facing) {
+        if (!facing) return 'North';
+        const f = facing.trim().toLowerCase();
+        if (f.startsWith('north-east') || f === 'ne') return 'North-East';
+        if (f.startsWith('north-west') || f === 'nw') return 'North-West';
+        if (f.startsWith('south-east') || f === 'se') return 'South-East';
+        if (f.startsWith('south-west') || f === 'sw') return 'South-West';
+        if (f.startsWith('north') || f === 'n') return 'North';
+        if (f.startsWith('south') || f === 's') return 'South';
+        if (f.startsWith('east') || f === 'e') return 'East';
+        if (f.startsWith('west') || f === 'w') return 'West';
+        return 'North';
+    }
+
+    function openCsvViewer() {
+        const viewer = document.getElementById('fullscreenCsvViewer');
+        if (viewer) viewer.style.display = 'flex';
+        const parent = document.getElementById('plotCreatorWrapper');
+        if (parent) parent.style.zIndex = '100050';
+    }
+
+    function closeCsvViewer() {
+        const viewer = document.getElementById('fullscreenCsvViewer');
+        if (viewer) viewer.style.display = 'none';
+        const parent = document.getElementById('plotCreatorWrapper');
+        if (parent) parent.style.zIndex = '10';
+    }
+
+    // ─── Site Plan Overlay Engine ───────────────────────────────────────────
+    document.getElementById('sitePlanUpload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        removeOverlay();
+        isCustomUpload = true;
+
+        if (file.type === 'application/pdf') {
+            loadPdfOverlay(file);
+        } else if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                lastUploadedDataUrl = evt.target.result;
+                createOverlay(evt.target.result, false); // start visible on manual upload
+            };
+            reader.readAsDataURL(file);
+        } else {
+            alert('Unsupported file format. Please upload an image (PNG/JPEG) or PDF.');
+        }
+    });
+
+    function loadPdfOverlay(file, startHidden = false) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const typedarray = new Uint8Array(e.target.result);
+            pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
+                pdf.getPage(1).then(function(page) {
+                    const viewport = page.getViewport({ scale: 2.0 });
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport
+                    };
+
+                    page.render(renderContext).promise.then(function() {
+                        const dataUrl = canvas.toDataURL('image/png');
+                        if (isCustomUpload) {
+                            lastUploadedDataUrl = dataUrl;
+                        }
+                        createOverlay(dataUrl, startHidden);
+                    });
+                });
+            }).catch(err => {
+                alert("Error reading PDF layout sheet: " + err.message);
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function createOverlay(imgUrl, startHidden = false) {
+        const mapCenter = map.getCenter();
+        
+        // Define initial layout bounding box roughly 100 meters wide if not loaded from settings
+        if (!overlayBaseBounds) {
+            const latDelta = 0.0006;
+            const lngDelta = 0.0008;
+            overlayBaseBounds = L.latLngBounds(
+                [mapCenter.lat - latDelta, mapCenter.lng - lngDelta],
+                [mapCenter.lat + latDelta, mapCenter.lng + lngDelta]
+            );
+        }
+
+        // Apply size scale to base bounds
+        const center = overlayBaseBounds.getCenter();
+        const northEast = overlayBaseBounds.getNorthEast();
+        const latDiff = (northEast.lat - center.lat) * overlayScale;
+        const lngDiff = (northEast.lng - center.lng) * overlayScale;
+        const scaledBounds = L.latLngBounds(
+            [center.lat - latDiff, center.lng - lngDiff],
+            [center.lat + latDiff, center.lng + lngDiff]
+        );
+
+        sitePlanOverlay = L.imageOverlay(imgUrl, scaledBounds, {
+            opacity: overlayOpacity,
+            interactive: true,
+            zIndex: 500
+        });
+
+        // Center move handle marker
+        const moveIcon = L.divIcon({
+            className: '',
+            html: '<div style="background: rgba(15,23,42,0.9); border: 2px solid #F96D00; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: move; box-shadow: 0 2px 6px rgba(0,0,0,0.5);"><i class="bi bi-arrows-move" style="color: #F96D00; font-size: 11px;"></i></div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+
+        overlayCenterMarker = L.marker(center, {
+            icon: moveIcon,
+            draggable: true,
+            zIndexOffset: 1000
+        });
+
+        let lastCenter = center;
+        overlayCenterMarker.on('dragstart', function() {
+            lastCenter = overlayCenterMarker.getLatLng();
+        });
+
+        overlayCenterMarker.on('drag', function() {
+            const newCenter = overlayCenterMarker.getLatLng();
+            const latDiff = newCenter.lat - lastCenter.lat;
+            const lngDiff = newCenter.lng - lastCenter.lng;
+
+            const baseNE = overlayBaseBounds.getNorthEast();
+            const baseSW = overlayBaseBounds.getSouthWest();
+            overlayBaseBounds = L.latLngBounds(
+                [baseSW.lat + latDiff, baseSW.lng + lngDiff],
+                [baseNE.lat + latDiff, baseNE.lng + lngDiff]
+            );
+
+            lastCenter = newCenter;
+            updateOverlayScale(overlayScale);
+            saveOverlaySettings();
+        });
+
+        // Trigger loading updates
+        sitePlanOverlay.on('load', applyOverlayTransform);
+        map.on('zoom move', applyOverlayTransform);
+
+        // Show UI controls panel
+        document.getElementById('overlayControls').style.display = 'block';
+
+        isOverlayVisible = !startHidden;
+        const btn = document.getElementById('btnToggleOverlay');
+        if (isOverlayVisible) {
+            sitePlanOverlay.addTo(map);
+            overlayCenterMarker.addTo(map);
+            btn.innerText = 'Hide';
+            btn.className = 'btn btn-xs btn-outline-info flex-grow-1 py-1';
+        } else {
+            btn.innerText = 'Show';
+            btn.className = 'btn btn-xs btn-info flex-grow-1 py-1';
+        }
+
+        applyOverlayTransform();
+        saveOverlaySettings();
+    }
+
+    function applyOverlayTransform() {
+        if (!sitePlanOverlay) return;
+        const img = sitePlanOverlay.getElement();
+        if (!img) return;
+
+        // Extract Leaflet's base positioning transform (translate3d / matrix)
+        let baseTransform = img.style.transform || '';
+        baseTransform = baseTransform.replace(/rotate\([^)]+\)/g, '').replace(/scale\([^)]+\)/g, '').trim();
+
+        img.style.transformOrigin = 'center center';
+        img.style.transform = `${baseTransform} rotate(${overlayRotation}deg)`;
+    }
+
+    function updateOverlayOpacity(val) {
+        overlayOpacity = parseFloat(val);
+        document.getElementById('overlayOpacityLabel').innerText = Math.round(overlayOpacity * 100) + '%';
+        if (sitePlanOverlay) {
+            sitePlanOverlay.setOpacity(overlayOpacity);
+        }
+        saveOverlaySettings();
+    }
+
+    function updateOverlayRotation(val) {
+        overlayRotation = parseInt(val);
+        document.getElementById('overlayRotationLabel').innerText = overlayRotation + '°';
+        applyOverlayTransform();
+        saveOverlaySettings();
+    }
+
+    function updateOverlayScale(val) {
+        overlayScale = parseFloat(val);
+        document.getElementById('overlayScaleLabel').innerText = overlayScale.toFixed(2) + 'x';
+        if (!sitePlanOverlay || !overlayBaseBounds) return;
+
+        const center = overlayBaseBounds.getCenter();
+        const northEast = overlayBaseBounds.getNorthEast();
+
+        const latDiff = (northEast.lat - center.lat) * overlayScale;
+        const lngDiff = (northEast.lng - center.lng) * overlayScale;
+
+        const newBounds = L.latLngBounds(
+            [center.lat - latDiff, center.lng - lngDiff],
+            [center.lat + latDiff, center.lng + lngDiff]
+        );
+
+        sitePlanOverlay.setBounds(newBounds);
+        applyOverlayTransform();
+        saveOverlaySettings();
+    }
+
+    function toggleOverlayVisibility() {
+        if (!sitePlanOverlay) return;
+        const btn = document.getElementById('btnToggleOverlay');
+        if (isOverlayVisible) {
+            sitePlanOverlay.remove();
+            if (overlayCenterMarker) overlayCenterMarker.remove();
+            btn.innerText = 'Show';
+            btn.className = 'btn btn-xs btn-info flex-grow-1 py-1';
+            isOverlayVisible = false;
+        } else {
+            sitePlanOverlay.addTo(map);
+            if (overlayCenterMarker) overlayCenterMarker.addTo(map);
+            btn.innerText = 'Hide';
+            btn.className = 'btn btn-xs btn-outline-info flex-grow-1 py-1';
+            isOverlayVisible = true;
+            applyOverlayTransform();
+        }
+    }
+
+    function removeOverlay() {
+        if (sitePlanOverlay) {
+            sitePlanOverlay.remove();
+            sitePlanOverlay = null;
+        }
+        if (overlayCenterMarker) {
+            overlayCenterMarker.remove();
+            overlayCenterMarker = null;
+        }
+        map.off('zoom move', applyOverlayTransform);
+        overlayBaseBounds = null;
+        isCustomUpload = false;
+        lastUploadedDataUrl = null;
+        document.getElementById('overlayControls').style.display = 'none';
+        document.getElementById('sitePlanUpload').value = '';
+        localStorage.removeItem(`layout_overlay_settings_${landSlug}`);
+    }
+
+    function resetOverlaySliders() {
+        overlayOpacity = 0.55;
+        overlayRotation = 0;
+        overlayScale = 1.0;
+
+        document.getElementById('overlayOpacity').value = 0.55;
+        document.getElementById('overlayOpacityLabel').innerText = '55%';
+        document.getElementById('overlayRotation').value = 0;
+        document.getElementById('overlayRotationLabel').innerText = '0°';
+        document.getElementById('overlayScale').value = 1.0;
+        document.getElementById('overlayScaleLabel').innerText = '1.0x';
+    }
+
+    function saveOverlaySettings() {
+        if (!overlayBaseBounds) return;
+        const settings = {
+            baseBounds: [
+                [overlayBaseBounds.getSouthWest().lat, overlayBaseBounds.getSouthWest().lng],
+                [overlayBaseBounds.getNorthEast().lat, overlayBaseBounds.getNorthEast().lng]
+            ],
+            scale: overlayScale,
+            rotation: overlayRotation,
+            opacity: overlayOpacity,
+            isCustomUpload: isCustomUpload,
+            customDataUrl: (isCustomUpload && lastUploadedDataUrl && lastUploadedDataUrl.length < 1500000) ? lastUploadedDataUrl : null
+        };
+        localStorage.setItem(`layout_overlay_settings_${landSlug}`, JSON.stringify(settings));
+    }
+
+    function loadSavedOverlaySettings() {
+        const saved = localStorage.getItem(`layout_overlay_settings_${landSlug}`);
+        if (!saved) return false;
+
+        try {
+            const settings = JSON.parse(saved);
+            overlayOpacity = settings.opacity !== undefined ? settings.opacity : 0.55;
+            overlayRotation = settings.rotation !== undefined ? settings.rotation : 0;
+            overlayScale = settings.scale !== undefined ? settings.scale : 1.0;
+            isCustomUpload = !!settings.isCustomUpload;
+            
+            const sw = settings.baseBounds[0];
+            const ne = settings.baseBounds[1];
+            overlayBaseBounds = L.latLngBounds(sw, ne);
+
+            // Update UI elements values
+            document.getElementById('overlayOpacity').value = overlayOpacity;
+            document.getElementById('overlayOpacityLabel').innerText = Math.round(overlayOpacity * 100) + '%';
+            document.getElementById('overlayRotation').value = overlayRotation;
+            document.getElementById('overlayRotationLabel').innerText = overlayRotation + '°';
+            document.getElementById('overlayScale').value = overlayScale;
+            document.getElementById('overlayScaleLabel').innerText = overlayScale.toFixed(2) + 'x';
+
+            // Check if there is an image URL to load
+            let imgUrl = null;
+            if (isCustomUpload) {
+                if (settings.customDataUrl) {
+                    imgUrl = settings.customDataUrl;
+                    lastUploadedDataUrl = imgUrl;
+                } else {
+                    const statusEl = document.getElementById('overlayLoaderStatus');
+                    if (statusEl) {
+                        statusEl.innerText = "Saved alignment settings restored. Please choose your layout file again to render it on the map.";
+                        statusEl.style.display = 'block';
+                    }
+                    document.getElementById('overlayControls').style.display = 'block';
+                    const btn = document.getElementById('btnToggleOverlay');
+                    btn.innerText = 'Show';
+                    btn.className = 'btn btn-xs btn-info flex-grow-1 py-1';
+                    isOverlayVisible = false;
+                    return true;
+                }
+            } else {
+                // Landowner floor plan
+                {% if land.registration_request and land.registration_request.floor_plan %}
+                    imgUrl = "{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan";
+                    const isPdf = "{{ land.registration_request.floor_plan.name|lower }}".endsWith('.pdf');
+                    if (isPdf) {
+                        fetch(imgUrl)
+                            .then(res => {
+                                if (!res.ok) throw new Error("File not found");
+                                return res.blob();
+                            })
+                            .then(blob => {
+                                const file = new File([blob], "floor_plan.pdf", { type: "application/pdf" });
+                                loadPdfOverlay(file, true); // true = start hidden
+                            })
+                            .catch(err => {
+                                console.error("PDF settings auto-load error:", err);
+                            });
+                        return true;
+                    }
+                {% endif %}
+            }
+
+            if (imgUrl) {
+                createOverlay(imgUrl, true); // true = start hidden
+                return true;
+            }
+        } catch (e) {
+            console.error("Error parsing layout settings:", e);
+        }
+        return false;
+    }
+
+    // Auto-load landowner layout sheet on load if present
+    document.addEventListener("DOMContentLoaded", () => {
+        // First try to load settings from storage.
+        const loadedFromSettings = loadSavedOverlaySettings();
+
+        if (!loadedFromSettings) {
+            {% if land.registration_request %}
+                {% if land.registration_request.floor_plan %}
+                    // Wait for map to initialize and be ready
+                    setTimeout(() => {
+                        const statusEl = document.getElementById('overlayLoaderStatus');
+                        if (statusEl) {
+                            statusEl.innerText = "Loading floor plan layout as overlay...";
+                            statusEl.style.display = 'block';
+                        }
+                        const floorPlanUrl = "{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan";
+                        const isPdf = "{{ land.registration_request.floor_plan.name|lower }}".endsWith('.pdf');
+                        
+                        if (isPdf) {
+                            // Fetch the PDF binary and load via pdfjs
+                            fetch(floorPlanUrl)
+                                .then(res => {
+                                    if (!res.ok) throw new Error("File not found");
+                                    return res.blob();
+                                })
+                                .then(blob => {
+                                    const file = new File([blob], "floor_plan.pdf", { type: "application/pdf" });
+                                    loadPdfOverlay(file, true); // start hidden by default
+                                    if (statusEl) statusEl.innerText = "Layout loaded. Click Show to align.";
+                                })
+                                .catch(err => {
+                                    if (statusEl) statusEl.innerText = "Failed to load PDF layout.";
+                                    console.error("PDF auto-load error:", err);
+                                });
+                        } else {
+                            createOverlay(floorPlanUrl, true); // start hidden by default
+                            if (statusEl) statusEl.innerText = "Layout loaded. Click Show to align.";
+                        }
+                    }, 800);
+                {% endif %}
+            {% endif %}
+        }
+    });
 </script>
 
 <!-- Finish Digitization Registration Modal -->

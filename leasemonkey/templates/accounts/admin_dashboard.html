@@ -4,7 +4,8 @@
 {% block title %}Admin Dashboard — The Lease Monkey{% endblock %}
 
 {% block content %}
-<div class="container-fluid min-vh-100 p-0 d-flex" style="position: relative; z-index: 10; padding-top: 75px !important;">
+<div class="container-fluid min-vh-100 p-0 d-flex"
+    style="position: relative; z-index: 10; padding-top: 75px !important;">
     <!-- Sidebar Navigation -->
     <aside class="sidebar-wrapper d-none d-lg-flex flex-column p-4 border-end border-secondary-glow bg-dark-glow">
         <!-- Profile summary badge -->
@@ -19,35 +20,42 @@
         <nav class="sidebar-nav flex-grow-1">
             <ul class="nav flex-column gap-2.5">
                 <li class="nav-item">
-                    <a href="javascript:void(0);" id="tabLinkLands" onclick="switchTab('lands');" class="sidebar-link active">
+                    <a href="javascript:void(0);" id="tabLinkLands" onclick="switchTab('lands');"
+                        class="sidebar-link active">
                         <i class="bi bi-map-fill"></i> Lands Management
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="javascript:void(0);" id="tabLinkOwners" onclick="switchTab('owners');" class="sidebar-link">
+                    <a href="javascript:void(0);" id="tabLinkOwners" onclick="switchTab('owners');"
+                        class="sidebar-link">
                         <i class="bi bi-people-fill"></i> Land Owners
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="javascript:void(0);" id="tabLinkLayouts" onclick="switchTab('layouts');" class="sidebar-link">
+                    <a href="javascript:void(0);" id="tabLinkLayouts" onclick="switchTab('layouts');"
+                        class="sidebar-link">
                         <i class="bi bi-file-earmark-text-fill"></i> Land Requests
                         {% if pending_requests_count %}<span class="admin-notif-badge ms-auto">{{ pending_requests_count }}</span>{% endif %}
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="javascript:void(0);" id="tabLinkTickets" onclick="switchTab('tickets');" class="sidebar-link">
+                    <a href="javascript:void(0);" id="tabLinkTickets" onclick="switchTab('tickets');"
+                        class="sidebar-link">
                         <i class="bi bi-ticket-fill"></i> Support Tickets
                         {% if open_tickets_count %}<span class="admin-notif-badge ms-auto">{{ open_tickets_count }}</span>{% endif %}
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="javascript:void(0);" id="tabLinkNotifs" onclick="switchTab('notifs');" class="sidebar-link">
+                    <a href="javascript:void(0);" id="tabLinkNotifs" onclick="switchTab('notifs');"
+                        class="sidebar-link">
                         <i class="bi bi-bell-fill"></i> Notifications
                         {% if unread_count %}<span class="admin-notif-badge ms-auto">{{ unread_count }}</span>{% endif %}
                     </a>
                 </li>
+
                 <li class="nav-item">
-                    <a href="javascript:void(0);" id="tabLinkApplications" onclick="switchTab('applications');" class="sidebar-link">
+                    <a href="javascript:void(0);" id="tabLinkApplications" onclick="switchTab('applications');"
+                        class="sidebar-link">
                         <i class="bi bi-file-earmark-person-fill"></i> Registrations
                     </a>
                 </li>
@@ -65,12 +73,13 @@
     <main class="flex-grow-1 p-4 p-md-5">
         <!-- Success/Error Alerts -->
         {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show border border-secondary-glow bg-dark-glow text-white shadow-lg mb-4" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
+        {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show border border-secondary-glow bg-dark-glow text-white shadow-lg mb-4"
+            role="alert">
+            {{ message }}
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
         {% endif %}
 
         <!-- LANDS SECTION -->
@@ -78,7 +87,33 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h2 class="h3 font-ranade text-white fw-bold mb-1">Lands Registry</h2>
-                    <p class="text-muted-glow fs-14 mb-0">Overview of all active properties and layouts being implemented.</p>
+                    <p class="text-muted-glow fs-14 mb-0">Overview of all active properties and layouts being
+                        implemented.</p>
+                </div>
+            </div>
+
+            <!-- Lands Registry Filters -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <input type="text" id="adminLandSearch" class="form-control bg-dark border-secondary text-white fs-14 py-2" 
+                           placeholder="Search lands by name, owner, or location..." onkeyup="filterAdminLands()">
+                </div>
+                <div class="col-md-3">
+                    <select id="adminLandStatusFilter" class="form-select bg-dark border-secondary text-white fs-14 py-2" 
+                            onchange="filterAdminLands()">
+                        <option value="all">All Statuses</option>
+                        <option value="live">Live</option>
+                        <option value="draft">Draft</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="adminLandSort" class="form-select bg-dark border-secondary text-white fs-14 py-2" 
+                            onchange="filterAdminLands()">
+                        <option value="name_asc">Name (A-Z)</option>
+                        <option value="name_desc">Name (Z-A)</option>
+                        <option value="area_desc">Area (High to Low)</option>
+                        <option value="area_asc">Area (Low to High)</option>
+                    </select>
                 </div>
             </div>
 
@@ -96,40 +131,40 @@
                     </thead>
                     <tbody class="fs-14">
                         {% if lands %}
-                            {% for land in lands %}
-                                <tr class="border-bottom border-dark-glow land-summary-row"
-                                    onclick="openLandActionsModal(this);"
-                                    data-land-name="{{ land.name|escape }}"
-                                    data-land-owner="{{ land.owner.username|escape }}"
-                                    data-land-location="{{ land.location|escape }}"
-                                    data-land-area="{{ land.area }}"
-                                    data-land-price-label="{{ land.display_plot_price_lakhs }}"
-                                    data-explore-url="{% url 'lands:plot_viewer' slug=land.slug %}"
-                                    data-manage-url="{% url 'lands:plot_creator' slug=land.slug %}"
-                                    data-delete-url="{% url 'lands:delete_land' slug=land.slug %}"
-                                    data-land-slug="{{ land.slug }}"
-                                    data-land-is-live="{% if land.is_live %}true{% else %}false{% endif %}">
-                                    <td class="py-3 px-3 fw-bold text-white font-ranade fs-15">{{ land.name }}</td>
-                                    <td class="py-3">{{ land.owner.username }}</td>
-                                    <td class="py-3 text-muted-glow land-location-cell"><i class="bi bi-geo-alt-fill text-cyan-glow me-1"></i><span class="land-location-text"></span></td>
-                                    <td class="py-3">{{ land.area }} Acres</td>
-                                    <td class="py-3 text-cyan-glow fw-bold land-price-cell"></td>
-                                    <td class="py-3">
-                                        {% if land.is_live %}
-                                            <span class="badge bg-success-glow text-uppercase fs-10">Live</span>
-                                        {% else %}
-                                            <span class="badge bg-warning-glow text-uppercase fs-10">Draft</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
+                        {% for land in lands %}
+                        <tr class="border-bottom border-dark-glow land-summary-row"
+                            onclick="openLandActionsModal(this);" data-land-name="{{ land.name|escape }}"
+                            data-land-owner="{{ land.owner.username|escape }}"
+                            data-land-location="{{ land.location|escape }}" data-land-area="{{ land.area }}"
+                            data-land-price-label="{{ land.display_plot_price_lakhs }}"
+                            data-explore-url="{% url 'lands:plot_viewer' slug=land.slug %}"
+                            data-manage-url="{% url 'lands:plot_creator' slug=land.slug %}"
+                            data-delete-url="{% url 'lands:delete_land' slug=land.slug %}"
+                            data-land-slug="{{ land.slug }}"
+                            data-land-is-live="{% if land.is_live %}true{% else %}false{% endif %}">
+                            <td class="py-3 px-3 fw-bold text-white font-ranade fs-15">{{ land.name }}</td>
+                            <td class="py-3">{{ land.owner.username }}</td>
+                            <td class="py-3 text-muted-glow land-location-cell"><i
+                                    class="bi bi-geo-alt-fill text-cyan-glow me-1"></i><span
+                                    class="land-location-text"></span></td>
+                            <td class="py-3">{{ land.area }} Acres</td>
+                            <td class="py-3 text-cyan-glow fw-bold land-price-cell"></td>
+                            <td class="py-3">
+                                {% if land.is_live %}
+                                <span class="badge bg-success-glow text-uppercase fs-10">Live</span>
+                                {% else %}
+                                <span class="badge bg-warning-glow text-uppercase fs-10">Draft</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
                         {% else %}
-                            <tr>
-                                <td colspan="5" class="py-5 text-center text-muted-glow">
-                                    <i class="bi bi-folder-x fs-2 d-block mb-2"></i>
-                                    No lands registered yet. Click the + button to add the first one.
-                                </td>
-                            </tr>
+                        <tr>
+                            <td colspan="5" class="py-5 text-center text-muted-glow">
+                                <i class="bi bi-folder-x fs-2 d-block mb-2"></i>
+                                No lands registered yet. Click the + button to add the first one.
+                            </td>
+                        </tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -140,7 +175,8 @@
         <section id="sectionOwners" style="display: none;">
             <div class="mb-4">
                 <h2 class="h3 font-ranade text-white fw-bold mb-1">Land Owners</h2>
-                <p class="text-muted-glow fs-14 mb-0">Manage registered landowners and inspect their property assets.</p>
+                <p class="text-muted-glow fs-14 mb-0">Manage registered landowners and inspect their property assets.
+                </p>
             </div>
 
             <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
@@ -157,33 +193,37 @@
                     </thead>
                     <tbody class="fs-14">
                         {% if landowners %}
-                            {% for owner in landowners %}
-                                <tr class="border-bottom border-dark-glow">
-                                    <td class="py-3 px-3 fw-bold text-white font-ranade fs-15">{{ owner.username }}</td>
-                                    <td class="py-3 text-muted-glow">{{ owner.email }}</td>
-                                    <td class="py-3">{% if owner.phone_number %}{{ owner.phone_number }}{% else %}-{% endif %}</td>
-                                    <td class="py-3">
-                                        <span class="badge {% if owner.status == 'ACTIVE' %}bg-success-glow{% else %}bg-warning-glow{% endif %} text-uppercase fs-10">
-                                            {{ owner.status }}
-                                        </span>
-                                    </td>
-                                    <td class="py-3 fw-bold text-cyan-glow">
-                                        {{ owner.lands.count }} Land(s)
-                                    </td>
-                                    <td class="py-3 text-end px-3">
-                                        <button onclick="confirmDeleteLandowner('{{ owner.username|escapejs }}');" class="btn btn-sm btn-danger px-2.5 py-1 fs-11 fw-bold text-uppercase bg-danger-glow" style="border: 1px solid rgba(220, 38, 38, 0.2);">
-                                            <i class="bi bi-trash-fill"></i> Delete
-                                        </button>
-                                    </td>
-                                </tr>
-                            {% endfor %}
+                        {% for owner in landowners %}
+                        <tr class="border-bottom border-dark-glow">
+                            <td class="py-3 px-3 fw-bold text-white font-ranade fs-15">{{ owner.username }}</td>
+                            <td class="py-3 text-muted-glow">{{ owner.email }}</td>
+                            <td class="py-3">{% if owner.phone_number %}{{ owner.phone_number }}{% else %}-{% endif %}
+                            </td>
+                            <td class="py-3">
+                                <span
+                                    class="badge {% if owner.status == 'ACTIVE' %}bg-success-glow{% else %}bg-warning-glow{% endif %} text-uppercase fs-10">
+                                    {{ owner.status }}
+                                </span>
+                            </td>
+                            <td class="py-3 fw-bold text-cyan-glow">
+                                {{ owner.lands.count }} Land(s)
+                            </td>
+                            <td class="py-3 text-end px-3">
+                                <button onclick="confirmDeleteLandowner('{{ owner.username|escapejs }}');"
+                                    class="btn btn-sm btn-danger px-2.5 py-1 fs-11 fw-bold text-uppercase bg-danger-glow"
+                                    style="border: 1px solid rgba(220, 38, 38, 0.2);">
+                                    <i class="bi bi-trash-fill"></i> Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
                         {% else %}
-                            <tr>
-                                <td colspan="5" class="py-5 text-center text-muted-glow">
-                                    <i class="bi bi-people fs-2 d-block mb-2"></i>
-                                    No landowners registered in the system yet.
-                                </td>
-                            </tr>
+                        <tr>
+                            <td colspan="5" class="py-5 text-center text-muted-glow">
+                                <i class="bi bi-people fs-2 d-block mb-2"></i>
+                                No landowners registered in the system yet.
+                            </td>
+                        </tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -194,75 +234,110 @@
         <section id="sectionNotifications" style="display:none;">
             <div class="mb-4">
                 <h2 class="h3 font-ranade text-white fw-bold mb-1">Notifications</h2>
-                <p class="text-muted-glow fs-14 mb-0">Land owner deletion requests and system alerts requiring your action.</p>
-            </div>
+                <p class="text-muted-glow fs-14 mb-0">Lan <!-- Tabs Navigation -->
+                <div class="d-flex gap-2 mb-4 border-bottom border-secondary-glow pb-3">
+                    <button type="button" class="btn btn-sm px-3 py-1.5 fs-12 fw-bold text-uppercase rounded-3"
+                        id="btnNotifsUnread" onclick="setNotifFilter('unread')"
+                        style="background-color: var(--accent-orange, #F96D00); color: white; border: none;">
+                        Unread (<span id="countUnreadNotifs">{{ unread_count }}</span>)
+                    </button>
+                    <button type="button" class="btn btn-sm px-3 py-1.5 fs-12 fw-bold text-uppercase rounded-3"
+                        id="btnNotifsAll" onclick="setNotifFilter('all')"
+                        style="background-color: rgba(255,255,255,0.05); color: #9CA3AF; border: none;">
+                        All Mail
+                    </button>
+                </div>
 
-            {% if notifications %}
+                {% if notifications %}
                 <div class="d-flex flex-column gap-3" id="adminNotifList">
                     {% for notif in notifications %}
-                        <div class="admin-notif-card rounded-3 border {% if notif.is_read %}border-secondary-glow opacity-65{% else %}border-action-glow{% endif %} bg-dark-glow p-4"
-                             id="admin-notif-{{ notif.id }}">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="flex-shrink-0">
-                                    {% if notif.notif_type == 'land_delete_request' %}
-                                        <i class="bi bi-building-x fs-4 text-warning"></i>
-                                    {% elif notif.notif_type == 'plot_delete_request' %}
-                                        <i class="bi bi-grid-3x3-gap fs-4 text-warning"></i>
-                                    {% elif notif.notif_type == 'request_approved' %}
-                                        <i class="bi bi-check-circle-fill fs-4 text-success"></i>
-                                    {% else %}
-                                        <i class="bi bi-bell-fill fs-4 text-cyan-glow"></i>
-                                    {% endif %}
-                                </div>
-                                <div class="flex-grow-1">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <h6 class="text-white fw-bold mb-0 fs-14">{{ notif.title }}</h6>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="text-white-50 fs-11">{{ notif.created_at|date:"M d, Y H:i" }}</span>
-                                            {% if not notif.is_read %}<span class="admin-unread-dot"></span>{% endif %}
-                                        </div>
+                    <div class="admin-notif-card rounded-3 border bg-dark-glow p-4 transition-all"
+                        id="admin-notif-{{ notif.id }}" data-id="{{ notif.id }}"
+                        data-is-read="{{ notif.is_read|yesno:'true,false' }}"
+                        style="cursor: pointer; transition: transform 0.2s, opacity 0.2s;"
+                        onmouseover="this.style.transform='scale(1.008)';" onmouseout="this.style.transform='scale(1)';"
+                        onclick="showNotifDetail('{{ notif.id }}', '{{ notif.title|escapejs }}', '{{ notif.message|escapejs }}', '{{ notif.created_at|date:'M d, Y H:i' }}', {{ notif.is_read|yesno:'true,false' }}, this);">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="flex-shrink-0">
+                                {% if notif.notif_type == 'land_delete_request' %}
+                                <i class="bi bi-building-x fs-4 text-warning"></i>
+                                {% elif notif.notif_type == 'plot_delete_request' %}
+                                <i class="bi bi-grid-3x3-gap fs-4 text-warning"></i>
+                                {% elif notif.notif_type == 'request_approved' %}
+                                <i class="bi bi-check-circle-fill fs-4 text-success"></i>
+                                {% else %}
+                                <i class="bi bi-bell-fill fs-4 text-cyan-glow"></i>
+                                {% endif %}
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <h6 class="text-white fw-bold mb-0 fs-14">{{ notif.title }}</h6>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="text-white-50 fs-11">{{ notif.created_at|date:"M d, Y H:i" }}</span>
+                                        {% if not notif.is_read %}<span class="admin-unread-dot"></span>{% endif %}
                                     </div>
-                                    <p class="text-muted-glow fs-13 mb-0" style="white-space:pre-line;">{{ notif.message }}</p>
-
-                                    {% if notif.notif_type == 'land_delete_request' or notif.notif_type == 'plot_delete_request' %}
-                                        {% if not notif.is_read %}
-                                        <div class="d-flex gap-2 mt-3">
-                                            <button type="button"
-                                                    class="btn btn-sm btn-approve px-3 py-1 fs-12 fw-bold text-uppercase"
-                                                    onclick="handleNotifAction({{ notif.id }}, 'approve')">
-                                                <i class="bi bi-check-lg me-1"></i> Approve &amp; Delete
-                                            </button>
-                                            <button type="button"
-                                                    class="btn btn-sm btn-reject px-3 py-1 fs-12 fw-bold text-uppercase"
-                                                    onclick="openRejectDialog({{ notif.id }})">
-                                                <i class="bi bi-x-lg me-1"></i> Reject
-                                            </button>
-                                        </div>
-                                        {% else %}
-                                            <span class="badge bg-secondary mt-2 fs-11">Resolved</span>
-                                        {% endif %}
-                                    {% endif %}
                                 </div>
+                                <p class="text-muted-glow fs-13 mb-0 text-truncate" style="max-width: 500px;">{{ notif.message }}</p>
+
+                                {% if notif.notif_type == 'land_delete_request' or notif.notif_type == 'plot_delete_request' %}
+                                {% if not notif.is_read %}
+                                <div class="d-flex gap-2 mt-3" onclick="event.stopPropagation();">
+                                    <button type="button"
+                                        class="btn btn-sm btn-approve px-3 py-1 fs-12 fw-bold text-uppercase"
+                                        onclick="handleNotifAction({{ notif.id }}, 'approve')">
+                                        <i class="bi bi-check-lg me-1"></i> Approve &amp; Delete
+                                    </button>
+                                    <button type="button"
+                                        class="btn btn-sm btn-reject px-3 py-1 fs-12 fw-bold text-uppercase"
+                                        onclick="openRejectDialog({{ notif.id }})">
+                                        <i class="bi bi-x-lg me-1"></i> Reject
+                                    </button>
+                                </div>
+                                {% else %}
+                                <span class="badge bg-secondary mt-2 fs-11">Resolved</span>
+                                {% endif %}
+                                {% endif %}
+                            </div>
+                            <div class="d-flex flex-column gap-2 ms-2" onclick="event.stopPropagation();">
+                                {% if not notif.is_read %}
+                                <button
+                                    class="btn btn-sm btn-outline-secondary border-secondary-glow text-white fs-11 py-1"
+                                    onclick="markRead('{{ notif.id }}', this.closest('.admin-notif-card'));">
+                                    Mark Read <i class="bi bi-check2 ms-1"></i>
+                                </button>
+                                {% endif %}
+                                <button class="btn btn-sm btn-outline-danger fs-11 py-1"
+                                    onclick="deleteNotif('{{ notif.id }}', this.closest('.admin-notif-card'));">
+                                    Delete <i class="bi bi-trash ms-1"></i>
+                                </button>
                             </div>
                         </div>
+                    </div>
                     {% endfor %}
                 </div>
-            {% else %}
+                <div id="noFilteredNotifsMessage"
+                    class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-5 text-center d-none">
+                    <i class="bi bi-bell-slash fs-1 text-muted-glow d-block mb-3"></i>
+                    <p class="text-muted-glow fs-15 mb-0">No notifications to display in this view.</p>
+                </div>
+                {% else %}
                 <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-5 text-center">
                     <i class="bi bi-bell-slash fs-1 text-muted-glow d-block mb-3"></i>
                     <p class="text-muted-glow fs-15 mb-0">No notifications yet.</p>
                 </div>
-            {% endif %}
+                {% endif %}
         </section>
 
         <!-- LANDOWNER REGISTRATIONS SECTION -->
         <section id="sectionApplications" style="display:none;">
             <div class="mb-4">
                 <h2 class="h3 font-ranade text-white fw-bold mb-1">Registration Applications</h2>
-                <p class="text-muted-glow fs-14 mb-0">Review and approve/reject pending landowner registration requests.</p>
+                <p class="text-muted-glow fs-14 mb-0">Review and approve/reject pending landowner registration requests.
+                </p>
             </div>
             <div class="d-flex justify-content-end mb-3">
-                <a href="{% url 'admin_landowner_applications' %}" class="btn btn-action px-3 py-1 fs-12 fw-bold text-uppercase">
+                <a href="{% url 'admin_landowner_applications' %}"
+                    class="btn btn-action px-3 py-1 fs-12 fw-bold text-uppercase">
                     <i class="bi bi-arrow-up-right-square me-1"></i> Full Management View
                 </a>
             </div>
@@ -282,36 +357,38 @@
                     <tbody class="fs-14">
                         {% with apps=landowner_applications|default:'' %}
                         {% if apps %}
-                            {% for app in apps|slice:':5' %}
-                            <tr class="border-bottom border-dark-glow">
-                                <td class="py-3 px-3 fw-bold text-white">{{ app.pk }}</td>
-                                <td class="py-3 fw-bold text-white font-ranade">{{ app.first_name }} {{ app.last_name }}</td>
-                                <td class="py-3 text-muted-glow">{{ app.email }}</td>
-                                <td class="py-3">{{ app.land_name }}</td>
-                                <td class="py-3">
-                                    <span class="badge fs-10 text-uppercase
+                        {% for app in apps|slice:':5' %}
+                        <tr class="border-bottom border-dark-glow">
+                            <td class="py-3 px-3 fw-bold text-white">{{ app.pk }}</td>
+                            <td class="py-3 fw-bold text-white font-ranade">{{ app.first_name }} {{ app.last_name }}
+                            </td>
+                            <td class="py-3 text-muted-glow">{{ app.email }}</td>
+                            <td class="py-3">{{ app.land_name }}</td>
+                            <td class="py-3">
+                                <span class="badge fs-10 text-uppercase
                                         {% if app.status == 'PENDING' %}bg-warning-glow
                                         {% elif app.status == 'UNDER_REVIEW' %}bg-info-glow
                                         {% elif app.status == 'APPROVED' %}bg-success-glow
                                         {% elif app.status == 'REJECTED' %}bg-danger-glow{% endif %}">
-                                        {{ app.get_status_display }}
-                                    </span>
-                                </td>
-                                <td class="py-3 text-muted-glow fs-12">{{ app.created_at|date:"d M Y" }}</td>
-                                <td class="py-3 text-end px-3">
-                                    <a href="{% url 'admin_landowner_application_detail' app.pk %}" class="btn btn-sm btn-action px-3 py-1 fs-11 fw-bold text-uppercase">
-                                        <i class="bi bi-eye me-1"></i> Review
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
+                                    {{ app.get_status_display }}
+                                </span>
+                            </td>
+                            <td class="py-3 text-muted-glow fs-12">{{ app.created_at|date:"d M Y" }}</td>
+                            <td class="py-3 text-end px-3">
+                                <a href="{% url 'admin_landowner_application_detail' app.pk %}"
+                                    class="btn btn-sm btn-action px-3 py-1 fs-11 fw-bold text-uppercase">
+                                    <i class="bi bi-eye me-1"></i> Review
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
                         {% else %}
-                            <tr>
-                                <td colspan="7" class="py-5 text-center text-muted-glow">
-                                    <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                                    No registration applications yet.
-                                </td>
-                            </tr>
+                        <tr>
+                            <td colspan="7" class="py-5 text-center text-muted-glow">
+                                <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                                No registration applications yet.
+                            </td>
+                        </tr>
                         {% endif %}
                         {% endwith %}
                     </tbody>
@@ -319,14 +396,18 @@
             </div>
         </section>
 
+
+
         <!-- LAND REGISTRATION REQUESTS QUEUE SECTION -->
         <section id="sectionLayouts" style="display:none;">
             <div class="mb-4">
                 <h2 class="h3 font-ranade text-white fw-bold mb-1">Land Registration Requests</h2>
-                <p class="text-muted-glow fs-14 mb-0">Review landowner requests, inspect documents, digitize boundaries, and approve properties.</p>
+                <p class="text-muted-glow fs-14 mb-0">Review landowner requests, inspect documents, digitize boundaries,
+                    and approve properties.</p>
             </div>
-            
-            <div class="card bg-dark-glow border border-secondary-glow rounded-3 text-white shadow-lg p-4 font-opensans">
+
+            <div
+                class="card bg-dark-glow border border-secondary-glow rounded-3 text-white shadow-lg p-4 font-opensans">
                 <div class="table-responsive">
                     <table class="table table-dark align-middle mb-0 table-modern">
                         <thead>
@@ -342,44 +423,52 @@
                         </thead>
                         <tbody class="fs-13">
                             {% if land_requests %}
-                                {% for req in land_requests %}
-                                <tr class="border-bottom border-dark-glow">
-                                    <td class="py-3 px-3 text-muted-glow">#{{ req.id }}</td>
-                                    <td class="py-3 fw-bold text-white">{{ req.owner.username }}</td>
-                                    <td class="py-3 text-white font-ranade">{{ req.property_name }}</td>
-                                    <td class="py-3 text-white-50">
-                                        {% if req.district %}{{ req.district }}, {{ req.state }}{% else %}{{ req.location }}{% endif %}
-                                    </td>
-                                    <td class="py-3 text-muted-glow">{{ req.submitted_at|date:"d M Y" }}</td>
-                                    <td class="py-3">
-                                        {% if req.status == 'pending' %}
-                                            <span class="badge bg-warning-glow text-uppercase fs-9">Pending Review</span>
-                                        {% elif req.status == 'under_review' %}
-                                            <span class="badge bg-info-glow text-uppercase fs-9">Under Review</span>
-                                        {% elif req.status == 'being_added' %}
-                                            <span class="badge bg-primary-glow text-uppercase fs-9" style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.4); color: #38bdf8;">Being Digitized</span>
-                                        {% elif req.status == 'approved' %}
-                                            <span class="badge bg-success-glow text-uppercase fs-9">Approved (Offline)</span>
-                                        {% elif req.status == 'live' %}
-                                            <span class="badge bg-success-glow text-uppercase fs-9" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399;">Live</span>
-                                        {% elif req.status == 'rejected' %}
-                                            <span class="badge bg-danger-glow text-uppercase fs-9">Rejected</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="py-3 text-end px-3">
-                                        <a href="{% url 'lands:admin_land_request_detail' req.id %}" class="btn btn-outline-info py-1 px-3 fs-11 fw-bold text-uppercase text-decoration-none">
-                                            View Request
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
+                            {% for req in land_requests %}
+                            <tr class="border-bottom border-dark-glow">
+                                <td class="py-3 px-3 text-muted-glow">#{{ req.id }}</td>
+                                <td class="py-3 fw-bold text-white">{{ req.owner.username }}</td>
+                                <td class="py-3 text-white font-ranade">{{ req.property_name }}</td>
+                                <td class="py-3 text-white-50">
+                                    {% if req.district or req.state %}
+                                        {% if req.district %}{{ req.district }}{% elif req.city_village %}{{ req.city_village }}{% endif %}{% if req.state %}, {{ req.state }}{% endif %}
+                                    {% else %}
+                                        {{ req.location }}
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 text-muted-glow">{{ req.submitted_at|date:"d M Y" }}</td>
+                                <td class="py-3">
+                                    {% if req.status == 'pending' %}
+                                    <span class="badge bg-warning-glow text-uppercase fs-9">Pending Review</span>
+                                    {% elif req.status == 'under_review' %}
+                                    <span class="badge bg-info-glow text-uppercase fs-9">Under Review</span>
+                                    {% elif req.status == 'being_added' %}
+                                    <span class="badge bg-primary-glow text-uppercase fs-9"
+                                        style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.4); color: #38bdf8;">Being
+                                        Digitized</span>
+                                    {% elif req.status == 'approved' %}
+                                    <span class="badge bg-success-glow text-uppercase fs-9">Approved (Offline)</span>
+                                    {% elif req.status == 'live' %}
+                                    <span class="badge bg-success-glow text-uppercase fs-9"
+                                        style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399;">Live</span>
+                                    {% elif req.status == 'rejected' %}
+                                    <span class="badge bg-danger-glow text-uppercase fs-9">Rejected</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 text-end px-3">
+                                    <a href="{% url 'lands:admin_land_request_detail' req.id %}"
+                                        class="btn btn-outline-info py-1 px-3 fs-11 fw-bold text-uppercase text-decoration-none">
+                                        View Request
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
                             {% else %}
-                                <tr>
-                                    <td colspan="7" class="py-5 text-center text-muted-glow">
-                                        <i class="bi bi-file-earmark-x fs-1 text-muted-glow d-block mb-3"></i>
-                                        <p class="text-muted-glow fs-15 mb-0">No land registration requests yet.</p>
-                                    </td>
-                                </tr>
+                            <tr>
+                                <td colspan="7" class="py-5 text-center text-muted-glow">
+                                    <i class="bi bi-file-earmark-x fs-1 text-muted-glow d-block mb-3"></i>
+                                    <p class="text-muted-glow fs-15 mb-0">No land registration requests yet.</p>
+                                </td>
+                            </tr>
                             {% endif %}
                         </tbody>
                     </table>
@@ -438,43 +527,44 @@
                     </thead>
                     <tbody class="fs-14">
                         {% if support_tickets %}
-                            {% for ticket in support_tickets %}
-                            <tr class="border-bottom border-dark-glow">
-                                <td class="py-3 px-3 fw-bold font-ranade">
-                                    <span class="text-cyan-glow">{{ ticket.ticket_id }}</span>
-                                </td>
-                                <td class="py-3 text-white">{{ ticket.subject }}</td>
-                                <td class="py-3 text-muted-glow">{{ ticket.user.get_full_name|default:ticket.user.username }}</td>
-                                <td class="py-3 text-muted-glow">{{ ticket.get_category_display }}</td>
-                                <td class="py-3 text-muted-glow">{{ ticket.created_at|date:"d M Y" }}</td>
-                                <td class="py-3">
-                                    {% if ticket.status == 'open' %}
-                                    <span class="badge bg-success-glow fs-10">Open</span>
-                                    {% elif ticket.status == 'in_progress' %}
-                                    <span class="badge bg-warning-glow fs-10">In Progress</span>
-                                    {% elif ticket.status == 'waiting' %}
-                                    <span class="badge fs-10" style="background:rgba(59,130,246,0.15)!important;color:#60A5FA!important;">Waiting</span>
-                                    {% elif ticket.status == 'resolved' %}
-                                    <span class="badge bg-success-glow fs-10">Resolved</span>
-                                    {% elif ticket.status == 'closed' %}
-                                    <span class="badge bg-danger-glow fs-10">Closed</span>
-                                    {% endif %}
-                                </td>
-                                <td class="py-3 text-end px-3">
-                                    <button class="btn btn-sm btn-action px-3 py-1 fs-11 fw-bold text-uppercase"
-                                            onclick="openTicketDetail('{{ ticket.ticket_id }}')">
-                                        <i class="bi bi-eye me-1"></i> View
-                                    </button>
-                                </td>
-                            </tr>
-                            {% endfor %}
+                        {% for ticket in support_tickets %}
+                        <tr class="border-bottom border-dark-glow">
+                            <td class="py-3 px-3 fw-bold font-ranade">
+                                <span class="text-cyan-glow">{{ ticket.ticket_id }}</span>
+                            </td>
+                            <td class="py-3 text-white">{{ ticket.subject }}</td>
+                            <td class="py-3 text-muted-glow">{{ ticket.user.get_full_name|default:ticket.user.username }}</td>
+                            <td class="py-3 text-muted-glow">{{ ticket.get_category_display }}</td>
+                            <td class="py-3 text-muted-glow">{{ ticket.created_at|date:"d M Y" }}</td>
+                            <td class="py-3">
+                                {% if ticket.status == 'open' %}
+                                <span class="badge bg-success-glow fs-10">Open</span>
+                                {% elif ticket.status == 'in_progress' %}
+                                <span class="badge bg-warning-glow fs-10">In Progress</span>
+                                {% elif ticket.status == 'waiting' %}
+                                <span class="badge fs-10"
+                                    style="background:rgba(59,130,246,0.15)!important;color:#60A5FA!important;">Waiting</span>
+                                {% elif ticket.status == 'resolved' %}
+                                <span class="badge bg-success-glow fs-10">Resolved</span>
+                                {% elif ticket.status == 'closed' %}
+                                <span class="badge bg-danger-glow fs-10">Closed</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 text-end px-3">
+                                <button class="btn btn-sm btn-action px-3 py-1 fs-11 fw-bold text-uppercase"
+                                    onclick="openTicketDetail('{{ ticket.ticket_id }}')">
+                                    <i class="bi bi-eye me-1"></i> View
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
                         {% else %}
-                            <tr>
-                                <td colspan="8" class="py-5 text-center text-muted-glow">
-                                    <i class="bi bi-ticket fs-2 d-block mb-2"></i>
-                                    No support tickets yet.
-                                </td>
-                            </tr>
+                        <tr>
+                            <td colspan="8" class="py-5 text-center text-muted-glow">
+                                <i class="bi bi-ticket fs-2 d-block mb-2"></i>
+                                No support tickets yet.
+                            </td>
+                        </tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -518,18 +608,25 @@
                 <h5 class="modal-title font-ranade fw-bold text-white fs-18" id="landActionModalLabel">
                     🏢<span id="modalLandName">Land</span>
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
             </div>
             <div class="modal-body py-3">
                 <div class="land-modal-info-panel mb-3">
-                    <div class="land-modal-info-item"><span class="text-muted-glow">Owner:</span> <strong id="modalLandOwner" class="text-white">-</strong></div>
-                    <div class="land-modal-info-item"><span class="text-muted-glow">Location:</span> <strong id="modalLandLocation" class="text-white">-</strong></div>
-                    <div class="land-modal-info-item"><span class="text-muted-glow">Area:</span> <strong id="modalLandArea" class="text-white">-</strong></div>
-                    <div class="land-modal-info-item"><span class="text-muted-glow">Avg Plot Price:</span> <strong id="modalLandPrice" class="text-cyan-glow">-</strong></div>
-                    <div class="land-modal-info-item"><span class="text-muted-glow">Status:</span> <strong id="modalLandStatus" class="text-white">-</strong></div>
+                    <div class="land-modal-info-item"><span class="text-muted-glow">Owner:</span> <strong
+                            id="modalLandOwner" class="text-white">-</strong></div>
+                    <div class="land-modal-info-item"><span class="text-muted-glow">Location:</span> <strong
+                            id="modalLandLocation" class="text-white">-</strong></div>
+                    <div class="land-modal-info-item"><span class="text-muted-glow">Area:</span> <strong
+                            id="modalLandArea" class="text-white">-</strong></div>
+                    <div class="land-modal-info-item"><span class="text-muted-glow">Avg Plot Price:</span> <strong
+                            id="modalLandPrice" class="text-cyan-glow">-</strong></div>
+                    <div class="land-modal-info-item"><span class="text-muted-glow">Status:</span> <strong
+                            id="modalLandStatus" class="text-white">-</strong></div>
                 </div>
 
-                <div class="mb-3 p-2 bg-dark-glow border border-secondary-glow rounded-3" id="notifyContainer" style="display:none;">
+                <div class="mb-3 p-2 bg-dark-glow border border-secondary-glow rounded-3" id="notifyContainer"
+                    style="display:none;">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="notifyCheckbox" checked>
                         <label class="form-check-label fs-12 text-white-50" for="notifyCheckbox">
@@ -542,13 +639,21 @@
                     <form id="toggleLiveForm" method="POST" action="" style="margin: 0;">
                         {% csrf_token %}
                         <input type="hidden" name="notify" id="toggleLiveNotify" value="false">
-                        <button type="submit" id="modalToggleLiveBtn" class="btn btn-lg py-2.5 fs-12 text-uppercase fw-bold w-100 mb-2">
+                        <button type="submit" id="modalToggleLiveBtn"
+                            class="btn btn-lg py-2.5 fs-12 text-uppercase fw-bold w-100 mb-2">
                             Toggle Live/Draft
                         </button>
                     </form>
-                    <a id="modalExploreBtn" href="#" class="btn btn-action btn-lg py-2.5 fs-12 text-uppercase fw-bold text-decoration-none">Explore <i class="bi bi-eye ms-1"></i></a>
-                    <a id="modalManageBtn" href="#" class="btn btn-action btn-lg py-2.5 fs-12 text-uppercase fw-bold text-decoration-none">Manage Plots <i class="bi bi-grid-3x3-gap ms-1"></i></a>
-                    <a id="modalDeleteBtn" href="#" onclick="return confirm('Are you sure you want to delete this land and all its plots? This action is permanent.');" class="btn btn-outline-danger btn-lg py-2.5 fs-12 text-uppercase fw-bold text-decoration-none">Delete <i class="bi bi-trash ms-1"></i></a>
+                    <a id="modalExploreBtn" href="#"
+                        class="btn btn-action btn-lg py-2.5 fs-12 text-uppercase fw-bold text-decoration-none">Explore
+                        <i class="bi bi-eye ms-1"></i></a>
+                    <a id="modalManageBtn" href="#"
+                        class="btn btn-action btn-lg py-2.5 fs-12 text-uppercase fw-bold text-decoration-none">Manage
+                        Plots <i class="bi bi-grid-3x3-gap ms-1"></i></a>
+                    <a id="modalDeleteBtn" href="#"
+                        onclick="return confirm('Are you sure you want to delete this land and all its plots? This action is permanent.');"
+                        class="btn btn-outline-danger btn-lg py-2.5 fs-12 text-uppercase fw-bold text-decoration-none">Delete
+                        <i class="bi bi-trash ms-1"></i></a>
                 </div>
             </div>
         </div>
@@ -557,7 +662,8 @@
 
 
 <!-- Floating Google Drive Style Action Button (+) -->
-<button class="btn btn-floating-plus shadow-lg" data-bs-toggle="modal" data-bs-target="#addLandModal" title="Register New Land">
+<button class="btn btn-floating-plus shadow-lg" data-bs-toggle="modal" data-bs-target="#addLandModal"
+    title="Register New Land">
     <i class="bi bi-plus-lg fs-4"></i>
 </button>
 
@@ -577,29 +683,37 @@
                         <div class="land-form-section-title">Project Information</div>
                         <div class="row g-4">
                             <div class="col-md-6">
-                                <label for="id_name" class="form-label">Land Name <span class="text-orange">*</span></label>
-                                <input type="text" class="form-control" id="id_name" name="name" required placeholder="e.g. Sitapura Industrial Estate">
+                                <label for="id_name" class="form-label">Land Name <span
+                                        class="text-orange">*</span></label>
+                                <input type="text" class="form-control" id="id_name" name="name" required
+                                    placeholder="e.g. Sitapura Industrial Estate">
                             </div>
                             <div class="col-md-6">
-                                <label for="id_owner" class="form-label">Land Owner <span class="text-orange">*</span></label>
+                                <label for="id_owner" class="form-label">Land Owner <span
+                                        class="text-orange">*</span></label>
                                 <select class="form-select" id="id_owner" name="owner" required>
                                     <option value="" disabled selected>Select an owner</option>
                                     {% for owner in landowners %}
-                                        <option value="{{ owner.username }}">{{ owner.username }}</option>
+                                    <option value="{{ owner.username }}">{{ owner.username }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label for="id_location" class="form-label">Location / Address <span class="text-orange">*</span></label>
-                                <input type="text" class="form-control" id="id_location" name="location" required placeholder="e.g. Sitapura Industrial Area, Jaipur">
+                                <label for="id_location" class="form-label">Location / Address <span
+                                        class="text-orange">*</span></label>
+                                <input type="text" class="form-control" id="id_location" name="location" required
+                                    placeholder="e.g. Sitapura Industrial Area, Jaipur">
                             </div>
                             <div class="col-md-6">
-                                <label for="id_avg_price" class="form-label">Avg Plot Price (INR) <span class="text-orange">*</span></label>
-                                <input type="number" class="form-control" id="id_avg_price" name="price" required placeholder="e.g. 35,00,000">
+                                <label for="id_avg_price" class="form-label">Avg Plot Price (INR) <span
+                                        class="text-orange">*</span></label>
+                                <input type="number" class="form-control" id="id_avg_price" name="price" required
+                                    placeholder="e.g. 35,00,000">
                             </div>
                             <div class="col-12">
                                 <label for="id_description" class="form-label">Description</label>
-                                <textarea class="form-control" id="id_description" name="description" rows="4" placeholder="Describe the property, its surroundings, and key features..."></textarea>
+                                <textarea class="form-control" id="id_description" name="description" rows="4"
+                                    placeholder="Describe the property, its surroundings, and key features..."></textarea>
                             </div>
                         </div>
                     </div>
@@ -608,15 +722,18 @@
                     <div class="land-form-section">
                         <div class="land-form-section-title">Media</div>
                         <label class="form-label mb-2">Gallery Images</label>
-                        <div id="galleryDropZone" class="gallery-dropzone" onclick="document.getElementById('galleryBulkInput').click();">
+                        <div id="galleryDropZone" class="gallery-dropzone"
+                            onclick="document.getElementById('galleryBulkInput').click();">
                             <div class="gallery-dropzone-inner">
                                 <i class="bi bi-cloud-upload"></i>
                                 <div>
-                                    <p class="gallery-dropzone-title">Drop images here or <span class="gallery-dropzone-link">browse</span></p>
+                                    <p class="gallery-dropzone-title">Drop images here or <span
+                                            class="gallery-dropzone-link">browse</span></p>
                                     <p class="gallery-dropzone-hint">Up to 7 images &middot; JPEG, PNG, WEBP</p>
                                 </div>
                             </div>
-                            <input type="file" id="galleryBulkInput" accept="image/*" multiple style="display:none;" onchange="handleBulkGallerySelect(event);">
+                            <input type="file" id="galleryBulkInput" accept="image/*" multiple style="display:none;"
+                                onchange="handleBulkGallerySelect(event);">
                         </div>
                         <div id="galleryPreviewGrid" class="gallery-preview-grid"></div>
                         <div id="galleryHiddenInputs"></div>
@@ -637,18 +754,82 @@
     // ─── Tab Switching ─────────────────────────────────────────────────────
     function switchTab(tabName) {
         const tabMap = {
-            lands:  { section: 'sectionLands',         link: 'tabLinkLands'   },
-            owners: { section: 'sectionOwners',        link: 'tabLinkOwners'  },
-            layouts: { section: 'sectionLayouts',      link: 'tabLinkLayouts' },
-            tickets: { section: 'sectionTickets',      link: 'tabLinkTickets' },
-            notifs: { section: 'sectionNotifications', link: 'tabLinkNotifs'  },
+            lands: { section: 'sectionLands', link: 'tabLinkLands' },
+            owners: { section: 'sectionOwners', link: 'tabLinkOwners' },
+            layouts: { section: 'sectionLayouts', link: 'tabLinkLayouts' },
+            tickets: { section: 'sectionTickets', link: 'tabLinkTickets' },
+            notifs: { section: 'sectionNotifications', link: 'tabLinkNotifs' },
             applications: { section: 'sectionApplications', link: 'tabLinkApplications' },
         };
+        if (!tabMap[tabName]) return;
         Object.keys(tabMap).forEach(t => {
             document.getElementById(tabMap[t].section).style.display = (t === tabName) ? 'block' : 'none';
             document.getElementById(tabMap[t].link).classList.toggle('active', t === tabName);
         });
+        sessionStorage.setItem('admin_active_tab', tabName);
+        window.location.hash = tabName;
     }
+
+    function filterAdminLands() {
+        const searchVal = document.getElementById('adminLandSearch').value.toLowerCase();
+        const statusVal = document.getElementById('adminLandStatusFilter').value;
+        const sortVal = document.getElementById('adminLandSort').value;
+        
+        const tbody = document.querySelector('#sectionLands tbody');
+        if (!tbody) return;
+        const rows = Array.from(tbody.querySelectorAll('.land-summary-row'));
+        
+        rows.forEach(row => {
+            const name = (row.getAttribute('data-land-name') || '').toLowerCase();
+            const owner = (row.getAttribute('data-land-owner') || '').toLowerCase();
+            const location = (row.getAttribute('data-land-location') || '').toLowerCase();
+            const isLive = row.getAttribute('data-land-is-live') === 'true';
+            
+            const matchesSearch = name.includes(searchVal) || owner.includes(searchVal) || location.includes(searchVal);
+            
+            let matchesStatus = true;
+            if (statusVal === 'live') matchesStatus = isLive;
+            else if (statusVal === 'draft') matchesStatus = !isLive;
+            
+            if (matchesSearch && matchesStatus) {
+                row.style.setProperty('display', '', 'important');
+            } else {
+                row.style.setProperty('display', 'none', 'important');
+            }
+        });
+        
+        const sortedRows = rows.sort((a, b) => {
+            const nameA = a.getAttribute('data-land-name') || '';
+            const nameB = b.getAttribute('data-land-name') || '';
+            const areaA = parseFloat(a.getAttribute('data-land-area') || '0');
+            const areaB = parseFloat(b.getAttribute('data-land-area') || '0');
+            
+            if (sortVal === 'name_asc') {
+                return nameA.localeCompare(nameB);
+            } else if (sortVal === 'name_desc') {
+                return nameB.localeCompare(nameA);
+            } else if (sortVal === 'area_desc') {
+                return areaB - areaA;
+            } else if (sortVal === 'area_asc') {
+                return areaA - areaB;
+            }
+            return 0;
+        });
+        
+        sortedRows.forEach(row => tbody.appendChild(row));
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        let defaultTab = 'lands';
+        const hash = window.location.hash.substring(1);
+        if (hash) {
+            defaultTab = hash;
+        } else {
+            const savedTab = sessionStorage.getItem('admin_active_tab');
+            if (savedTab) defaultTab = savedTab;
+        }
+        switchTab(defaultTab);
+    });
 
     // ─── Landowner Deletion Action ─────────────────────────────────────────
     function confirmDeleteLandowner(username) {
@@ -659,19 +840,19 @@
                     'X-CSRFToken': getCsrf()
                 }
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'deleted') {
-                    alert(data.message);
-                    window.location.reload();
-                } else {
-                    alert(data.error || 'Failed to delete landowner.');
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Network error while deleting landowner.');
-            });
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'deleted') {
+                        alert(data.message);
+                        window.location.reload();
+                    } else {
+                        alert(data.error || 'Failed to delete landowner.');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Network error while deleting landowner.');
+                });
         }
     }
 
@@ -689,34 +870,171 @@
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
             body: JSON.stringify({ action, rejection_message: rejectionMessage }),
         })
-        .then(r => r.json())
-        .then(data => {
-            if (data.error) { showAdminToast(data.error, 'danger'); return; }
-            const card = document.getElementById(`admin-notif-${notifId}`);
-            if (card) {
-                // Remove action buttons; mark card as resolved
-                card.querySelectorAll('.btn-approve, .btn-reject').forEach(b => b.parentElement.remove());
-                card.querySelector('.admin-unread-dot')?.remove();
-                card.classList.add('opacity-65');
-                card.classList.remove('border-action-glow');
-                card.classList.add('border-secondary-glow');
-                const badge = card.querySelector('.badge-resolved');
-                if (!badge) {
-                    const span = document.createElement('span');
-                    span.className = 'badge bg-secondary mt-2 fs-11 badge-resolved';
-                    span.innerText = action === 'approve' ? 'Approved & Deleted' : 'Rejected';
-                    card.querySelector('.flex-grow-1')?.appendChild(span);
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { showAdminToast(data.error, 'danger'); return; }
+                const card = document.getElementById(`admin-notif-${notifId}`);
+                if (card) {
+                    // Remove action buttons; mark card as resolved
+                    card.querySelectorAll('.btn-approve, .btn-reject').forEach(b => b.parentElement.remove());
+                    card.querySelector('.admin-unread-dot')?.remove();
+                    card.classList.add('opacity-65');
+                    card.classList.remove('border-action-glow');
+                    card.classList.add('border-secondary-glow');
+                    const badge = card.querySelector('.badge-resolved');
+                    if (!badge) {
+                        const span = document.createElement('span');
+                        span.className = 'badge bg-secondary mt-2 fs-11 badge-resolved';
+                        span.innerText = action === 'approve' ? 'Approved & Deleted' : 'Rejected';
+                        card.querySelector('.flex-grow-1')?.appendChild(span);
+                    }
+                }
+                // Update sidebar badge
+                const sideBadge = document.querySelector('.admin-notif-badge');
+                if (sideBadge) {
+                    const cur = parseInt(sideBadge.innerText, 10) - 1;
+                    if (cur <= 0) sideBadge.remove(); else sideBadge.innerText = cur;
+                }
+                showAdminToast(action === 'approve' ? 'Approved — item deleted successfully.' : 'Rejection sent to landowner.', 'success');
+            })
+            .catch(() => showAdminToast('Something went wrong. Please try again.', 'danger'));
+    }
+
+    function markRead(notifId, cardEl) {
+        if (cardEl.querySelector('.admin-unread-dot')) {
+            fetch(`/notification/${notifId}/read/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCsrf() },
+            }).then(() => {
+                const dot = cardEl.querySelector('.admin-unread-dot');
+                if (dot) dot.remove();
+                cardEl.classList.add('opacity-65');
+                cardEl.classList.remove('border-action-glow');
+                cardEl.classList.add('border-secondary-glow');
+                const btn = cardEl.querySelector('.btn-outline-secondary');
+                if (btn) btn.remove();
+
+                // Update badge
+                const sideBadge = document.querySelector('.admin-notif-badge');
+                if (sideBadge) {
+                    const cur = parseInt(sideBadge.innerText, 10) - 1;
+                    if (cur <= 0) sideBadge.remove(); else sideBadge.innerText = cur;
+                }
+            });
+        }
+    }
+
+    function deleteNotif(notifId, cardEl) {
+        fetch(`/notification/${notifId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() },
+        }).then(() => {
+            // Update unread count if we are deleting an unread notification
+            if (cardEl.querySelector('.admin-unread-dot')) {
+                const sideBadge = document.querySelector('.admin-notif-badge');
+                if (sideBadge) {
+                    const cur = parseInt(sideBadge.innerText, 10) - 1;
+                    if (cur <= 0) sideBadge.remove(); else sideBadge.innerText = cur;
                 }
             }
-            // Update sidebar badge
-            const sideBadge = document.querySelector('.admin-notif-badge');
-            if (sideBadge) {
-                const cur = parseInt(sideBadge.innerText, 10) - 1;
-                if (cur <= 0) sideBadge.remove(); else sideBadge.innerText = cur;
+            cardEl.remove();
+        });
+    }
+
+    let currentNotifFilter = 'unread'; // default
+
+    function setNotifFilter(type) {
+        currentNotifFilter = type;
+        const btnUnread = document.getElementById('btnNotifsUnread');
+        const btnAll = document.getElementById('btnNotifsAll');
+
+        if (type === 'unread') {
+            if (btnUnread) {
+                btnUnread.style.backgroundColor = 'var(--accent-orange, #F96D00)';
+                btnUnread.style.color = 'white';
             }
-            showAdminToast(action === 'approve' ? 'Approved — item deleted successfully.' : 'Rejection sent to landowner.', 'success');
-        })
-        .catch(() => showAdminToast('Something went wrong. Please try again.', 'danger'));
+            if (btnAll) {
+                btnAll.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                btnAll.style.color = '#9CA3AF';
+            }
+        } else {
+            if (btnUnread) {
+                btnUnread.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                btnUnread.style.color = '#9CA3AF';
+            }
+            if (btnAll) {
+                btnAll.style.backgroundColor = 'var(--accent-orange, #F96D00)';
+                btnAll.style.color = 'white';
+            }
+        }
+
+        applyNotifVisibility();
+    }
+
+    function applyNotifVisibility() {
+        const cards = document.querySelectorAll('#adminNotifList .admin-notif-card');
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+            const isRead = card.getAttribute('data-is-read') === 'true';
+            if (currentNotifFilter === 'unread' && isRead) {
+                card.classList.add('d-none');
+            } else {
+                card.classList.remove('d-none');
+                visibleCount++;
+            }
+        });
+
+        const noMsg = document.getElementById('noFilteredNotifsMessage');
+        if (noMsg) {
+            if (visibleCount === 0) {
+                noMsg.classList.remove('d-none');
+            } else {
+                noMsg.classList.add('d-none');
+            }
+        }
+
+        // Update counts
+        const unreadCountEl = document.getElementById('countUnreadNotifs');
+        if (unreadCountEl) {
+            const unreadCount = document.querySelectorAll('#adminNotifList .admin-notif-card[data-is-read="false"]').length;
+            unreadCountEl.innerText = unreadCount;
+        }
+    }
+
+    function showNotifDetail(notifId, title, message, dateStr, isRead, cardEl) {
+        document.getElementById('notifDetailTitle').innerText = title;
+        document.getElementById('notifDetailMessage').innerText = message;
+        document.getElementById('notifDetailTime').innerText = dateStr;
+
+        const statusBadge = document.getElementById('notifDetailStatus');
+        if (statusBadge) {
+            statusBadge.className = 'badge ' + (isRead ? 'bg-secondary' : 'bg-info');
+            statusBadge.innerText = isRead ? 'Read' : 'New';
+        }
+
+        const btnDelete = document.getElementById('btnNotifDetailDelete');
+        if (btnDelete) {
+            btnDelete.onclick = function () {
+                const modalEl = document.getElementById('notifDetailModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+                deleteNotif(notifId, cardEl);
+            };
+        }
+
+        // Trigger read if unread
+        if (!isRead) {
+            markRead(notifId, cardEl);
+            cardEl.setAttribute('data-is-read', 'true');
+            // update visibility if in unread tab
+            setTimeout(() => {
+                applyNotifVisibility();
+            }, 500);
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById('notifDetailModal'));
+        modal.show();
     }
 
     // ─── Reject Dialog ─────────────────────────────────────────────────────
@@ -792,7 +1110,7 @@
         }
 
         // Set hidden input value on submit click
-        toggleForm.onsubmit = function() {
+        toggleForm.onsubmit = function () {
             const chk = document.getElementById('notifyCheckbox');
             document.getElementById('toggleLiveNotify').value = (chk && chk.checked) ? 'true' : 'false';
             return true;
@@ -804,6 +1122,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        applyNotifVisibility();
         document.querySelectorAll('.land-summary-row').forEach(row => {
             const locationText = row.getAttribute('data-land-location') || '-';
             const priceText = row.getAttribute('data-land-price-label') || '-';
@@ -900,7 +1219,7 @@
     }
 
     // On form submit, inject actual File objects into the form via DataTransfer
-    document.querySelector('#addLandModal form').addEventListener('submit', function(e) {
+    document.querySelector('#addLandModal form').addEventListener('submit', function (e) {
         if (galleryFiles.length === 0) return; // Allow submit with no photos
 
         // Sync captions to hidden inputs
@@ -949,23 +1268,23 @@
             alert("A reason is required to reject the request.");
             return;
         }
-        
+
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = `/lands/admin/land-requests/${reqId}/reject/`;
-        
+
         const csrfInput = document.createElement('input');
         csrfInput.type = 'hidden';
         csrfInput.name = 'csrfmiddlewaretoken';
         csrfInput.value = getCsrf();
         form.appendChild(csrfInput);
-        
+
         const reasonInput = document.createElement('input');
         reasonInput.type = 'hidden';
         reasonInput.name = 'rejection_reason';
         reasonInput.value = reason.trim();
         form.appendChild(reasonInput);
-        
+
         document.body.appendChild(form);
         form.submit();
     }
@@ -990,7 +1309,7 @@
 
     // Patch switchTab to recompute ticket counts when tickets tab is selected
     const _origSwitchTab = window.switchTab;
-    window.switchTab = function(tabName) {
+    window.switchTab = function (tabName) {
         if (typeof _origSwitchTab === 'function') _origSwitchTab(tabName);
         if (tabName === 'tickets') {
             setTimeout(updateTicketCounts, 50);
@@ -1010,26 +1329,26 @@
             method: 'GET',
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
-        .then(res => res.json())
-        .then(data => {
-            document.getElementById('ticketDetailLoading').style.display = 'none';
-            if (data.error) {
-                document.getElementById('ticketDetailContent').innerHTML = `<div class="text-danger text-center py-4">${data.error}</div>`;
-                document.getElementById('ticketDetailContent').style.display = 'block';
-                return;
-            }
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('ticketDetailLoading').style.display = 'none';
+                if (data.error) {
+                    document.getElementById('ticketDetailContent').innerHTML = `<div class="text-danger text-center py-4">${data.error}</div>`;
+                    document.getElementById('ticketDetailContent').style.display = 'block';
+                    return;
+                }
 
-            let statusBadge = '';
-            const statusMap = {
-                'open': '<span class="badge bg-success-glow fs-11 px-3 py-1.5">Open</span>',
-                'in_progress': '<span class="badge bg-warning-glow fs-11 px-3 py-1.5">In Progress</span>',
-                'waiting': '<span class="badge fs-11 px-3 py-1.5" style="background:rgba(59,130,246,0.15)!important;color:#60A5FA!important;">Waiting</span>',
-                'resolved': '<span class="badge bg-success-glow fs-11 px-3 py-1.5">Resolved</span>',
-                'closed': '<span class="badge bg-danger-glow fs-11 px-3 py-1.5">Closed</span>'
-            };
-            statusBadge = statusMap[data.ticket.status] || data.ticket.status;
+                let statusBadge = '';
+                const statusMap = {
+                    'open': '<span class="badge bg-success-glow fs-11 px-3 py-1.5">Open</span>',
+                    'in_progress': '<span class="badge bg-warning-glow fs-11 px-3 py-1.5">In Progress</span>',
+                    'waiting': '<span class="badge fs-11 px-3 py-1.5" style="background:rgba(59,130,246,0.15)!important;color:#60A5FA!important;">Waiting</span>',
+                    'resolved': '<span class="badge bg-success-glow fs-11 px-3 py-1.5">Resolved</span>',
+                    'closed': '<span class="badge bg-danger-glow fs-11 px-3 py-1.5">Closed</span>'
+                };
+                statusBadge = statusMap[data.ticket.status] || data.ticket.status;
 
-            let html = `
+                let html = `
                 <div class="mb-3 p-3 rounded-2 border border-secondary-glow bg-dark-glow">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
@@ -1048,11 +1367,11 @@
                 <h6 class="text-white fw-bold fs-14 mb-2">Replies (${data.replies.length})</h6>
             `;
 
-            if (data.replies.length === 0) {
-                html += `<div class="text-center py-3 text-muted-glow fs-13"><i class="bi bi-chat-dots d-block mb-1 fs-4"></i>No replies yet.</div>`;
-            } else {
-                data.replies.forEach(r => {
-                    html += `
+                if (data.replies.length === 0) {
+                    html += `<div class="text-center py-3 text-muted-glow fs-13"><i class="bi bi-chat-dots d-block mb-1 fs-4"></i>No replies yet.</div>`;
+                } else {
+                    data.replies.forEach(r => {
+                        html += `
                         <div class="mb-2 p-3 rounded-2 border border-secondary-glow bg-dark-glow">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span class="fw-bold fs-12 text-white">${r.sender}</span>
@@ -1062,60 +1381,98 @@
                             ${r.attachment ? `<a href="${r.attachment}" target="_blank" class="text-cyan-glow fs-12 text-decoration-none"><i class="bi bi-paperclip me-1"></i> View Attachment</a>` : ''}
                         </div>
                     `;
-                });
-            }
-
-            // Reply composer
-            html += `
-                <div class="mt-3 pt-3 border-top border-secondary-glow">
-                    <label class="text-white fw-bold fs-14 mb-2"><i class="bi bi-reply-fill me-1 text-cyan-glow"></i> Reply</label>
-                    <textarea class="form-control bg-dark border border-secondary-glow text-white fs-13" id="ticketReplyText"
-                              rows="3" placeholder="Type your response..." style="resize:vertical;min-height:70px;"></textarea>
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                        <div class="text-muted-glow fs-11"><i class="bi bi-info-circle me-1"></i>Press <kbd class="bg-dark text-white-50 border border-secondary-glow px-1 rounded">Ctrl+Enter</kbd> to send</div>
-                        <button class="btn btn-sm btn-get-started px-3 py-1 fs-11 fw-bold text-uppercase" id="btnSendReply"
-                                onclick="sendAdminReply('${ticketId}')">
-                            <i class="bi bi-send me-1"></i> Send Reply
-                        </button>
-                    </div>
-                </div>
-            `;
-
-            document.getElementById('ticketDetailContent').innerHTML = html;
-            document.getElementById('ticketDetailContent').style.display = 'block';
-
-            // Ctrl+Enter to send
-            document.getElementById('ticketReplyText').addEventListener('keydown', function(e) {
-                if (e.ctrlKey && e.key === 'Enter') {
-                    e.preventDefault();
-                    document.getElementById('btnSendReply').click();
+                    });
                 }
-            });
 
-            // Footer: Status update controls
-            const footer = document.getElementById('ticketDetailFooter');
-            footer.innerHTML = `
-                <div class="d-flex gap-2 w-100 justify-content-end">
-                    <select class="form-select form-select-sm bg-dark border-secondary-glow text-white fs-12" id="ticketStatusSelect" style="max-width:160px;">
-                        <option value="open" ${data.ticket.status === 'open' ? 'selected' : ''}>Open</option>
-                        <option value="in_progress" ${data.ticket.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
-                        <option value="waiting" ${data.ticket.status === 'waiting' ? 'selected' : ''}>Waiting</option>
+                // Reply composer (disable/hide if closed)
+                const currentStatus = data.ticket.status;
+                if (currentStatus !== 'closed') {
+                    html += `
+                    <div class="mt-3 pt-3 border-top border-secondary-glow">
+                        <label class="text-white fw-bold fs-14 mb-2"><i class="bi bi-reply-fill me-1 text-cyan-glow"></i> Reply</label>
+                        <textarea class="form-control bg-dark border border-secondary-glow text-white fs-13" id="ticketReplyText"
+                                  rows="3" placeholder="Type your response..." style="resize:vertical;min-height:70px;"></textarea>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <div class="text-muted-glow fs-11"><i class="bi bi-info-circle me-1"></i>Press <kbd class="bg-dark text-white-50 border border-secondary-glow px-1 rounded">Ctrl+Enter</kbd> to send</div>
+                            <button class="btn btn-sm btn-get-started px-3 py-1 fs-11 fw-bold text-uppercase" id="btnSendReply"
+                                    onclick="sendAdminReply('${ticketId}')">
+                                <i class="bi bi-send me-1"></i> Send Reply
+                            </button>
+                        </div>
+                    </div>
+                `;
+                } else {
+                    html += `
+                    <div class="mt-3 pt-3 border-top border-secondary-glow text-center text-muted-glow fs-12">
+                        <i class="bi bi-lock-fill me-1"></i> This ticket is closed. No further replies can be sent.
+                    </div>
+                `;
+                }
+
+                document.getElementById('ticketDetailContent').innerHTML = html;
+                document.getElementById('ticketDetailContent').style.display = 'block';
+
+                if (currentStatus !== 'closed') {
+                    // Ctrl+Enter to send
+                    document.getElementById('ticketReplyText').addEventListener('keydown', function (e) {
+                        if (e.ctrlKey && e.key === 'Enter') {
+                            e.preventDefault();
+                            document.getElementById('btnSendReply').click();
+                        }
+                    });
+                }
+
+                // Footer: Status update controls based on hierarchy rules
+                const footer = document.getElementById('ticketDetailFooter');
+                if (currentStatus === 'closed') {
+                    footer.innerHTML = `
+                    <span class="text-danger-glow fs-12 fw-bold w-100 text-end py-2">
+                        <i class="bi bi-lock-fill me-1"></i> Ticket closed. Status is locked.
+                    </span>
+                `;
+                } else {
+                    let optionsHtml = '';
+                    if (currentStatus === 'resolved') {
+                        optionsHtml = `
+                        <option value="resolved" selected>Resolved</option>
+                        <option value="closed">Closed</option>
+                    `;
+                    } else if (currentStatus === 'in_progress' || currentStatus === 'waiting') {
+                        optionsHtml = `
+                        <option value="in_progress" ${currentStatus === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                        <option value="waiting" ${currentStatus === 'waiting' ? 'selected' : ''}>Waiting</option>
                         <option value="resolved">Resolved</option>
                         <option value="closed">Closed</option>
-                    </select>
-                    <button class="btn btn-sm btn-action px-3 py-1 fs-11 fw-bold text-uppercase"
-                            onclick="updateTicketStatus('${ticketId}')">
-                        <i class="bi bi-arrow-repeat me-1"></i> Update
-                    </button>
-                </div>
-            `;
-            footer.style.display = 'block';
-        })
-        .catch(err => {
-            document.getElementById('ticketDetailLoading').style.display = 'none';
-            document.getElementById('ticketDetailContent').innerHTML = `<div class="text-danger text-center py-4">Network error loading ticket details.</div>`;
-            document.getElementById('ticketDetailContent').style.display = 'block';
-        });
+                    `;
+                    } else {
+                        optionsHtml = `
+                        <option value="open" selected>Open</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="waiting">Waiting</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="closed">Closed</option>
+                    `;
+                    }
+
+                    footer.innerHTML = `
+                    <div class="d-flex gap-2 w-100 justify-content-end">
+                        <select class="form-select form-select-sm bg-dark border-secondary-glow text-white fs-12" id="ticketStatusSelect" style="max-width:160px;">
+                            ${optionsHtml}
+                        </select>
+                        <button class="btn btn-sm btn-action px-3 py-1 fs-11 fw-bold text-uppercase"
+                                onclick="updateTicketStatus('${ticketId}')">
+                            <i class="bi bi-arrow-repeat me-1"></i> Update
+                        </button>
+                    </div>
+                `;
+                }
+                footer.style.display = 'block';
+            })
+            .catch(err => {
+                document.getElementById('ticketDetailLoading').style.display = 'none';
+                document.getElementById('ticketDetailContent').innerHTML = `<div class="text-danger text-center py-4">Network error loading ticket details.</div>`;
+                document.getElementById('ticketDetailContent').style.display = 'block';
+            });
     }
 
     function updateTicketStatus(ticketId) {
@@ -1130,20 +1487,20 @@
             },
             body: JSON.stringify({ status })
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'ok') {
-                showAdminToast('Ticket status updated successfully.', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('ticketDetailModal')).hide();
-                // Reload the tickets section: just reload whole page for simplicity
-                setTimeout(() => window.location.reload(), 1000);
-            } else {
-                showAdminToast(data.error || 'Failed to update status.', 'danger');
-            }
-        })
-        .catch(err => {
-            showAdminToast('Network error.', 'danger');
-        });
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    showAdminToast('Ticket status updated successfully.', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('ticketDetailModal')).hide();
+                    // Reload the tickets section: just reload whole page for simplicity
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    showAdminToast(data.error || 'Failed to update status.', 'danger');
+                }
+            })
+            .catch(err => {
+                showAdminToast('Network error.', 'danger');
+            });
     }
 
     function sendAdminReply(ticketId) {
@@ -1165,631 +1522,701 @@
             headers: { 'X-CSRFToken': getCsrf() },
             body: formData
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'ok') {
-                showAdminToast('Reply sent successfully.', 'success');
-                // Refresh the modal conversation without closing it
-                openTicketDetail(ticketId);
-            } else {
-                showAdminToast(data.error || 'Failed to send reply.', 'danger');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Reply';
-            }
-        })
-        .catch(err => {
-            showAdminToast('Network error sending reply.', 'danger');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Reply';
-        });
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    showAdminToast('Reply sent successfully.', 'success');
+                    // Refresh the modal conversation without closing it
+                    openTicketDetail(ticketId);
+                } else {
+                    showAdminToast(data.error || 'Failed to send reply.', 'danger');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Reply';
+                }
+            });
     }
 </script>
 
 <style>
-.sidebar-wrapper {
-    width: 280px;
-    min-height: calc(100vh - 75px);
-    backdrop-filter: blur(10px);
-}
-.user-profile-badge {
-    background: rgba(30, 41, 59, 0.4);
-}
-.profile-avatar {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: rgba(0, 255, 196, 0.08);
-    border: 1px solid rgba(0, 255, 196, 0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.bg-admin-glow {
-    background-color: rgba(0, 255, 196, 0.1) !important;
-    color: #00ffd2 !important;
-    border: 1px solid rgba(0, 255, 196, 0.2);
-}
-.sidebar-link {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    border-radius: 6px;
-    text-decoration: none;
-    color: #9ca3af;
-    font-family: 'Open Sans', sans-serif;
-    font-size: 0.92rem;
-    font-weight: 600;
-    transition: all 0.25s ease;
-}
-.sidebar-link:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.03);
-}
-.sidebar-link.active {
-    color: #ffffff;
-    background: rgba(0, 255, 196, 0.08);
-    border: 1px solid rgba(0, 255, 196, 0.15);
-    box-shadow: 0 0 15px rgba(0, 255, 196, 0.1);
-}
-.btn-logout-sidebar {
-    display: block;
-    background: rgba(255, 74, 74, 0.06);
-    border: 1px solid rgba(255, 74, 74, 0.15);
-    border-radius: 6px;
-    color: #ff4a4a;
-    text-decoration: none;
-    transition: all 0.25s ease;
-}
-.btn-logout-sidebar:hover {
-    background: #ff4a4a;
-    color: #ffffff;
-    box-shadow: 0 0 15px rgba(255, 74, 74, 0.4);
-}
-.btn-action {
-    background: linear-gradient(135deg, rgba(0, 178, 255, 0.15), rgba(0, 255, 196, 0.15));
-    border: 1px solid rgba(0, 255, 196, 0.3);
-    color: #00ffd2;
-    transition: all 0.3s ease;
-}
-.btn-action:hover {
-    background: linear-gradient(135deg, #00b2ff, #00ffc4);
-    color: #1E293B !important;
-    box-shadow: 0 0 15px rgba(0, 255, 196, 0.4);
-}
-.land-summary-row {
-    cursor: pointer;
-    transition: background 0.2s ease;
-}
-.land-summary-row:hover {
-    background: rgba(255, 255, 255, 0.03);
-}
-.land-row-chevron {
-    color: #00ffd2;
-}
-.land-modal-info-panel {
-    background: rgba(30, 41, 59, 0.55);
-    border: 1px solid rgba(0, 255, 196, 0.2);
-    border-radius: 10px;
-    padding: 10px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.land-modal-info-item {
-    font-size: 13px;
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-}
+    .sidebar-wrapper {
+        width: 280px;
+        min-height: calc(100vh - 75px);
+        backdrop-filter: blur(10px);
+    }
 
-/* Floating Action Button Style (Google Drive style) */
-.btn-floating-plus {
-    position: fixed;
-    bottom: 40px;
-    right: 40px;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #00b2ff, #00ffc4);
-    border: none;
-    color: #1E293B;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    box-shadow: 0 4px 20px rgba(0, 255, 196, 0.4);
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-.btn-floating-plus:hover {
-    transform: scale(1.1) rotate(90deg);
-    box-shadow: 0 8px 30px rgba(0, 255, 196, 0.6);
-}
+    .user-profile-badge {
+        background: rgba(30, 41, 59, 0.4);
+    }
 
-/* Custom Modal Dark Theme Override */
-.glass-panel {
-    background: rgba(15, 23, 42, 0.85);
-    backdrop-filter: blur(15px);
-    border-radius: 12px;
-}
-.modal-content:not(.land-registration-modal) input,
-.modal-content:not(.land-registration-modal) select {
-    background-color: rgba(30, 41, 59, 0.8) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    color: #ffffff !important;
-}
-.modal-content:not(.land-registration-modal) input:focus,
-.modal-content:not(.land-registration-modal) select:focus {
-    border-color: rgba(0, 255, 196, 0.4) !important;
-    box-shadow: 0 0 8px rgba(0, 255, 196, 0.2) !important;
-}
-.bg-success-glow {
-    background-color: rgba(0, 255, 196, 0.1) !important;
-    color: #00ffd2 !important;
-    border: 1px solid rgba(0, 255, 196, 0.2);
-}
-.bg-warning-glow {
-    background-color: rgba(245, 158, 11, 0.1) !important;
-    color: #f59e0b !important;
-    border: 1px solid rgba(245, 158, 11, 0.2);
-}
-.bg-danger-glow {
-    background-color: rgba(239, 68, 68, 0.1) !important;
-    color: #ef4444 !important;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-}
-.bg-info-glow {
-    background-color: rgba(59, 130, 246, 0.1) !important;
-    color: #3b82f6 !important;
-    border: 1px solid rgba(59, 130, 246, 0.2);
-}
-.btn-cyan-glow {
-    background: rgba(0, 255, 196, 0.12) !important;
-    border: 1px solid rgba(0, 255, 196, 0.3) !important;
-    color: #00ffd2 !important;
-}
-.btn-cyan-glow:hover {
-    background: rgba(0, 255, 196, 0.25) !important;
-}
-/* Multi-photo gallery upload zone */
-.gallery-dropzone {
-    border: 2px dashed var(--border-input);
-    border-radius: 12px;
-    padding: 20px 24px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    background: #FAFBFC;
-    margin-bottom: 12px;
-}
-.gallery-dropzone:hover, .gallery-dropzone.drag-over {
-    border-color: var(--accent-orange);
-    background: rgba(249, 109, 0, 0.02);
-}
-.gallery-dropzone-inner {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-}
-.gallery-dropzone-inner i {
-    font-size: 28px;
-    color: var(--text-muted-2);
-}
-.gallery-dropzone-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-primary);
-    margin: 0;
-}
-.gallery-dropzone-link {
-    color: var(--accent-orange);
-    font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-}
-.gallery-dropzone-hint {
-    font-size: 12px;
-    color: var(--text-muted-2);
-    margin: 2px 0 0;
-}
-.gallery-preview-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 10px;
-    margin-bottom: 8px;
-}
-.gallery-preview-card {
-    display: flex;
-    flex-direction: column;
-}
-.gallery-preview-thumb {
-    aspect-ratio: 4/3;
-    background-size: cover;
-    background-position: center;
-    border-radius: 10px;
-    border: 1px solid var(--border-subtle);
-    position: relative;
-    overflow: hidden;
-}
-.gallery-remove-btn {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: rgba(220, 53, 69, 0.85);
-    border: none;
-    color: #fff;
-    font-size: 14px;
-    line-height: 1;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.2s;
-}
-.gallery-preview-thumb:hover .gallery-remove-btn {
-    opacity: 1;
-}
-.gallery-preview-card .form-control-sm {
-    font-size: 13px;
-    padding: 6px 10px;
-    border-radius: 8px;
-    margin-top: 6px;
-    background: #FFFFFF !important;
-    border: 1px solid var(--border-input) !important;
-    color: var(--text-primary) !important;
-}
-.gallery-caption-hint {
-    font-size: 12px;
-    color: var(--text-muted-2);
-    margin: 0;
-}
-/* ── Notifications Tab Styles ─────────────────────────────────── */
-.admin-notif-card { transition: background 0.2s ease; }
-.admin-notif-card:hover { background: rgba(255,255,255,0.02) !important; }
-.border-action-glow { border-color: rgba(251,191,36,0.45) !important; }
-.admin-notif-badge {
-    background: #ef4444; color: #fff;
-    border-radius: 12px; padding: 1px 7px;
-    font-size: 11px; font-weight: 700;
-}
-.admin-unread-dot {
-    display: inline-block; width: 9px; height: 9px;
-    border-radius: 50%; background: #fbbf24; flex-shrink: 0;
-}
-.opacity-65 { opacity: 0.65; }
-.btn-approve {
-    background: rgba(34,197,94,0.12);
-    border: 1px solid rgba(34,197,94,0.35);
-    color: #22c55e;
-    transition: all 0.25s ease;
-}
-.btn-approve:hover {
-    background: #22c55e; color: #fff;
-    box-shadow: 0 0 12px rgba(34,197,94,0.4);
-}
-.btn-reject {
-    background: rgba(239,68,68,0.1);
-    border: 1px solid rgba(239,68,68,0.3);
-    color: #ef4444;
-    transition: all 0.25s ease;
-}
-.btn-reject:hover {
-    background: #ef4444; color: #fff;
-    box-shadow: 0 0 12px rgba(239,68,68,0.4);
-}
-[data-theme="light"] .btn-action:hover {
-    background: #D97706 !important;
-    color: #FFFFFF !important;
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
-}
-[data-theme="light"] .btn-floating-plus {
-    background: #F59E0B !important;
-    color: #FFFFFF !important;
-    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3) !important;
-}
+    .profile-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: rgba(0, 255, 196, 0.08);
+        border: 1px solid rgba(0, 255, 196, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-/* ── Site Layout Submissions Expandable Cards ─────────────────────────────── */
-.pr-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 32px;
-}
+    .bg-admin-glow {
+        background-color: rgba(0, 255, 196, 0.1) !important;
+        color: #00ffd2 !important;
+        border: 1px solid rgba(0, 255, 196, 0.2);
+    }
 
-.pr-card-wrapper {
-    width: 100%;
-}
+    .sidebar-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-radius: 6px;
+        text-decoration: none;
+        color: #9ca3af;
+        font-family: 'Open Sans', sans-serif;
+        font-size: 0.92rem;
+        font-weight: 600;
+        transition: all 0.25s ease;
+    }
 
-.pr-card {
-    position: relative;
-    border-radius: 18px;
-    overflow: hidden;
-    cursor: pointer;
-    transition: transform 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                box-shadow 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
+    .sidebar-link:hover {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.03);
+    }
 
-.pr-card:hover {
-    transform: translateY(-6px);
-}
+    .sidebar-link.active {
+        color: #ffffff;
+        background: rgba(0, 255, 196, 0.08);
+        border: 1px solid rgba(0, 255, 196, 0.15);
+        box-shadow: 0 0 15px rgba(0, 255, 196, 0.1);
+    }
 
-.pr-card-body {
-    padding: 20px 22px 18px;
-}
+    .btn-logout-sidebar {
+        display: block;
+        background: rgba(255, 74, 74, 0.06);
+        border: 1px solid rgba(255, 74, 74, 0.15);
+        border-radius: 6px;
+        color: #ff4a4a;
+        text-decoration: none;
+        transition: all 0.25s ease;
+    }
 
-.pr-top-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 4px;
-}
+    .btn-logout-sidebar:hover {
+        background: #ff4a4a;
+        color: #ffffff;
+        box-shadow: 0 0 15px rgba(255, 74, 74, 0.4);
+    }
 
-.pr-buyer {
-    font-family: 'Ranade', sans-serif;
-    font-weight: 700;
-    font-size: 1.2rem;
-    line-height: 1.3;
-}
+    .btn-action {
+        background: linear-gradient(135deg, rgba(0, 178, 255, 0.15), rgba(0, 255, 196, 0.15));
+        border: 1px solid rgba(0, 255, 196, 0.3);
+        color: #00ffd2;
+        transition: all 0.3s ease;
+    }
 
-.pr-expand-icon {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-}
+    .btn-action:hover {
+        background: linear-gradient(135deg, #00b2ff, #00ffc4);
+        color: #1E293B !important;
+        box-shadow: 0 0 15px rgba(0, 255, 196, 0.4);
+    }
 
-.pr-expand-icon i {
-    font-size: 1.15rem;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease;
-}
+    .land-summary-row {
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
 
-.pr-plot {
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin-bottom: 6px;
-}
+    .land-summary-row:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
 
-.pr-meta {
-    font-size: 0.88rem;
-    margin-bottom: 2px;
-}
+    .land-row-chevron {
+        color: #00ffd2;
+    }
 
-.pr-meta-loc {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
+    .land-modal-info-panel {
+        background: rgba(30, 41, 59, 0.55);
+        border: 1px solid rgba(0, 255, 196, 0.2);
+        border-radius: 10px;
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
 
-.pr-meta-loc i {
-    font-size: 0.8rem;
-}
+    .land-modal-info-item {
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+    }
 
-.pr-divider {
-    height: 1px;
-    margin: 14px 0 12px;
-}
+    /* Floating Action Button Style (Google Drive style) */
+    .btn-floating-plus {
+        position: fixed;
+        bottom: 40px;
+        right: 40px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #00b2ff, #00ffc4);
+        border: none;
+        color: #1E293B;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        box-shadow: 0 4px 20px rgba(0, 255, 196, 0.4);
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
 
-.pr-bottom-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
+    .btn-floating-plus:hover {
+        transform: scale(1.1) rotate(90deg);
+        box-shadow: 0 8px 30px rgba(0, 255, 196, 0.6);
+    }
 
-.pr-amount {
-    font-family: 'Open Sans', sans-serif;
-    font-weight: 700;
-    font-size: 1.05rem;
-    white-space: nowrap;
-}
+    /* Custom Modal Dark Theme Override */
+    .glass-panel {
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(15px);
+        border-radius: 12px;
+    }
 
-.pr-badge {
-    display: inline-block;
-    font-size: 0.65rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 4px 12px;
-    border-radius: 20px;
-}
+    .modal-content:not(.land-registration-modal) input,
+    .modal-content:not(.land-registration-modal) select {
+        background-color: rgba(30, 41, 59, 0.8) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: #ffffff !important;
+    }
 
-.pr-badge.status-pending {
-    background: rgba(245, 158, 11, 0.12);
-    color: #fbbf24;
-    border: 1px solid rgba(245, 158, 11, 0.25);
-}
+    .modal-content:not(.land-registration-modal) input:focus,
+    .modal-content:not(.land-registration-modal) select:focus {
+        border-color: rgba(0, 255, 196, 0.4) !important;
+        box-shadow: 0 0 8px rgba(0, 255, 196, 0.2) !important;
+    }
 
-.pr-badge.status-meeting {
-    background: rgba(253, 126, 20, 0.12);
-    color: #fd7e14;
-    border: 1px solid rgba(253, 126, 20, 0.25);
-}
+    .bg-success-glow {
+        background-color: rgba(0, 255, 196, 0.1) !important;
+        color: #00ffd2 !important;
+        border: 1px solid rgba(0, 255, 196, 0.2);
+    }
 
-.pr-badge.status-approved {
-    background: rgba(0, 255, 196, 0.1);
-    color: #00ffd2;
-    border: 1px solid rgba(0, 255, 196, 0.2);
-}
+    .bg-warning-glow {
+        background-color: rgba(245, 158, 11, 0.1) !important;
+        color: #f59e0b !important;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
 
-.pr-badge.status-rejected {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-}
+    .bg-danger-glow {
+        background-color: rgba(239, 68, 68, 0.1) !important;
+        color: #ef4444 !important;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
 
-.pr-expanded {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
+    .bg-info-glow {
+        background-color: rgba(59, 130, 246, 0.1) !important;
+        color: #3b82f6 !important;
+        border: 1px solid rgba(59, 130, 246, 0.2);
+    }
 
-.pr-expanded.expanded {
-    max-height: 600px;
-}
+    .btn-cyan-glow {
+        background: rgba(0, 255, 196, 0.12) !important;
+        border: 1px solid rgba(0, 255, 196, 0.3) !important;
+        color: #00ffd2 !important;
+    }
 
-.pr-expanded-inner {
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    padding: 18px 22px 14px;
-    display: flex;
-    gap: 32px;
-}
+    .btn-cyan-glow:hover {
+        background: rgba(0, 255, 196, 0.25) !important;
+    }
 
-.pr-col {
-    flex: 1;
-    min-width: 0;
-}
+    /* Multi-photo gallery upload zone */
+    .gallery-dropzone {
+        border: 2px dashed var(--border-input);
+        border-radius: 12px;
+        padding: 20px 24px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: #FAFBFC;
+        margin-bottom: 12px;
+    }
 
-.pr-col-title {
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #64748b;
-    margin-bottom: 12px;
-}
+    .gallery-dropzone:hover,
+    .gallery-dropzone.drag-over {
+        border-color: var(--accent-orange);
+        background: rgba(249, 109, 0, 0.02);
+    }
 
-.pr-field {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 7px;
-}
+    .gallery-dropzone-inner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+    }
 
-.pr-field-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #64748b;
-    min-width: 100px;
-    flex-shrink: 0;
-}
+    .gallery-dropzone-inner i {
+        font-size: 28px;
+        color: var(--text-muted-2);
+    }
 
-.pr-field-value {
-    font-size: 0.85rem;
-    color: #e2e8f0;
-    font-weight: 500;
-}
+    .gallery-dropzone-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-primary);
+        margin: 0;
+    }
 
-.pr-field-amount {
-    color: #00ffd2;
-    font-weight: 700;
-}
+    .gallery-dropzone-link {
+        color: var(--accent-orange);
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
 
-.pr-field-danger {
-    color: #ef4444;
-}
+    .gallery-dropzone-hint {
+        font-size: 12px;
+        color: var(--text-muted-2);
+        margin: 2px 0 0;
+    }
 
-.pr-actions {
-    display: flex;
-    gap: 12px;
-    padding: 4px 22px 20px;
-}
+    .gallery-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        gap: 10px;
+        margin-bottom: 8px;
+    }
 
-.pr-btn {
-    flex: 1;
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border: none;
-    cursor: pointer;
-    transition: all 0.25s ease;
-    font-family: 'Open Sans', sans-serif;
-}
+    .gallery-preview-card {
+        display: flex;
+        flex-direction: column;
+    }
 
-.pr-btn-primary {
-    background: linear-gradient(135deg, rgba(0, 178, 255, 0.15), rgba(0, 255, 196, 0.15));
-    border: 1px solid rgba(0, 255, 196, 0.3);
-    color: #00ffd2;
-}
+    .gallery-preview-thumb {
+        aspect-ratio: 4/3;
+        background-size: cover;
+        background-position: center;
+        border-radius: 10px;
+        border: 1px solid var(--border-subtle);
+        position: relative;
+        overflow: hidden;
+    }
 
-.pr-btn-primary:hover {
-    background: linear-gradient(135deg, #00b2ff, #00ffc4);
-    color: #1E293B !important;
-    box-shadow: 0 0 15px rgba(0, 255, 196, 0.4);
-}
+    .gallery-remove-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: rgba(220, 53, 69, 0.85);
+        border: none;
+        color: #fff;
+        font-size: 14px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
 
-.pr-btn-danger {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    color: #ef4444;
-}
+    .gallery-preview-thumb:hover .gallery-remove-btn {
+        opacity: 1;
+    }
 
-.pr-btn-danger:hover {
-    background: #ef4444;
-    color: #ffffff !important;
-    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
-}
+    .gallery-preview-card .form-control-sm {
+        font-size: 13px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        margin-top: 6px;
+        background: #FFFFFF !important;
+        border: 1px solid var(--border-input) !important;
+        color: var(--text-primary) !important;
+    }
 
-/* ── Dark theme (default) ────────────────────────────────── */
-[data-theme="dark"] .pr-card {
-    background: #1E293B;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
+    .gallery-caption-hint {
+        font-size: 12px;
+        color: var(--text-muted-2);
+        margin: 0;
+    }
 
-[data-theme="dark"] .pr-card:hover {
-    box-shadow:
-        0 16px 40px rgba(0, 0, 0, 0.4),
-        0 0 0 1px rgba(0, 178, 255, 0.15);
-}
+    /* ── Notifications Tab Styles ─────────────────────────────────── */
+    .admin-notif-card {
+        transition: background 0.2s ease;
+    }
 
-[data-theme="dark"] .pr-divider {
-    background: rgba(255, 255, 255, 0.06);
-}
+    .admin-notif-card:hover {
+        background: rgba(255, 255, 255, 0.02) !important;
+    }
 
-/* ── Light theme override ────────────────────────────────── */
-[data-theme="light"] .pr-card {
-    background: #FFFFFF;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(0, 0, 0, 0.06);
-}
+    .border-action-glow {
+        border-color: rgba(251, 191, 36, 0.45) !important;
+    }
 
-[data-theme="light"] .pr-card:hover {
-    box-shadow:
-        0 16px 40px rgba(0, 0, 0, 0.1),
-        0 0 0 1px rgba(245, 158, 11, 0.25);
-}
+    .admin-notif-badge {
+        background: #ef4444;
+        color: #fff;
+        border-radius: 12px;
+        padding: 1px 7px;
+        font-size: 11px;
+        font-weight: 700;
+    }
 
-[data-theme="light"] .pr-divider {
-    background: rgba(0, 0, 0, 0.06);
-}
+    .admin-unread-dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #fbbf24;
+        flex-shrink: 0;
+    }
 
-[data-theme="light"] .pr-expanded-inner {
-    border-top: 1px solid rgba(0, 0, 0, 0.06);
-}
+    .opacity-65 {
+        opacity: 0.65;
+    }
 
-[data-theme="light"] .pr-field-value {
-    color: #1e293b;
-}
+    .btn-approve {
+        background: rgba(34, 197, 94, 0.12);
+        border: 1px solid rgba(34, 197, 94, 0.35);
+        color: #22c55e;
+        transition: all 0.25s ease;
+    }
 
-[data-theme="light"] .pr-btn-primary {
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.15));
-    border: 1px solid rgba(217, 119, 6, 0.3);
-    color: #b45309;
-}
+    .btn-approve:hover {
+        background: #22c55e;
+        color: #fff;
+        box-shadow: 0 0 12px rgba(34, 197, 94, 0.4);
+    }
 
-[data-theme="light"] .pr-btn-primary:hover {
-    background: linear-gradient(135deg, #f59e0b, #d97706);
-    color: #ffffff !important;
-    box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
-}
+    .btn-reject {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #ef4444;
+        transition: all 0.25s ease;
+    }
 
-[data-theme="light"] .pr-field-amount {
-    color: #d97706;
-}
+    .btn-reject:hover {
+        background: #ef4444;
+        color: #fff;
+        box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+    }
 
-[data-theme="light"] .pr-card-wrapper .text-cyan-glow {
-    color: #d97706 !important;
-}
+    [data-theme="light"] .btn-action:hover {
+        background: #D97706 !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
+    }
 
-@media (max-width: 991px) {
-    .pr-grid { grid-template-columns: 1fr; gap: 20px; }
-    .pr-expanded-inner { flex-direction: column; gap: 20px; }
-}
+    [data-theme="light"] .btn-floating-plus {
+        background: #F59E0B !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3) !important;
+    }
+
+    /* ── Site Layout Submissions Expandable Cards ─────────────────────────────── */
+    .pr-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+    }
+
+    .pr-card-wrapper {
+        width: 100%;
+    }
+
+    .pr-card {
+        position: relative;
+        border-radius: 18px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: transform 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+            box-shadow 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    .pr-card:hover {
+        transform: translateY(-6px);
+    }
+
+    .pr-card-body {
+        padding: 20px 22px 18px;
+    }
+
+    .pr-top-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 4px;
+    }
+
+    .pr-buyer {
+        font-family: 'Ranade', sans-serif;
+        font-weight: 700;
+        font-size: 1.2rem;
+        line-height: 1.3;
+    }
+
+    .pr-expand-icon {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+    }
+
+    .pr-expand-icon i {
+        font-size: 1.15rem;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease;
+    }
+
+    .pr-plot {
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+    }
+
+    .pr-meta {
+        font-size: 0.88rem;
+        margin-bottom: 2px;
+    }
+
+    .pr-meta-loc {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .pr-meta-loc i {
+        font-size: 0.8rem;
+    }
+
+    .pr-divider {
+        height: 1px;
+        margin: 14px 0 12px;
+    }
+
+    .pr-bottom-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .pr-amount {
+        font-family: 'Open Sans', sans-serif;
+        font-weight: 700;
+        font-size: 1.05rem;
+        white-space: nowrap;
+    }
+
+    .pr-badge {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 4px 12px;
+        border-radius: 20px;
+    }
+
+    .pr-badge.status-pending {
+        background: rgba(245, 158, 11, 0.12);
+        color: #fbbf24;
+        border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+
+    .pr-badge.status-meeting {
+        background: rgba(253, 126, 20, 0.12);
+        color: #fd7e14;
+        border: 1px solid rgba(253, 126, 20, 0.25);
+    }
+
+    .pr-badge.status-approved {
+        background: rgba(0, 255, 196, 0.1);
+        color: #00ffd2;
+        border: 1px solid rgba(0, 255, 196, 0.2);
+    }
+
+    .pr-badge.status-rejected {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .pr-expanded {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .pr-expanded.expanded {
+        max-height: 600px;
+    }
+
+    .pr-expanded-inner {
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 18px 22px 14px;
+        display: flex;
+        gap: 32px;
+    }
+
+    .pr-col {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .pr-col-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        margin-bottom: 12px;
+    }
+
+    .pr-field {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 7px;
+    }
+
+    .pr-field-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #64748b;
+        min-width: 100px;
+        flex-shrink: 0;
+    }
+
+    .pr-field-value {
+        font-size: 0.85rem;
+        color: #e2e8f0;
+        font-weight: 500;
+    }
+
+    .pr-field-amount {
+        color: #00ffd2;
+        font-weight: 700;
+    }
+
+    .pr-field-danger {
+        color: #ef4444;
+    }
+
+    .pr-actions {
+        display: flex;
+        gap: 12px;
+        padding: 4px 22px 20px;
+    }
+
+    .pr-btn {
+        flex: 1;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        border: none;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        font-family: 'Open Sans', sans-serif;
+    }
+
+    .pr-btn-primary {
+        background: linear-gradient(135deg, rgba(0, 178, 255, 0.15), rgba(0, 255, 196, 0.15));
+        border: 1px solid rgba(0, 255, 196, 0.3);
+        color: #00ffd2;
+    }
+
+    .pr-btn-primary:hover {
+        background: linear-gradient(135deg, #00b2ff, #00ffc4);
+        color: #1E293B !important;
+        box-shadow: 0 0 15px rgba(0, 255, 196, 0.4);
+    }
+
+    .pr-btn-danger {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+        color: #ef4444;
+    }
+
+    .pr-btn-danger:hover {
+        background: #ef4444;
+        color: #ffffff !important;
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+    }
+
+    /* ── Dark theme (default) ────────────────────────────────── */
+    [data-theme="dark"] .pr-card {
+        background: #1E293B;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    [data-theme="dark"] .pr-card:hover {
+        box-shadow:
+            0 16px 40px rgba(0, 0, 0, 0.4),
+            0 0 0 1px rgba(0, 178, 255, 0.15);
+    }
+
+    [data-theme="dark"] .pr-divider {
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    /* ── Light theme override ────────────────────────────────── */
+    [data-theme="light"] .pr-card {
+        background: #FFFFFF;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    [data-theme="light"] .pr-card:hover {
+        box-shadow:
+            0 16px 40px rgba(0, 0, 0, 0.1),
+            0 0 0 1px rgba(245, 158, 11, 0.25);
+    }
+
+    [data-theme="light"] .pr-divider {
+        background: rgba(0, 0, 0, 0.06);
+    }
+
+    [data-theme="light"] .pr-expanded-inner {
+        border-top: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    [data-theme="light"] .pr-field-value {
+        color: #1e293b;
+    }
+
+    [data-theme="light"] .pr-btn-primary {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.15));
+        border: 1px solid rgba(217, 119, 6, 0.3);
+        color: #b45309;
+    }
+
+    [data-theme="light"] .pr-btn-primary:hover {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: #ffffff !important;
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+    }
+
+    [data-theme="light"] .pr-field-amount {
+        color: #d97706;
+    }
+
+    [data-theme="light"] .pr-card-wrapper .text-cyan-glow {
+        color: #d97706 !important;
+    }
+
+    @media (max-width: 991px) {
+        .pr-grid {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .pr-expanded-inner {
+            flex-direction: column;
+            gap: 20px;
+        }
+    }
 </style>
 
 <!-- ═══════════════ REJECT DIALOG MODAL ═══════════════════════════════════ -->
@@ -1804,18 +2231,52 @@
             </div>
             <div class="modal-body py-3">
                 <p class="text-muted-glow fs-13 mb-3">
-                    Please provide a reason for rejecting this deletion request. This message will be sent to the landowner via in-app notification and email.
+                    Please provide a reason for rejecting this deletion request. This message will be sent to the
+                    landowner via in-app notification and email.
                 </p>
                 <label class="form-label fs-12 text-secondary-glow fw-bold text-uppercase">Rejection Message</label>
-                <textarea id="rejectMsgInput"
-                          class="form-control bg-dark border-secondary text-white fs-13"
-                          rows="4"
-                          placeholder="e.g. This land has active plots with reserved status. Please resolve those before requesting deletion."></textarea>
+                <textarea id="rejectMsgInput" class="form-control bg-dark border-secondary text-white fs-13" rows="4"
+                    placeholder="e.g. This land has active plots with reserved status. Please resolve those before requesting deletion."></textarea>
             </div>
             <div class="modal-footer border-0 pt-0 gap-2">
-                <button type="button" class="btn btn-secondary border-0 bg-transparent text-white-50 px-4 py-2" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" id="rejectSubmitBtn" class="btn btn-reject px-4 py-2 text-uppercase fs-12 fw-bold">
+                <button type="button" class="btn btn-secondary border-0 bg-transparent text-white-50 px-4 py-2"
+                    data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="rejectSubmitBtn"
+                    class="btn btn-reject px-4 py-2 text-uppercase fs-12 fw-bold">
                     Send Rejection <i class="bi bi-send ms-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Notification Detail Modal -->
+<div class="modal fade" id="notifDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark-glow text-white border border-secondary-glow"
+            style="border-radius: 12px; background-color: #0b0e14 !important;">
+            <div class="modal-header border-bottom border-secondary-glow pb-3">
+                <h5 class="modal-title font-ranade fw-bold text-amber-glow" id="notifDetailTitle">Notification Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="fs-12 text-muted-glow" id="notifDetailTime"></span>
+                    <span class="badge" id="notifDetailStatus"></span>
+                </div>
+                <p class="fs-14 text-white-50 font-opensans" id="notifDetailMessage"
+                    style="white-space: pre-wrap; line-height: 1.6;"></p>
+            </div>
+            <div class="modal-footer border-top border-secondary-glow pt-3 d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-outline-danger px-3 py-1.5 fs-12 fw-bold text-uppercase"
+                    id="btnNotifDetailDelete">
+                    <i class="bi bi-trash me-1"></i> Delete
+                </button>
+                <button type="button"
+                    class="btn btn-sm btn-outline-secondary px-3 py-1.5 fs-12 fw-bold text-uppercase text-white border-secondary-glow"
+                    data-bs-dismiss="modal">
+                    Close
                 </button>
             </div>
         </div>

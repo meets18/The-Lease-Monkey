@@ -228,6 +228,9 @@ def get_supporting_docs_path(instance, filename):
 def get_floor_plan_path(instance, filename):
     return f"land_requests/{instance.owner.username}/floor_plan_{filename}"
 
+def get_pricing_csv_path(instance, filename):
+    return f"land_requests/{instance.owner.username}/pricing_{filename}"
+
 class LandRegistrationRequest(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending Review'),
@@ -258,9 +261,11 @@ class LandRegistrationRequest(models.Model):
     registry_sale_deed = models.FileField(upload_to=get_registry_sale_deed_path, blank=True, null=True, help_text="Registry / Sale Deed document")
     supporting_documents = models.FileField(upload_to=get_supporting_docs_path, blank=True, null=True, help_text="Additional supporting documents")
     floor_plan = models.FileField(upload_to=get_floor_plan_path, help_text="Site layout / floor plan showing plot arrangement (PDF/image)")
+    plot_pricing_csv = models.FileField(upload_to=get_pricing_csv_path, blank=True, null=True, help_text="Plot sizing and pricing sheet (CSV)")
     
     notes = models.TextField(blank=True, help_text="Landowner's notes to admin")
     admin_remarks = models.TextField(blank=True, help_text="Internal admin notes (not shown to landowner)")
+    admin_message = models.TextField(blank=True, default='', help_text="Message or queries to landowner")
     rejection_reason = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     land = models.OneToOneField(Land, on_delete=models.SET_NULL, null=True, blank=True, related_name='registration_request')

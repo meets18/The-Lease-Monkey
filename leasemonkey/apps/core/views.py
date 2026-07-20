@@ -266,7 +266,11 @@ from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 
 
+from django.views.decorators.clickjacking import xframe_options_exempt
+
+
 @login_required
+@xframe_options_exempt
 def serve_protected_file(request, model_name, pk):
     """
     Serve protected files after permission check.
@@ -329,8 +333,11 @@ def serve_protected_file(request, model_name, pk):
         elif doc_field == 'supporting_docs':
             file_path = obj.supporting_documents.path if obj.supporting_documents else None
             original_name = f'supporting_docs_{obj.property_name}{os.path.splitext(obj.supporting_documents.name)[1] if obj.supporting_documents else ""}'
+        elif doc_field == 'pricing_csv':
+            file_path = obj.plot_pricing_csv.path if obj.plot_pricing_csv else None
+            original_name = f'pricing_csv_{obj.property_name}{os.path.splitext(obj.plot_pricing_csv.name)[1] if obj.plot_pricing_csv else ""}'
         else:
-            return JsonResponse({'error': 'Invalid document field. Use ?doc=ownership|floor_plan|registry_sale_deed|supporting_docs'}, status=400)
+            return JsonResponse({'error': 'Invalid document field. Use ?doc=ownership|floor_plan|registry_sale_deed|supporting_docs|pricing_csv'}, status=400)
 
     else:
         raise Http404('Invalid file type.')
