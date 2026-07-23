@@ -421,8 +421,7 @@
                                     <div class="pr-field">
                                         <span class="pr-field-label">Meeting Time</span>
                                         <span class="pr-field-value">
-                                            {{ req.meeting_datetime|date:"d M Y, h:i A" }} ({{ req.meeting_duration_mins
-                                            }} mins)
+                                            {{ req.meeting_datetime|date:"d M Y, h:i A" }} ({{ req.meeting_duration_mins|default:"30" }} mins)
                                         </span>
                                     </div>
                                     {% endif %}
@@ -608,16 +607,18 @@
                         </div>
                         <p class="text-muted-glow fs-13 mb-0 text-truncate" style="max-width: 500px;">{{ notif.message }}</p>
                     </div>
-                    <div class="d-flex flex-column gap-2" onclick="event.stopPropagation();">
+                    <div class="notif-actions-group d-flex align-items-center gap-2 ms-auto" onclick="event.stopPropagation();">
                         {% if not notif.is_read %}
-                        <button class="btn btn-sm btn-outline-secondary border-secondary-glow text-white fs-11 py-1"
+                        <button type="button" class="btn-notif-action btn-notif-read" title="Mark as Read"
                                 onclick="markRead('{{ notif.id }}', this.closest('.notif-card'));">
-                            Mark Read <i class="bi bi-check2 ms-1"></i>
+                            <i class="bi bi-check2-circle"></i>
+                            <span>Mark Read</span>
                         </button>
                         {% endif %}
-                        <button class="btn btn-sm btn-outline-danger fs-11 py-1"
+                        <button type="button" class="btn-notif-action btn-notif-delete" title="Delete Notification"
                                 onclick="deleteNotif('{{ notif.id }}', this.closest('.notif-card'));">
-                            Delete <i class="bi bi-trash ms-1"></i>
+                            <i class="bi bi-trash3-fill"></i>
+                            <span>Delete</span>
                         </button>
                     </div>
                 </div>
@@ -1189,23 +1190,30 @@
 <!-- Notification Detail Modal -->
 <div class="modal fade" id="notifDetailModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content bg-dark-glow text-white border border-secondary-glow" style="border-radius: 12px; background-color: #0b0e14 !important;">
-            <div class="modal-header border-bottom border-secondary-glow pb-3">
-                <h5 class="modal-title font-ranade fw-bold text-amber-glow" id="notifDetailTitle">Notification Details</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-content notif-modal-content">
+            <div class="modal-header notif-modal-header border-bottom pb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="notif-modal-icon-badge">
+                        <i class="bi bi-bell-fill"></i>
+                    </div>
+                    <h5 class="modal-title font-ranade fw-bold mb-0" id="notifDetailTitle">Notification Details</h5>
+                </div>
+                <button type="button" class="btn-close notif-btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body py-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <span class="fs-12 text-muted-glow" id="notifDetailTime"></span>
-                    <span class="badge" id="notifDetailStatus"></span>
+                    <span class="fs-13 fw-semibold text-muted-glow" id="notifDetailTime"></span>
+                    <span class="badge px-3 py-1.5 rounded-pill fs-12" id="notifDetailStatus"></span>
                 </div>
-                <p class="fs-14 text-white-50 font-opensans" id="notifDetailMessage" style="white-space: pre-wrap; line-height: 1.6;"></p>
+                <div class="notif-message-box p-3.5 rounded-3 mb-2">
+                    <p class="fs-14 mb-0" id="notifDetailMessage" style="white-space: pre-wrap; line-height: 1.6;"></p>
+                </div>
             </div>
-            <div class="modal-footer border-top border-secondary-glow pt-3 d-flex justify-content-between">
-                <button type="button" class="btn btn-sm btn-outline-danger px-3 py-1.5 fs-12 fw-bold text-uppercase" id="btnNotifDetailDelete">
-                    <i class="bi bi-trash me-1"></i> Delete
+            <div class="modal-footer border-top pt-3 d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-danger-soft px-3.5 py-2 fs-13 fw-bold" id="btnNotifDetailDelete">
+                    <i class="bi bi-trash3-fill me-1.5"></i> Delete
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary px-3 py-1.5 fs-12 fw-bold text-uppercase text-white border-secondary-glow" data-bs-dismiss="modal">
+                <button type="button" class="btn btn-sm btn-secondary-soft px-4 py-2 fs-13 fw-bold" data-bs-dismiss="modal">
                     Close
                 </button>
             </div>
@@ -1880,9 +1888,8 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    if (data.meet_link) {
-                        showToast(`✅ Google Meet scheduled! <a href="${data.meet_link}" target="_blank" class="text-white fw-bold">Join Meet →</a>`, 'success');
-                        setTimeout(() => window.location.reload(), 3000);
+                    if (action === 'fix_meeting') {
+                        showTopMeetingScheduledAlert(data.meet_link || '');
                     } else {
                         showToast(data.message, 'success');
                         setTimeout(() => window.location.reload(), 1500);
@@ -1895,6 +1902,48 @@
                 console.error(err);
                 showToast('Something went wrong.', 'danger');
             });
+    }
+
+    function showTopMeetingScheduledAlert(meetLink) {
+        let alertEl = document.getElementById('topMeetingScheduledAlert');
+        if (!alertEl) {
+            alertEl = document.createElement('div');
+            alertEl.id = 'topMeetingScheduledAlert';
+            alertEl.style.cssText = 'position: fixed; top: 90px; left: 50%; transform: translate(-50%, -25px); z-index: 99999; width: 92%; max-width: 620px; background: linear-gradient(135deg, #059669 0%, #10B981 100%); color: #ffffff; padding: 16px 24px; border-radius: 14px; box-shadow: 0 12px 35px rgba(16, 185, 129, 0.45); display: flex; align-items: center; justify-content: space-between; opacity: 0; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);';
+            document.body.appendChild(alertEl);
+        }
+        let meetBtnHtml = meetLink ? `<a href="${meetLink}" target="_blank" class="btn btn-sm btn-light text-success fw-bold ms-3" style="border-radius: 8px; font-size: 0.85rem; padding: 6px 14px;">Join Meet <i class="bi bi-box-arrow-up-right ms-1"></i></a>` : '';
+        alertEl.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="bi bi-check-circle-fill fs-3 me-3 text-white"></i>
+                <div>
+                    <strong class="d-block fs-15 text-white" style="font-weight: 700;">Meeting Successfully Fixed & Scheduled!</strong>
+                    <span class="fs-13" style="color: rgba(255,255,255,0.92);">The Google Meet link has been sent via email to both you and the buyer.</span>
+                </div>
+            </div>
+            <div class="d-flex align-items-center">
+                ${meetBtnHtml}
+                <button type="button" class="btn-close btn-close-white ms-3" onclick="dismissTopMeetingAlert()"></button>
+            </div>
+        `;
+        setTimeout(() => {
+            alertEl.style.opacity = '1';
+            alertEl.style.transform = 'translate(-50%, 0)';
+        }, 50);
+
+        setTimeout(() => {
+            alertEl.style.opacity = '0';
+            alertEl.style.transform = 'translate(-50%, -25px)';
+            setTimeout(() => window.location.reload(), 450);
+        }, 5000);
+    }
+
+    function dismissTopMeetingAlert() {
+        const el = document.getElementById('topMeetingScheduledAlert');
+        if (el) {
+            el.style.opacity = '0';
+            el.style.transform = 'translate(-50%, -25px)';
+        }
     }
 
     // ─── Land Actions Modal ────────────────────────────────────────────────────

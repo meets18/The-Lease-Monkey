@@ -9,8 +9,78 @@ from django.views.generic import TemplateView
 from .models import Notification
 
 
+from django.shortcuts import redirect, render
+from apps.lands.models import Land, SavedPlot, Plot
+from apps.core.models import PurchaseRequest, Notification
+
+
 class LandingPageView(TemplateView):
-    template_name = "landing.html"
+    def get(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            user = request.user
+            if user.role == 'ADMIN' or user.is_superuser:
+                return redirect('admin_dashboard')
+            elif user.role == 'BUYER':
+                context = self.get_buyer_context(user)
+                return render(request, 'buyer_landing.html', context)
+            elif user.role == 'LAND_OWNER':
+                context = self.get_landowner_context(user)
+                return render(request, 'landowner_landing.html', context)
+        return render(request, 'landing.html', {})
+
+    def get_buyer_context(self, user):
+        active_requests = PurchaseRequest.objects.filter(buyer=user).select_related('land').order_by('-created_at')[:4]
+        saved_plots = SavedPlot.objects.filter(user=user, land__is_live=True).select_related('land').order_by('-created_at')[:4]
+        recent_notifs = Notification.objects.filter(recipient=user).order_by('-created_at')[:5]
+        unread_notifs_count = Notification.objects.filter(recipient=user, is_read=False).count()
+
+        # Preference-based land recommendations
+        try:
+            prefs = user.preferences
+            lands_qs = Land.objects.filter(is_live=True).prefetch_related('images', 'plots')
+            if prefs.min_budget:
+                lands_qs = lands_qs.filter(average_plot_price__gte=prefs.min_budget)
+            if prefs.max_budget:
+                lands_qs = lands_qs.filter(average_plot_price__lte=prefs.max_budget)
+            recommended_lands = lands_qs.order_by('-created_at')[:6]
+            # Fallback: if no matches after filtering, show latest
+            if not recommended_lands.exists():
+                recommended_lands = Land.objects.filter(is_live=True).order_by('-created_at')[:6]
+        except Exception:
+            recommended_lands = Land.objects.filter(is_live=True).order_by('-created_at')[:6]
+
+        return {
+            'active_requests': active_requests,
+            'saved_plots': saved_plots,
+            'recommended_lands': recommended_lands,
+            'recent_notifs': recent_notifs,
+            'unread_notifs_count': unread_notifs_count,
+            'total_saved_count': SavedPlot.objects.filter(user=user, land__is_live=True).count(),
+            'total_requests_count': PurchaseRequest.objects.filter(buyer=user).count(),
+        }
+
+    def get_landowner_context(self, user):
+        my_lands = Land.objects.filter(owner=user).order_by('-created_at')
+        my_requests = PurchaseRequest.objects.filter(land__owner=user).select_related('land')
+        pending_requests = my_requests.filter(status__in=['pending', 'meeting_scheduled'])
+        scheduled_meetings = my_requests.filter(status='meeting_scheduled', meeting_datetime__isnull=False).order_by('meeting_datetime')[:4]
+        recent_notifs = Notification.objects.filter(recipient=user).order_by('-created_at')[:5]
+        unread_notifs_count = Notification.objects.filter(recipient=user, is_read=False).count()
+
+        total_plots_count = Plot.objects.filter(land__owner=user).count()
+        sold_plots_count = Plot.objects.filter(land__owner=user, status='sold').count()
+
+        return {
+            'my_lands': my_lands[:4],
+            'total_lands_count': my_lands.count(),
+            'total_plots_count': total_plots_count,
+            'sold_plots_count': sold_plots_count,
+            'pending_requests': pending_requests[:5],
+            'pending_requests_count': pending_requests.count(),
+            'scheduled_meetings': scheduled_meetings,
+            'recent_notifs': recent_notifs,
+            'unread_notifs_count': unread_notifs_count,
+        }
 
 
 import re
@@ -349,3 +419,6 @@ def serve_protected_file(request, model_name, pk):
     if original_name:
         response['Content-Disposition'] = f'inline; filename="{original_name}"'
     return response
+
+# Touch reloader trigger
+

@@ -360,6 +360,7 @@ function getThemeColors() {
     available: isLight ? '#43A047' : '#9CB447',
     reserved: isLight ? '#F59E0B' : '#8e9aa8',
     sold: isLight ? '#DC2626' : '#C7483F',
+    owned: '#8B5CF6',
     building: isLight ? '#cbd5e1' : '#ffffff',
     uniform: '#f0e6d6'
   };
@@ -499,9 +500,14 @@ function initMap() {
 
   activePlotData.forEach(plot => {
     const rawStatus = (plot.status || '').toLowerCase();
-    const statusColorKey = ['available', 'reserved', 'sold', 'building'].includes(rawStatus)
+    let statusColorKey = ['available', 'reserved', 'sold', 'building'].includes(rawStatus)
       ? rawStatus
       : 'available';
+
+    if (typeof landConfig !== 'undefined' && landConfig.ownedPlots && landConfig.ownedPlots.includes(String(plot.number))) {
+      statusColorKey = 'owned';
+    }
+
     const isBuildingPlot = statusColorKey === 'building';
 
     const polygon = L.polygon(plot.coordinates, {
@@ -594,7 +600,16 @@ function selectMapPlot(polygon) {
   });
 
   populateDetailsPanel(polygon.plotData, polygon.statusColorKey);
-  map.panTo(polygon.getBounds().getCenter());
+  if (polygon && polygon.getBounds && typeof polygon.getBounds === 'function') {
+    const bounds = polygon.getBounds();
+    if (bounds && bounds.isValid()) {
+      map.fitBounds(bounds, { maxZoom: 19, padding: [50, 50] });
+    } else {
+      map.panTo(bounds.getCenter());
+    }
+  } else if (polygon && polygon.getLatLng) {
+    map.setView(polygon.getLatLng(), 19);
+  }
 }
 
 // Populate Left Slide-In Panel
@@ -604,11 +619,26 @@ function populateDetailsPanel(data, statusColorKey) {
   document.getElementById('detailPrice').innerText = data.price;
 
   const statusLabel = document.getElementById('detailStatus');
-  statusLabel.innerText = data.status.toUpperCase();
-  statusLabel.className = 'badge fw-bold py-1.5 px-3 text-uppercase text-dark';
-  statusLabel.style.backgroundColor = COLORS[statusColorKey];
+  if (statusColorKey === 'owned') {
+    statusLabel.innerText = 'OWNED BY YOU';
+    statusLabel.className = 'badge fw-bold py-1.5 px-3 text-uppercase text-white';
+    statusLabel.style.backgroundColor = '#8B5CF6';
+  } else {
+    statusLabel.innerText = data.status.toUpperCase();
+    statusLabel.className = 'badge fw-bold py-1.5 px-3 text-uppercase text-dark';
+    statusLabel.style.backgroundColor = COLORS[statusColorKey];
+  }
 
-  // Toggle Raise a Request CTA display based on plot status
+  // Toggle Save Plot & Raise a Request CTAs based on plot status
+  const btnSavePlot = document.getElementById('btnSavePlot');
+  if (btnSavePlot) {
+    if (data.status === 'sold' || statusColorKey === 'owned') {
+      btnSavePlot.style.display = 'none';
+    } else {
+      btnSavePlot.style.display = 'inline-block';
+    }
+  }
+
   const btnHoldPlot = document.getElementById('btnHoldPlot');
   if (btnHoldPlot) {
     if (data.status === 'available') {

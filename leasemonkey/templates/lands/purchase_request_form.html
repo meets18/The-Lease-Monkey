@@ -9,43 +9,201 @@
         font-family: 'Open Sans', sans-serif;
     }
 
-    /* Container adjustments to not be hidden by navbar */
+    /* Container adjustments - compact & centered */
     .page-container {
-        padding-top: 120px;
-        padding-bottom: 60px;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+        padding-top: 100px;
+        padding-bottom: 40px;
+        min-height: auto;
+        display: block;
     }
 
     .form-container {
+        position: relative;
+        overflow: hidden;
         width: 100%;
-        max-width: 850px;
+        max-width: 820px;
+        margin: 0 auto 2.5rem auto;
         background: rgba(30, 41, 59, 0.4);
         backdrop-filter: blur(15px);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 16px;
-        padding: 2.5rem 3.5rem;
+        padding: 2.25rem 3rem;
         box-shadow: 0 10px 40px rgba(15, 23, 42, 0.5);
-        margin-bottom: 3rem;
+    }
+
+    .form-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 5px;
+        background: linear-gradient(90deg, #00B2FF, #0066FF);
+        z-index: 10;
+    }
+
+    [data-theme="light"] .form-container::before {
+        background: linear-gradient(90deg, #F59E0B, #D97706);
+    }
+
+    /* Top Back Button */
+    .top-back-btn {
+        color: #9CA3AF !important;
+        transition: all 0.2s ease;
+    }
+
+    .top-back-btn:hover {
+        color: #FFFFFF !important;
+        transform: translateX(-3px);
+    }
+
+    [data-theme="light"] .top-back-btn {
+        color: #64748B !important;
+    }
+
+    [data-theme="light"] .top-back-btn:hover {
+        color: #1F2937 !important;
+    }
+
+    /* Input Icon wrapper styles */
+    .input-icon-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+        width: 100%;
+    }
+
+    .input-icon-wrapper i {
+        position: absolute;
+        left: 14px;
+        color: #9CA3AF;
+        font-size: 1.1rem;
+        transition: all 0.2s ease;
+        pointer-events: none;
+    }
+
+    .input-icon-wrapper .form-control {
+        padding-left: 42px !important;
+    }
+
+    .input-icon-wrapper .form-control:focus ~ i {
+        color: #00B2FF;
+    }
+
+    [data-theme="light"] .input-icon-wrapper .form-control:focus ~ i {
+        color: #F59E0B;
+    }
+
+    .input-icon-wrapper .form-control.is-invalid ~ .invalid-feedback {
+        display: block;
+    }
+
+    /* Smooth Slider Wrapper */
+    .wizard-slider-container {
+        overflow: hidden;
+        width: 100%;
+        position: relative;
+    }
+
+    .wizard-slider {
+        display: flex;
+        align-items: flex-start;
+        width: 200%;
+        transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    .wizard-page {
+        width: 50%;
+        flex-shrink: 0;
+        box-sizing: border-box;
+        padding: 0 2px;
+        transition: opacity 0.25s ease;
+    }
+
+    .wizard-page.inactive-page {
+        height: 0 !important;
+        max-height: 0 !important;
+        overflow: hidden !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+
+    /* Proposal grid layout */
+    .proposal-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    @media (max-width: 576px) {
+        .proposal-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .proposal-item {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 10px 16px;
+        display: flex;
+        flex-direction: column;
+        transition: border-color 0.2s ease;
+    }
+
+    [data-theme="light"] .proposal-item {
+        background: #F9FAFB;
+        border-color: #E5E7EB;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+
+    .prop-lbl {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #9CA3AF;
+        margin-bottom: 3px;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+    }
+
+    [data-theme="light"] .prop-lbl {
+        color: #64748B;
+    }
+
+    .prop-val {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: #FFFFFF;
+        font-family: 'Ranade', sans-serif;
+    }
+
+    [data-theme="light"] .prop-val {
+        color: #1F2937;
     }
 
     .wizard-header {
         text-align: center;
-        margin-bottom: 3rem;
+        margin-bottom: 1.75rem;
     }
 
     .wizard-header h2 {
         font-family: 'Ranade', sans-serif;
         font-weight: 700;
         color: #fff;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.3rem;
+        font-size: 1.65rem;
     }
     
     .wizard-header p {
         color: #9ca3af;
-        font-size: 0.95rem;
+        font-size: 0.9rem;
+        margin-bottom: 0;
     }
 
     /* Stepper Styling */
@@ -53,14 +211,14 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 3rem;
+        margin-bottom: 2.25rem;
         position: relative;
     }
 
     .stepper::before {
         content: '';
         position: absolute;
-        top: 15px;
+        top: 16px;
         left: 50px;
         right: 50px;
         height: 2px;
@@ -121,20 +279,6 @@
     }
 
     /* Form Fields Styling */
-    .form-step {
-        display: none;
-        animation: fadeIn 0.4s ease forwards;
-    }
-
-    .form-step.active {
-        display: block;
-    }
-
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
     .form-label {
         font-size: 0.85rem;
         font-weight: 600;
@@ -146,7 +290,7 @@
 
     .form-control {
         border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 6px;
+        border-radius: 8px;
         padding: 0.75rem 1rem;
         font-size: 0.95rem;
         color: #ffffff !important;
@@ -179,7 +323,7 @@
         color: #fff;
         padding: 0.75rem 2rem;
         font-weight: 700;
-        border-radius: 6px;
+        border-radius: 8px;
         transition: all 0.2s ease;
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -202,9 +346,9 @@
         background: transparent;
         color: #9ca3af;
         border: 1px solid rgba(255,255,255,0.2);
-        padding: 0.75rem 2rem;
+        padding: 0.65rem 1.8rem;
         font-weight: 600;
-        border-radius: 6px;
+        border-radius: 8px;
         transition: all 0.2s ease;
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -220,58 +364,42 @@
     .proposal-box {
         background: rgba(255,255,255,0.03);
         border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 2rem;
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.25rem;
     }
 
     .proposal-title {
         font-family: 'Ranade', sans-serif;
         font-weight: 700;
-        font-size: 1.1rem;
-        color: #fff;
-        margin-bottom: 1rem;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-        padding-bottom: 0.5rem;
-    }
-
-    .proposal-detail {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 0.5rem;
         font-size: 0.95rem;
-    }
-
-    .proposal-detail span:first-child {
-        color: #9ca3af;
-        font-weight: 500;
-    }
-
-    .proposal-detail span:last-child {
         color: #fff;
-        font-weight: 600;
+        margin-bottom: 0.6rem;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        padding-bottom: 0.4rem;
     }
 
     /* OTP input layout */
     .otp-layout {
         display: flex;
         gap: 10px;
-        margin-top: 0.5rem;
+        margin-top: 0.4rem;
     }
 
     .terms-label {
-        font-size: 0.9rem;
-        color: #475569;
+        font-size: 0.85rem;
+        color: #9CA3AF;
     }
 
     .terms-link {
-        color: #4f46e5;
+        color: #00B2FF;
         text-decoration: none;
     }
 
     .terms-link:hover {
         text-decoration: underline;
     }
+
     [data-theme="light"] .step-indicator.active .step-number {
         border-color: #F59E0B;
         color: #F59E0B;
@@ -351,15 +479,6 @@
         color: #1F2937;
         border-bottom-color: #E5E7EB;
     }
-    [data-theme="light"] .proposal-detail span:first-child {
-        color: #64748B;
-    }
-    [data-theme="light"] .proposal-detail span:last-child {
-        color: #1F2937;
-    }
-    [data-theme="light"] .otp-layout .form-control {
-        background: #FFFFFF !important;
-    }
     [data-theme="light"] .terms-label {
         color: #475569;
     }
@@ -403,10 +522,19 @@
 {% block content %}
 <div class="page-container">
     <div class="form-container">
+
+        <!-- Top Navigation Bar with Back Button -->
+        <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2.5" style="border-color: rgba(255,255,255,0.08) !important;">
+            <button type="button" class="btn text-muted-glow p-0 d-inline-flex align-items-center top-back-btn" onclick="confirmCancelRequest()" style="font-size: 0.88rem; font-weight: 600; border: none; background: transparent;">
+                <i class="bi bi-arrow-left-circle-fill me-2 fs-5" style="color: #00B2FF;"></i>
+                <span>Back to Land Viewer</span>
+            </button>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1.5 rounded-pill fs-12 fw-bold">Plot {{ plot_number }}</span>
+        </div>
         
         <div class="wizard-header">
             <h2>Submit Purchase Request</h2>
-            <p>Complete the information below to submit your purchase request to the land owner.</p>
+            <p>Complete your proposal details below to send a formal purchase request to the landowner.</p>
         </div>
 
         <div id="alertBox" class="alert" style="display: none;"></div>
@@ -415,136 +543,173 @@
         <div class="stepper">
             <div class="step-indicator active" id="indicator1">
                 <div class="step-number">1</div>
-                <div class="step-text">Personal Information</div>
+                <div class="step-text">Personal Details</div>
             </div>
             <div class="step-indicator" id="indicator2">
                 <div class="step-number">2</div>
-                <div class="step-text">Contact & Verification</div>
-            </div>
-            <div class="step-indicator" id="indicator3">
-                <div class="step-number">3</div>
-                <div class="step-text">Confirmation</div>
+                <div class="step-text">Proposal & Verification</div>
             </div>
         </div>
 
         <form id="purchaseRequestForm" novalidate>
             {% csrf_token %}
 
-            <!-- ================= STEP 1: Personal Details ================= -->
-            <div class="form-step active" id="step1">
-                <div class="row mb-4">
-                    <div class="col-md-12 mb-3">
-                        <label class="form-label">Full Name*</label>
-                        <input type="text" class="form-control" id="fullName" placeholder="Enter your full name" required>
-                        <div class="invalid-feedback">Please enter your full name.</div>
-                    </div>
-                </div>
+            <!-- Smooth Slider Container -->
+            <div class="wizard-slider-container">
+                <div class="wizard-slider" id="wizardSlider">
 
-                <div class="row mb-4">
-                    <div class="col-md-6 mb-3 mb-md-0">
-                        <label class="form-label">Aadhaar Number (12 digits)*</label>
-                        <input type="text" class="form-control" id="aadhaarNumber" maxlength="12" placeholder="e.g. 123456789012" required>
-                        <div class="invalid-feedback">Aadhaar must be exactly 12 numeric digits.</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">PAN Number*</label>
-                        <input type="text" class="form-control text-uppercase" id="panNumber" maxlength="10" placeholder="e.g. ABCDE1234F" required>
-                        <div class="invalid-feedback">Please enter a valid 10-character PAN number.</div>
-                    </div>
-                </div>
+                    <!-- ================= STEP 1: Personal & Contact Details ================= -->
+                    <div class="wizard-page" id="step1Page">
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <label class="form-label">Full Name*</label>
+                                <div class="input-icon-wrapper">
+                                    <input type="text" class="form-control" id="fullName" value="{{ user_full_name }}" placeholder="Enter your full name" required>
+                                    <i class="bi bi-person-fill"></i>
+                                    <div class="invalid-feedback">Please enter your full name.</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Phone Number*</label>
+                                <div class="input-icon-wrapper">
+                                    <input type="tel" class="form-control" id="phoneNumber" value="{{ user_phone }}" placeholder="e.g. +91 9876543210" required>
+                                    <i class="bi bi-telephone-fill"></i>
+                                    <div class="invalid-feedback">Please enter your phone number.</div>
+                                </div>
+                            </div>
+                        </div>
 
-                <div class="d-flex justify-content-center mt-5">
-                    <button type="button" class="btn btn-primary" onclick="nextStep(1)">Next</button>
-                </div>
-            </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <label class="form-label">Aadhaar Number (12 digits)*</label>
+                                <div class="input-icon-wrapper">
+                                    <input type="text" class="form-control" id="aadhaarNumber" maxlength="12" placeholder="e.g. 123456789012" required>
+                                    <i class="bi bi-card-text"></i>
+                                    <div class="invalid-feedback">Aadhaar must be exactly 12 numeric digits.</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">PAN Number*</label>
+                                <div class="input-icon-wrapper">
+                                    <input type="text" class="form-control text-uppercase" id="panNumber" maxlength="10" placeholder="e.g. ABCDE1234F" required>
+                                    <i class="bi bi-credit-card-2-front-fill"></i>
+                                    <div class="invalid-feedback">Please enter a valid 10-character PAN number.</div>
+                                </div>
+                            </div>
+                        </div>
 
-            <!-- ================= STEP 2: Contact & Verification ================= -->
-            <div class="form-step" id="step2">
-                <div class="row mb-4">
-                    <div class="col-md-6 mb-3 mb-md-0">
-                        <label class="form-label">Email Address*</label>
-                        <input type="email" class="form-control" id="emailAddress" placeholder="Enter your email" required>
-                        <div class="invalid-feedback">Please enter a valid email address.</div>
+                        <div class="d-flex justify-content-center mt-4 pt-2">
+                            <button type="button" class="btn btn-primary px-5" id="btnNext1" onclick="nextStep(1)">Next <i class="bi bi-arrow-right ms-1"></i></button>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Phone Number*</label>
-                        <input type="tel" class="form-control" id="phoneNumber" placeholder="+91 9876543210" required>
-                        <div class="invalid-feedback">Please enter your phone number.</div>
-                    </div>
-                </div>
 
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label">Email Verification</label>
-                        <div id="emailVerifyContainer">
-                            <button class="btn btn-secondary-outline w-100" type="button" id="btnSendOtp" onclick="sendOtp()">Send OTP to Email</button>
+                    <!-- ================= STEP 2: Proposal & Verification ================= -->
+                    <div class="wizard-page inactive-page" id="step2Page">
+
+                        <!-- Account Email Verification OTP Banner (Displayed ONLY on Step 2) -->
+                        <div id="otpBanner" class="alert p-3 mb-3 rounded-3 d-flex align-items-center" style="background: rgba(0, 178, 255, 0.08); border: 1px solid rgba(0, 178, 255, 0.25); color: #00B2FF; display: none;">
+                            <i class="bi bi-envelope-check-fill fs-4 me-3"></i>
+                            <div>
+                                <strong class="d-block text-white fs-14 mb-0.5">Verification OTP Sent to Your Account Email</strong>
+                                <span class="fs-13 text-muted-glow">We have sent a 6-digit OTP code to <strong>{{ user_email }}</strong>.</span>
+                            </div>
+                        </div>
+
+                        <div class="proposal-box">
+                            <div class="proposal-title"><i class="bi bi-info-circle-fill me-2" style="color: #00B2FF;"></i> Property Specifications</div>
+                            <div class="proposal-grid">
+                                <div class="proposal-item">
+                                    <span class="prop-lbl"><i class="bi bi-grid-3x3-gap me-1.5"></i> Plot Number</span>
+                                    <span class="prop-val">{{ plot_number }}</span>
+                                </div>
+                                <div class="proposal-item">
+                                    <span class="prop-lbl"><i class="bi bi-geo-alt-fill me-1.5"></i> Land Name</span>
+                                    <span class="prop-val text-truncate" title="{{ land.name }}">{{ land.name }}</span>
+                                </div>
+                                <div class="proposal-item">
+                                    <span class="prop-lbl"><i class="bi bi-aspect-ratio me-1.5"></i> Area</span>
+                                    <span class="prop-val">{{ plot.area|default:"N/A" }}</span>
+                                </div>
+                                <div class="proposal-item">
+                                    <span class="prop-lbl"><i class="bi bi-tag-fill me-1.5"></i> Listed Price</span>
+                                    <span class="prop-val text-success" style="color: #10B981 !important;">₹{{ plot.price|default:"N/A" }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <label class="form-label">Proposed Amount (₹)*</label>
+                                <div class="input-icon-wrapper">
+                                    <input type="number" class="form-control form-control-lg fw-bold" style="font-size: 1.1rem;" id="proposedAmount" value="{{ plot.price }}" required>
+                                    <i class="bi bi-currency-rupee"></i>
+                                    <div class="invalid-feedback">Please enter a valid proposed amount.</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Account Registered Email</label>
+                                <div class="input-icon-wrapper">
+                                    <input type="email" class="form-control opacity-75" id="emailAddress" value="{{ user_email }}" readonly>
+                                    <i class="bi bi-envelope-fill text-cyan-glow"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Optional Custom Message Text Box -->
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label d-flex align-items-center justify-content-between">
+                                    <span>Message for Landowner</span>
+                                    <span class="text-muted fs-12 fw-normal" style="text-transform: none;">(Optional)</span>
+                                </label>
+                                <div class="input-icon-wrapper">
+                                    <textarea class="form-control py-2" id="buyerMessage" rows="2" style="padding-left: 42px !important; resize: vertical; min-height: 70px;" placeholder="Add an optional message for the landowner (e.g. preferred meeting times, offer details, questions)..."></textarea>
+                                    <i class="bi bi-chat-left-text-fill" style="top: 16px;"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Enter 6-Digit Email OTP*</label>
+                                <div class="otp-layout flex-grow-1">
+                                    <div class="input-icon-wrapper flex-grow-1">
+                                        <input type="text" class="form-control" id="otpCode" maxlength="6" placeholder="Enter 6-digit OTP received in email" required>
+                                        <i class="bi bi-shield-lock-fill"></i>
+                                        <div class="invalid-feedback d-none" id="otpErrorMsg">Please enter valid OTP.</div>
+                                    </div>
+                                    <button class="btn btn-primary px-4 fw-bold" type="button" id="btnVerifyOtp" onclick="verifyOtp()">
+                                        <i class="bi bi-shield-check me-1"></i> Verify OTP
+                                    </button>
+                                    <button class="btn btn-secondary-outline px-3" type="button" id="btnSendOtp" onclick="sendOtp()">
+                                        <i class="bi bi-arrow-clockwise me-1"></i> Resend
+                                    </button>
+                                </div>
+                                <div id="otpVerifiedBadge" class="alert alert-success p-2.5 mt-2.5 rounded-3 align-items-center" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10B981;">
+                                    <i class="bi bi-check-circle-fill me-2 fs-5"></i>
+                                    <span class="fw-semibold fs-13">Email OTP Verified Successfully!</span>
+                                </div>
+                            </div>
                         </div>
                         
-                        <div id="otpSection" style="display: none; margin-top: 15px;">
-                            <label class="form-label">Enter 6-digit OTP*</label>
-                            <div class="otp-layout">
-                                <input type="text" class="form-control" id="otpCode" maxlength="6" placeholder="XXXXXX">
-                                <button class="btn btn-primary" type="button" id="btnVerifyOtp" onclick="verifyOtp()">Verify</button>
+                        <div class="row mb-3 mt-3">
+                            <div class="col-12 d-flex align-items-center justify-content-center">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="termsCheck" onchange="checkSubmitCondition()">
+                                    <label class="form-check-label terms-label" for="termsCheck">
+                                        I verify that the details provided are accurate and agree to the <a href="#" class="terms-link">terms and conditions</a>.
+                                    </label>
+                                </div>
                             </div>
-                            <div class="invalid-feedback d-none" id="otpErrorMsg">Invalid OTP.</div>
                         </div>
 
-                        <div id="emailVerifiedBadge" class="text-success mt-3" style="display: none; font-weight: 600;">
-                            <i class="bi bi-check-circle-fill"></i> Email Successfully Verified
+                        <div class="d-flex justify-content-between mt-4">
+                            <button type="button" class="btn btn-secondary-outline" onclick="prevStep(2)"><i class="bi bi-arrow-left me-1"></i> Back</button>
+                            <button type="button" class="btn btn-primary px-5" id="btnSubmit" onclick="submitRequest()" disabled>Submit Request <i class="bi bi-send ms-1"></i></button>
                         </div>
                     </div>
-                </div>
-                
-                <div class="d-flex justify-content-between mt-5">
-                    <button type="button" class="btn btn-secondary-outline" onclick="prevStep(2)">Back</button>
-                    <button type="button" class="btn btn-primary" id="btnNext2" onclick="nextStep(2)">Next</button>
-                </div>
-            </div>
 
-            <!-- ================= STEP 3: Pricing and Submit ================= -->
-            <div class="form-step" id="step3">
-                <div class="proposal-box">
-                    <div class="proposal-title">Property Details</div>
-                    <div class="proposal-detail">
-                        <span>Plot Number</span>
-                        <span>{{ plot_number }}</span>
-                    </div>
-                    <div class="proposal-detail">
-                        <span>Land Name</span>
-                        <span>{{ land.name }}</span>
-                    </div>
-                    <div class="proposal-detail">
-                        <span>Area</span>
-                        <span>{{ plot.area|default:"N/A" }}</span>
-                    </div>
-                    <div class="proposal-detail">
-                        <span>Listed Price</span>
-                        <span>₹{{ plot.price|default:"N/A" }}</span>
-                    </div>
-                </div>
-
-                <div class="row mb-4">
-                    <div class="col-md-6 offset-md-3">
-                        <label class="form-label text-center d-block">Your Proposed Amount (₹)*</label>
-                        <input type="number" class="form-control form-control-lg text-center fw-bold" style="font-size: 1.25rem; color: #4f46e5;" id="proposedAmount" value="{{ plot.price }}" required>
-                        <div class="invalid-feedback text-center">Please enter a valid amount.</div>
-                    </div>
-                </div>
-                
-                <div class="row mb-4 mt-5">
-                    <div class="col-12 d-flex align-items-center justify-content-center">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="termsCheck" onchange="checkSubmitCondition()">
-                            <label class="form-check-label terms-label" for="termsCheck">
-                                I verify that the details provided are accurate and agree to the <a href="#" class="terms-link">terms and conditions</a>.
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="d-flex justify-content-between mt-4">
-                    <button type="button" class="btn btn-secondary-outline" onclick="prevStep(3)">Back</button>
-                    <button type="button" class="btn btn-primary px-5" id="btnSubmit" onclick="submitRequest()" disabled>Submit Request</button>
                 </div>
             </div>
 
@@ -555,7 +720,14 @@
 
 {% block extra_js %}
 <script>
+    let otpAlreadyTriggered = false;
     let isEmailVerified = false;
+
+    function confirmCancelRequest() {
+        if (confirm("Are you sure you want to cancel raising this purchase request? Any entered information will be discarded.")) {
+            window.location.href = "{% url 'lands:plot_viewer' slug=land_slug %}";
+        }
+    }
 
     function showAlert(msg, isError = true) {
         const box = document.getElementById('alertBox');
@@ -577,9 +749,63 @@
         }
     }
 
+    function verifyOtp() {
+        const email = "{{ user_email }}";
+        const otpInput = document.getElementById('otpCode');
+        const otpErrorMsg = document.getElementById('otpErrorMsg');
+        const otpVal = otpInput.value.trim();
+
+        if (!otpVal || otpVal.length !== 6) {
+            otpInput.classList.add('is-invalid');
+            otpErrorMsg.innerText = "Please enter a valid 6-digit OTP.";
+            otpErrorMsg.classList.remove('d-none');
+            return;
+        }
+
+        const btn = document.getElementById('btnVerifyOtp');
+        btn.innerText = "Verifying...";
+        btn.disabled = true;
+
+        fetch("{% url 'lands:verify_otp' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({email: email, otp: otpVal})
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                otpInput.classList.add('is-invalid');
+                otpErrorMsg.innerText = data.error;
+                otpErrorMsg.classList.remove('d-none');
+                btn.innerHTML = '<i class="bi bi-shield-check me-1"></i> Verify OTP';
+                btn.disabled = false;
+            } else {
+                isEmailVerified = true;
+                otpInput.classList.remove('is-invalid');
+                otpInput.readOnly = true;
+                otpErrorMsg.classList.add('d-none');
+                
+                document.getElementById('otpVerifiedBadge').style.display = 'flex';
+                btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Verified';
+                btn.disabled = true;
+                
+                checkSubmitCondition();
+            }
+        })
+        .catch(err => {
+            showAlert("Error verifying OTP.");
+            btn.innerHTML = '<i class="bi bi-shield-check me-1"></i> Verify OTP';
+            btn.disabled = false;
+        });
+    }
+
     function validateStep1() {
         let isValid = true;
         const fullName = document.getElementById('fullName');
+        const phone = document.getElementById('phoneNumber');
         const aadhaar = document.getElementById('aadhaarNumber');
         const pan = document.getElementById('panNumber');
 
@@ -588,6 +814,13 @@
             isValid = false;
         } else {
             fullName.classList.remove('is-invalid');
+        }
+
+        if (!phone.value.trim()) {
+            phone.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            phone.classList.remove('is-invalid');
         }
 
         if (!/^\d{12}$/.test(aadhaar.value.trim())) {
@@ -607,59 +840,55 @@
         return isValid;
     }
 
-    function validateStep2() {
-        let isValid = true;
-        const email = document.getElementById('emailAddress');
-        const phone = document.getElementById('phoneNumber');
-
-        if (!email.value.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
-            email.classList.add('is-invalid');
-            isValid = false;
-        } else {
-            email.classList.remove('is-invalid');
-        }
-
-        if (!phone.value.trim()) {
-            phone.classList.add('is-invalid');
-            isValid = false;
-        } else {
-            phone.classList.remove('is-invalid');
-        }
-
-        if (!isEmailVerified) {
-            showAlert("Please verify your email address to proceed.", true);
-            isValid = false;
-        }
-
-        return isValid;
-    }
-
     function nextStep(currentStep) {
         if (currentStep === 1) {
             if (!validateStep1()) return;
             
-            document.getElementById('step1').classList.remove('active');
-            document.getElementById('step2').classList.add('active');
+            const step1Page = document.getElementById('step1Page');
+            const step2Page = document.getElementById('step2Page');
+            
+            // Un-collapse Step 2 page before sliding
+            step2Page.classList.remove('inactive-page');
+
+            // Trigger OTP send when moving to Step 2 for the first time
+            if (!otpAlreadyTriggered) {
+                sendOtp(true);
+                otpAlreadyTriggered = true;
+            }
+
+            // Smooth Slide to Step 2
+            document.getElementById('wizardSlider').style.transform = 'translateX(-50%)';
             document.getElementById('indicator1').classList.add('completed');
             document.getElementById('indicator2').classList.add('active');
             
-        } else if (currentStep === 2) {
-            if (!validateStep2()) return;
-            
-            document.getElementById('step2').classList.remove('active');
-            document.getElementById('step3').classList.add('active');
-            document.getElementById('indicator2').classList.add('completed');
-            document.getElementById('indicator3').classList.add('active');
-            checkSubmitCondition();
+            // Display OTP banner on Step 2
+            document.getElementById('otpBanner').style.display = 'flex';
+
+            // Collapse Step 1 page after slide transition completes
+            setTimeout(() => {
+                step1Page.classList.add('inactive-page');
+            }, 400);
         }
     }
 
     function prevStep(currentStep) {
-        document.getElementById(`step${currentStep}`).classList.remove('active');
-        document.getElementById(`step${currentStep-1}`).classList.add('active');
-        
-        document.getElementById(`indicator${currentStep}`).classList.remove('active');
-        document.getElementById(`indicator${currentStep-1}`).classList.remove('completed');
+        if (currentStep === 2) {
+            const step1Page = document.getElementById('step1Page');
+            const step2Page = document.getElementById('step2Page');
+            
+            // Un-collapse Step 1 page before sliding
+            step1Page.classList.remove('inactive-page');
+
+            // Smooth Slide back to Step 1
+            document.getElementById('wizardSlider').style.transform = 'translateX(0)';
+            document.getElementById('indicator2').classList.remove('active');
+            document.getElementById('indicator1').classList.remove('completed');
+
+            // Collapse Step 2 page after slide transition completes
+            setTimeout(() => {
+                step2Page.classList.add('inactive-page');
+            }, 400);
+        }
     }
 
     function getCookie(name) {
@@ -677,17 +906,12 @@
         return cookieValue;
     }
 
-    function sendOtp() {
-        const email = document.getElementById('emailAddress');
-        if (!email.value.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
-            email.classList.add('is-invalid');
-            return;
-        }
-        email.classList.remove('is-invalid');
-        
+    function sendOtp(isInitial = false) {
         const btn = document.getElementById('btnSendOtp');
-        btn.innerText = "Sending...";
-        btn.disabled = true;
+        if (!isInitial) {
+            btn.innerText = "Sending...";
+            btn.disabled = true;
+        }
 
         fetch("{% url 'lands:send_otp' %}", {
             method: 'POST',
@@ -695,97 +919,51 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify({email: email.value.trim()})
+            body: JSON.stringify({email: "{{ user_email }}"})
         })
         .then(res => res.json())
         .then(data => {
             if (data.error) {
-                showAlert(data.error);
-                btn.innerText = "Send OTP to Email";
-                btn.disabled = false;
+                if (!isInitial) showAlert(data.error);
             } else {
-                showAlert(data.message, false);
-                document.getElementById('otpSection').style.display = 'block';
-                btn.innerText = "Resend OTP";
-                btn.disabled = false;
+                if (!isInitial) showAlert(data.message, false);
             }
-        })
-        .catch(err => {
-            showAlert("Error sending OTP.");
-            btn.innerText = "Send OTP to Email";
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i> Resend OTP';
             btn.disabled = false;
-        });
-    }
-
-    function verifyOtp() {
-        const email = document.getElementById('emailAddress').value;
-        const otpInput = document.getElementById('otpCode');
-        const otpErrorMsg = document.getElementById('otpErrorMsg');
-        
-        if (!otpInput.value.trim()) {
-            otpInput.classList.add('is-invalid');
-            otpErrorMsg.classList.remove('d-none');
-            return;
-        }
-
-        const btn = document.getElementById('btnVerifyOtp');
-        btn.innerText = "Verifying...";
-        btn.disabled = true;
-
-        fetch("{% url 'lands:verify_otp' %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({email: email.trim(), otp: otpInput.value.trim()})
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.error) {
-                otpInput.classList.add('is-invalid');
-                otpErrorMsg.innerText = data.error;
-                otpErrorMsg.classList.remove('d-none');
-                btn.innerText = "Verify";
-                btn.disabled = false;
-            } else {
-                isEmailVerified = true;
-                otpInput.classList.remove('is-invalid');
-                otpErrorMsg.classList.add('d-none');
-                
-                document.getElementById('emailVerifiedBadge').style.display = 'block';
-                document.getElementById('otpSection').style.display = 'none';
-                document.getElementById('emailAddress').readOnly = true;
-                document.getElementById('btnSendOtp').style.display = 'none';
-                
-                checkSubmitCondition();
-            }
         })
         .catch(err => {
-            showAlert("Error verifying OTP.");
-            btn.innerText = "Verify";
+            if (!isInitial) showAlert("Error sending OTP.");
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i> Resend OTP';
             btn.disabled = false;
         });
     }
 
     function submitRequest() {
-        if (!document.getElementById('termsCheck').checked || !isEmailVerified) {
+        if (!document.getElementById('termsCheck').checked) {
             return;
         }
         
         const proposedAmount = document.getElementById('proposedAmount');
+        const otpCode = document.getElementById('otpCode');
+
         if (!proposedAmount.value) {
             proposedAmount.classList.add('is-invalid');
+            return;
+        }
+        if (!otpCode.value.trim()) {
+            otpCode.classList.add('is-invalid');
             return;
         }
 
         const data = {
             full_name: document.getElementById('fullName').value.trim(),
+            phone_number: document.getElementById('phoneNumber').value.trim(),
             aadhaar_number: document.getElementById('aadhaarNumber').value.trim(),
             pan_number: document.getElementById('panNumber').value.trim().toUpperCase(),
-            email: document.getElementById('emailAddress').value.trim(),
-            phone_number: document.getElementById('phoneNumber').value.trim(),
+            email: "{{ user_email }}",
             proposed_amount: proposedAmount.value,
+            otp_code: otpCode.value.trim(),
+            buyer_message: document.getElementById('buyerMessage').value.trim(),
         };
 
         const btn = document.getElementById('btnSubmit');

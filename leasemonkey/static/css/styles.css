@@ -2549,19 +2549,227 @@ body::before {
     color: #166534 !important;
 }
 
-/* ── Notification cards ──────────────────────────────────────── */
-.notif-card {
+/* ── Notification Row Action Buttons & Cards ────────────────── */
+.notif-card, .admin-notif-card {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.notif-actions-group {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-notif-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    background: transparent;
+    line-height: 1.2;
+}
+
+.btn-notif-action i {
+    font-size: 0.88rem;
+}
+
+/* Dark Mode Defaults */
+.btn-notif-read {
+    color: #00B2FF;
+    background: rgba(0, 178, 255, 0.08);
+    border-color: rgba(0, 178, 255, 0.2);
+}
+.btn-notif-read:hover {
+    background: #00B2FF;
+    color: #FFFFFF;
+    box-shadow: 0 3px 10px rgba(0, 178, 255, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-notif-delete {
+    color: #F87171;
+    background: rgba(248, 113, 113, 0.08);
+    border-color: rgba(248, 113, 113, 0.2);
+}
+.btn-notif-delete:hover {
+    background: #EF4444;
+    color: #FFFFFF;
+    box-shadow: 0 3px 10px rgba(239, 68, 68, 0.35);
+    transform: translateY(-1px);
+}
+
+/* Notification Detail Modal Styling */
+.notif-modal-content {
+    border-radius: 16px;
+    background: #1E293B;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.5);
+    overflow: hidden;
+}
+
+.notif-modal-header {
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.notif-modal-icon-badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(0, 178, 255, 0.15);
+    color: #00B2FF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.notif-message-box {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #CBD5E1;
+}
+
+.notif-btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+.notif-btn-close:hover {
+    opacity: 1;
+}
+
+.btn-danger-soft {
+    background: rgba(239, 68, 68, 0.12);
+    color: #F87171;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+.btn-danger-soft:hover {
+    background: #EF4444;
+    color: #FFFFFF;
+    border-color: #EF4444;
+}
+
+.btn-secondary-soft {
+    background: rgba(255, 255, 255, 0.08);
+    color: #94A3B8;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+.btn-secondary-soft:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #FFFFFF;
+}
+
+/* Light Mode Overrides */
+[data-theme="light"] .btn-notif-read {
+    color: #D97706 !important;
+    background: rgba(245, 158, 11, 0.1) !important;
+    border-color: rgba(245, 158, 11, 0.25) !important;
+}
+[data-theme="light"] .btn-notif-read:hover {
+    background: #F59E0B !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 3px 10px rgba(245, 158, 11, 0.35) !important;
+}
+
+[data-theme="light"] .btn-notif-delete {
+    color: #DC2626 !important;
+    background: rgba(220, 38, 38, 0.08) !important;
+    border-color: rgba(220, 38, 38, 0.2) !important;
+}
+[data-theme="light"] .btn-notif-delete:hover {
+    background: #DC2626 !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 3px 10px rgba(220, 38, 38, 0.35) !important;
+}
+
+[data-theme="light"] .notif-modal-content {
     background: #FFFFFF !important;
-    border: 1px solid var(--border-subtle) !important;
-    border-radius: var(--radius-card) !important;
+    border-color: #E5E7EB !important;
+    color: #1F2937 !important;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12) !important;
 }
 
-.notif-card:hover {
-    background: var(--accent-orange-lighter) !important;
+[data-theme="light"] .notif-modal-header {
+    border-bottom-color: #E5E7EB !important;
 }
 
-.notif-card.border-cyan-glow {
-    border-color: var(--accent-orange) !important;
+[data-theme="light"] .notif-modal-icon-badge {
+    background: rgba(245, 158, 11, 0.12) !important;
+    color: #D97706 !important;
+}
+
+[data-theme="light"] .notif-modal-content .modal-title {
+    color: #1F2937 !important;
+}
+
+[data-theme="light"] .notif-message-box {
+    background: #F9FAFB !important;
+    border-color: #E5E7EB !important;
+    color: #374151 !important;
+}
+
+[data-theme="light"] .notif-btn-close {
+    filter: none !important;
+    opacity: 0.6;
+}
+
+[data-theme="light"] .btn-danger-soft {
+    background: rgba(220, 38, 38, 0.08) !important;
+    color: #DC2626 !important;
+    border-color: rgba(220, 38, 38, 0.2) !important;
+}
+[data-theme="light"] .btn-danger-soft:hover {
+    background: #DC2626 !important;
+    color: #FFFFFF !important;
+    border-color: #DC2626 !important;
+}
+
+[data-theme="light"] .btn-secondary-soft {
+    background: #F3F4F6 !important;
+    color: #4B5563 !important;
+    border-color: #D1D5DB !important;
+}
+[data-theme="light"] .btn-secondary-soft:hover {
+    background: #E5E7EB !important;
+    color: #1F2937 !important;
+}
+
+[data-theme="light"] .notif-card,
+[data-theme="light"] .admin-notif-card {
+    background: #FFFFFF !important;
+    border-color: #E5E7EB !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+}
+[data-theme="light"] .notif-card:hover,
+[data-theme="light"] .admin-notif-card:hover {
+    background: #F9FAFB !important;
+    border-color: #D1D5DB !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+}
+[data-theme="light"] .notif-card h6,
+[data-theme="light"] .admin-notif-card h6 {
+    color: #1F2937 !important;
+}
+[data-theme="light"] .notif-card p,
+[data-theme="light"] .admin-notif-card p {
+    color: #475569 !important;
+}
+[data-theme="light"] .notif-card small,
+[data-theme="light"] .admin-notif-card small {
+    color: #9CA3AF !important;
 }
 
 /* ── Footer ───────────────────────────────────────────────────── */
@@ -2781,3 +2989,42 @@ footer {
 .pulse-glow {
     animation: accentGlow 2s infinite;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGE LOADER OVERLAY
+   Full-screen spinner shown during page navigation transitions.
+   ═══════════════════════════════════════════════════════════════ */
+#pageLoader {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 14, 26, 0.88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    opacity: 1;
+    transition: opacity 0.35s ease;
+}
+
+#pageLoader.loader-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Spinning ring */
+.page-loader-spinner {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.08);
+    border-top-color: #0EA5E9;
+    border-right-color: #F97316;
+    animation: loaderSpin 0.75s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
+}
+
+@keyframes loaderSpin {
+    to { transform: rotate(360deg); }
+}

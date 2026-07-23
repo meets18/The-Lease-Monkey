@@ -74,6 +74,11 @@ class Land(models.Model):
     def __str__(self):
         return f"{self.name} (Owner: {self.owner.username})"
 
+    @property
+    def vanity_url(self):
+        """Returns a clean brand-style URL: /<owner_username>/<land_slug>/"""
+        return f"/{self.owner.username}/{self.slug}/"
+
 class Plot(models.Model):
     FACING_CHOICES = [
         ('North', 'North'),

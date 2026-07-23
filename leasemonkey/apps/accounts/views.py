@@ -30,8 +30,8 @@ def _format_price_lakhs(value):
 def portal_selection(request):
     """Renders the glassmorphic portal picker page."""
     if request.user.is_authenticated:
-        if request.user.role == User.BUYER:
-            return redirect('buyer_dashboard')
+        if request.user.role == User.BUYER or request.user.role == User.LAND_OWNER:
+            return redirect('/')
         elif request.user.role == User.ADMIN or request.user.is_superuser:
             return redirect('admin_dashboard')
     return render(request, 'accounts/portal_selection.html')
@@ -40,7 +40,7 @@ def buyer_login(request):
     """Handles authentication checks for the Buyer Portal."""
     if request.user.is_authenticated:
         if request.user.role == User.BUYER:
-            return redirect('buyer_dashboard')
+            return redirect('/')
         logout(request) # Log out other roles before logging in as Buyer
 
     if request.method == 'POST':
@@ -75,7 +75,7 @@ def buyer_login(request):
                         return redirect('verify_email')
                     
                     login(request, user)
-                    return redirect('buyer_dashboard')
+                    return redirect('/')
                 elif user.status == User.PENDING:
                     messages.error(request, 'Your buyer profile status is pending administrative approval.')
                 else:
@@ -143,7 +143,7 @@ def landowner_login(request):
     """Handles authentication checks for the Land Owner Portal."""
     if request.user.is_authenticated:
         if request.user.role == User.LAND_OWNER:
-            return redirect('landowner_dashboard')
+            return redirect('/')
         logout(request)
 
     if request.method == 'POST':
@@ -160,7 +160,7 @@ def landowner_login(request):
             if user.role == User.LAND_OWNER:
                 if user.status == User.ACTIVE:
                     login(request, user)
-                    return redirect('landowner_dashboard')
+                    return redirect('/')
                 elif user.status == User.PENDING:
                     messages.error(request, 'Your landowner profile status is pending administrative approval.')
                 else:
@@ -776,7 +776,7 @@ def onboarding_preferences(request):
             prefs.proximity_preferences = []
             prefs.save()
             messages.info(request, "Proceeding with default preferences.")
-            return redirect('buyer_dashboard')
+            return redirect('/')
             
         # Standard save action
         min_budget_str = request.POST.get('min_budget', '').strip()
@@ -815,7 +815,7 @@ def onboarding_preferences(request):
         prefs.save()
         
         messages.success(request, "Onboarding completed! Preferences saved successfully.")
-        return redirect('buyer_dashboard')
+        return redirect('/')
         
     return render(request, 'accounts/onboarding_preferences.html')
 

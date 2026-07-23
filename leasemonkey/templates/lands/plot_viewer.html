@@ -273,6 +273,12 @@
         const plotNum = document.getElementById('detailNum').innerText.trim();
         if (!plotNum) return;
 
+        const detailStatus = document.getElementById('detailStatus')?.innerText.trim().toLowerCase();
+        if (detailStatus === 'sold' || detailStatus === 'owned by you') {
+            alert("Sold plots cannot be saved.");
+            return;
+        }
+
         fetch(`/lands/plots/${landSlug}/toggle-save/${encodeURIComponent(plotNum)}/`, {
             method: 'POST',
             headers: {
@@ -1046,8 +1052,8 @@
         buildings: {{ buildings_list_json|safe|default:"[]" }},
         images: {{ images_list_json|safe|default:"[]" }},
         roads: {{ roads_list_json|safe|default:"[]" }},
-        gates: {{ gates_list_json|safe|default:"[]" }},
-        savedPlots: {{ saved_plots_json|safe|default:"[]" }}
+        savedPlots: {{ saved_plots_json|safe|default:"[]" }},
+        ownedPlots: {{ owned_plots_json|safe|default:"[]" }}
     };
 </script>
 

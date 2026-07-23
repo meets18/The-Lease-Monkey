@@ -54,7 +54,7 @@ class PurchaseRequestFormTests(TestCase):
         url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
         response = self.client.post(url, json.dumps(payload), content_type='application/json')
         self.assertEqual(response.status_code, 400)
-        self.assertIn('not verified', response.json()['error'])
+        self.assertIn('OTP is required', response.json()['error'])
 
     def test_submit_purchase_request_success(self):
         self.client.login(username='pr_buyer', password='Password123!')
@@ -77,6 +77,44 @@ class PurchaseRequestFormTests(TestCase):
         self.assertEqual(pr.email, 'pr_buyer@test.com')
         self.assertEqual(pr.phone_number, '+919876543210')
         self.assertEqual(pr.proposed_amount, 1450000)
+
+    def test_fix_meeting_success(self):
+        # Create a pending purchase request
+        pr = PurchaseRequest.objects.create(
+            buyer=self.buyer,
+            land=self.land,
+            plot_number="Plot101",
+            full_name='PR Buyer',
+            aadhaar_number='123456789012',
+            pan_number='ABCDE1234F',
+            email='pr_buyer@test.com',
+            phone_number='+919876543210',
+            proposed_amount=1450000,
+            status='pending'
+        )
+        
+        self.client.login(username='pr_owner', password='Password123!')
+        url = reverse('lands:purchase_request_action', kwargs={'request_id': pr.id})
+        
+        payload = {
+            'action': 'fix_meeting',
+            'meeting_datetime': '2026-07-22T10:00',
+            'duration_minutes': 45,
+            'message': 'Let us discuss details.'
+        }
+        
+        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+        
+        # Verify DB state
+        pr.refresh_from_db()
+        self.assertEqual(pr.status, 'meeting_scheduled')
+        self.assertEqual(pr.meeting_duration_mins, 45)
+        
+        # Verify plot status became reserved
+        self.plot.refresh_from_db()
+        self.assertEqual(self.plot.status, 'reserved')
 from apps.lands.models import LandRegistrationRequest
 from django.core.exceptions import PermissionDenied
 

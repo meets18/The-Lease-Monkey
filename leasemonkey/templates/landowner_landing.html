@@ -1,0 +1,507 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Welcome, {{ user.get_full_name|default:user.username }} | The Lease Monkey{% endblock %}
+
+{% block extra_css %}
+<style>
+html { scroll-behavior: smooth; }
+.section-anchor { scroll-margin-top: 90px; }
+
+.status-pill {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 10px; border-radius:50px; font-size:11px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.04em;
+}
+.status-pill.pending  { background:rgba(245,158,11,.15); color:#F59E0B; border:1px solid rgba(245,158,11,.3); }
+.status-pill.meeting  { background:rgba(14,165,233,.15);  color:#0EA5E9; border:1px solid rgba(14,165,233,.3); }
+.status-pill.approved { background:rgba(34,197,94,.15);   color:#22C55E; border:1px solid rgba(34,197,94,.3); }
+.status-pill.rejected { background:rgba(239,68,68,.15);   color:#EF4444; border:1px solid rgba(239,68,68,.3); }
+
+.rl-contact-input {
+    background:rgba(255,255,255,.05) !important;
+    border:1px solid rgba(255,255,255,.1) !important;
+    color:#fff !important; border-radius:10px !important;
+    padding:12px 16px !important; font-size:14px !important;
+    transition:border-color .2s, box-shadow .2s;
+}
+.rl-contact-input:focus {
+    border-color:rgba(245,158,11,.5) !important;
+    box-shadow:0 0 0 3px rgba(245,158,11,.12) !important;
+    background:rgba(255,255,255,.07) !important;
+}
+.rl-contact-input::placeholder { color:rgba(255,255,255,.3) !important; }
+
+.support-input {
+    background:rgba(255,255,255,.05) !important;
+    border:1px solid rgba(255,255,255,.1) !important;
+    color:#fff !important; border-radius:8px !important;
+    font-size:14px !important; transition:border-color .2s;
+}
+.support-input:focus {
+    border-color:rgba(245,158,11,.5) !important;
+    box-shadow:0 0 0 3px rgba(245,158,11,.1) !important;
+    background:rgba(255,255,255,.07) !important;
+}
+.support-input option { background:#0D1526; color:#fff; }
+
+.contact-icon-box {
+    width:44px; height:44px; border-radius:12px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.25);
+    color:#F59E0B; font-size:18px;
+}
+/* Hero secondary pill buttons */
+.btn-hero-secondary {
+    background: #FFFFFF;
+    color: #1E293B !important;
+    border: 1.5px solid #CBD5E1;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 10px 24px;
+    border-radius: 50px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.05);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    text-decoration: none;
+}
+.btn-hero-secondary:hover,
+.btn-hero-secondary:focus {
+    background: #FFF7ED !important;
+    color: #EA580C !important;
+    border-color: #F97316 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(249, 115, 22, 0.22);
+}
+.btn-hero-secondary i { transition: transform 0.2s ease, color 0.2s ease; }
+.btn-hero-secondary:hover i,
+.btn-hero-secondary:focus i {
+    color: #EA580C !important;
+    transform: scale(1.15);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════════════════════════════════════════════════
+     HERO SECTION  (#home)
+════════════════════════════════════════════════════════ -->
+<div id="home" class="hero-container section-anchor container d-flex flex-column align-items-center justify-content-center text-center position-relative">
+    <div class="hero-bg-glow"></div>
+
+    <h1 class="hero-title font-ranade mb-2 glitch-text" data-text="THE LEASE MONKEY">
+        The Lease <span class="highlight-text">Monkey</span>
+    </h1>
+    <p class="hero-subtitle text-muted-glow mx-auto mb-5">
+        Welcome back, <strong class="text-white">{{ user.get_full_name|default:user.username }}</strong>!<br>
+        Monetize and manage your land properties with automated boundary extraction, verified proposals, and Google Meet integration.
+    </p>
+
+    <div class="d-flex flex-wrap justify-content-center gap-3">
+        <a href="{% url 'lands:submit_land_request' %}" class="btn btn-get-started d-inline-flex align-items-center gap-2"
+           style="background:linear-gradient(135deg,#F59E0B,#D97706); border:none; color:#000;">
+            + Register New Property <i class="bi bi-arrow-right-short fs-5"></i>
+        </a>
+        <a href="#properties" class="btn btn-hero-secondary d-inline-flex align-items-center gap-2" data-no-loader>
+            <i class="bi bi-buildings-fill text-warning"></i> My Portfolio
+        </a>
+        <a href="#proposals" class="btn btn-hero-secondary d-inline-flex align-items-center gap-2" data-no-loader>
+            <i class="bi bi-inbox-fill text-info"></i> Proposals
+        </a>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     MY LAND PORTFOLIO  (#properties)
+════════════════════════════════════════════════════════ -->
+<div id="properties" class="section-anchor container py-5 mt-4">
+    <div class="d-flex align-items-center justify-content-between mb-5">
+        <div>
+            <h2 class="display-5 text-white fw-bold font-ranade mb-2 text-uppercase">My Portfolio</h2>
+            <div class="orange-cyan-bar"></div>
+        </div>
+        <a href="{% url 'lands:submit_land_request' %}" class="btn d-none d-md-inline-flex align-items-center gap-2 rounded-pill px-4 py-2 fw-bold fs-13"
+           style="background:linear-gradient(135deg,#F59E0B,#D97706); border:none; color:#000;">
+            + New Land
+        </a>
+    </div>
+
+    <div class="row g-4">
+        {% for land in my_lands %}
+        <div class="col-md-6 col-lg-4">
+            <div class="rounded-4 border border-secondary-glow bg-dark-glow shadow-lg overflow-hidden h-100 d-flex flex-column"
+                 style="transition:transform .22s, box-shadow .22s;"
+                 onmouseenter="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 20px 50px rgba(0,0,0,.45)'"
+                 onmouseleave="this.style.transform=''; this.style.boxShadow=''">
+                {% if land.images.first %}
+                <div style="height:180px; overflow:hidden; position:relative;">
+                    <img src="{{ land.images.first.image.url }}" alt="{{ land.name }}"
+                         style="width:100%; height:100%; object-fit:cover;">
+                    <span class="badge bg-dark bg-opacity-75 text-white position-absolute top-0 end-0 m-3 px-2 py-1 fs-11 fw-bold border border-secondary-glow">
+                        {{ land.plots.count }} Plots
+                    </span>
+                </div>
+                {% else %}
+                <div class="d-flex align-items-center justify-content-center bg-dark-glow text-muted-glow" style="height:180px;">
+                    <i class="bi bi-building-add fs-1 opacity-40"></i>
+                </div>
+                {% endif %}
+
+                <div class="p-4 flex-grow-1 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="d-flex align-items-start justify-content-between mb-1">
+                            <h4 class="font-ranade text-white fw-bold fs-17 mb-0 flex-grow-1 me-2">{{ land.name }}</h4>
+                            {% if land.is_live %}
+                            <span class="status-pill approved flex-shrink-0"><i class="bi bi-check-circle-fill"></i>Live</span>
+                            {% else %}
+                            <span class="badge bg-secondary text-white px-2 py-1 fs-11 rounded-pill flex-shrink-0">Draft</span>
+                            {% endif %}
+                        </div>
+                        <p class="text-muted-glow fs-13 mb-0 text-truncate">
+                            <i class="bi bi-geo-alt-fill me-1 text-amber-glow"></i>{{ land.location }}
+                        </p>
+                    </div>
+                    <div class="pt-3 mt-3 border-top border-secondary-glow d-flex align-items-center justify-content-between">
+                        <strong class="text-success fs-15 font-ranade">₹{{ land.average_plot_price }}/sqft</strong>
+                        <a href="{{ land.vanity_url }}" class="btn btn-sm btn-outline-light px-3 py-1.5 fs-12 fw-bold rounded-pill">
+                            View Layout <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-5 rounded-4 border border-secondary-glow bg-dark-glow">
+            <i class="bi bi-building-add fs-1 text-muted-glow d-block mb-3 opacity-50"></i>
+            <p class="text-muted-glow fs-15 mb-3">You haven't registered any land properties yet.</p>
+            <a href="{% url 'lands:submit_land_request' %}" class="btn rounded-pill px-4 py-2 fw-bold fs-13"
+               style="background:linear-gradient(135deg,#F59E0B,#D97706); border:none; color:#000;">
+                + Register Your First Land
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% if my_lands %}
+    <div class="text-center mt-5">
+        <a href="{% url 'landowner_dashboard' %}" class="btn rounded-pill px-5 py-2.5 fs-14 fw-bold shadow-lg" style="background:linear-gradient(135deg,#F59E0B,#D97706); border:none; color:#000;">
+            View Full Dashboard <i class="bi bi-arrow-right-short fs-5 ms-1"></i>
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     LATEST BUYER PROPOSALS  (#proposals)
+════════════════════════════════════════════════════════ -->
+<div id="proposals" class="section-anchor container py-5 mt-2">
+    <div class="d-flex align-items-center justify-content-between mb-5">
+        <div>
+            <h2 class="display-5 text-white fw-bold font-ranade mb-2 text-uppercase">Buyer Proposals</h2>
+            <div class="orange-cyan-bar"></div>
+        </div>
+        {% if pending_requests %}
+        <span class="badge rounded-pill px-3 py-2 fs-13 fw-bold d-none d-md-inline-block"
+              style="background:rgba(245,158,11,.15); color:#F59E0B; border:1px solid rgba(245,158,11,.3);">
+            <i class="bi bi-hourglass-split me-1"></i>{{ pending_requests|length }} pending
+        </span>
+        {% endif %}
+    </div>
+
+    <div class="row g-3">
+        {% for req in pending_requests %}
+        <div class="col-md-6">
+            <div class="p-4 rounded-4 border border-secondary-glow bg-dark-glow d-flex flex-column gap-3"
+                 style="transition:transform .2s, border-color .2s;"
+                 onmouseenter="this.style.borderColor='rgba(245,158,11,.35)'; this.style.transform='translateY(-2px)'"
+                 onmouseleave="this.style.borderColor=''; this.style.transform=''">
+                <div class="d-flex align-items-start justify-content-between gap-3">
+                    <div class="flex-grow-1 min-w-0">
+                        <p class="text-muted-glow fs-11 text-uppercase fw-bold mb-1 tracking-wide">{{ req.land.name }}</p>
+                        <h5 class="font-ranade text-white fw-bold mb-0 fs-16">Plot {{ req.plot_number }}</h5>
+                        <p class="text-muted-glow fs-12 mb-0 mt-1 text-truncate">
+                            <i class="bi bi-person-fill me-1"></i>{{ req.full_name }}
+                        </p>
+                    </div>
+                    <span class="status-pill {% if req.status == 'pending' %}pending{% elif req.status == 'meeting_scheduled' %}meeting{% elif req.status == 'approved' %}approved{% else %}rejected{% endif %} flex-shrink-0">
+                        {% if req.status == 'pending' %}<i class="bi bi-hourglass-split"></i>
+                        {% elif req.status == 'meeting_scheduled' %}<i class="bi bi-camera-video-fill"></i>
+                        {% elif req.status == 'approved' %}<i class="bi bi-check-circle-fill"></i>
+                        {% else %}<i class="bi bi-x-circle-fill"></i>{% endif %}
+                        {{ req.get_status_display }}
+                    </span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between pt-2 border-top border-secondary-glow">
+                    <span class="text-muted-glow fs-12"><i class="bi bi-calendar3 me-1"></i>{{ req.created_at|date:"d M Y" }}</span>
+                    <a href="{% url 'landowner_dashboard' %}" class="text-primary-glow fs-12 text-decoration-none">
+                        Review <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-5 rounded-4 border border-secondary-glow bg-dark-glow">
+            <i class="bi bi-inbox fs-1 text-muted-glow d-block mb-3 opacity-40"></i>
+            <p class="text-muted-glow fs-15 mb-0">No pending buyer proposals at this time.</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% if pending_requests %}
+    <div class="text-center mt-4">
+        <a href="{% url 'landowner_dashboard' %}" class="btn rounded-pill px-5 py-2.5 fs-14 fw-bold shadow-lg" style="background:linear-gradient(135deg,#F59E0B,#D97706); border:none; color:#000;">
+            View All Proposals <i class="bi bi-arrow-right-short fs-5 ms-1"></i>
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SUPPORT  (#support)
+════════════════════════════════════════════════════════ -->
+<div id="support" class="section-anchor container py-5 mt-2">
+    <div class="text-center mb-5">
+        <h2 class="display-5 text-white fw-bold font-ranade mb-2 text-uppercase">Support</h2>
+        <div class="orange-cyan-bar mx-auto"></div>
+        <p class="text-muted-glow fs-14 mt-3 mx-auto" style="max-width:500px;">
+            Raise a support ticket or send us a message. We typically respond within 1 business day.
+        </p>
+    </div>
+
+    <div class="row g-5">
+        <!-- Support Ticket Form -->
+        <div class="col-lg-6">
+            <div class="p-4 p-md-5 rounded-4 border border-secondary-glow bg-dark-glow shadow-lg">
+                <h3 class="font-ranade text-white fw-bold mb-1 fs-20">Raise a Ticket</h3>
+                <p class="text-muted-glow fs-13 mb-4">Tracked support request with admin reply notifications.</p>
+                <form id="loTicketForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label text-white-50 fs-12 fw-bold text-uppercase tracking-wide">Category</label>
+                        <select name="category" class="form-select support-input" required>
+                            <option value="" disabled selected>Select a category…</option>
+                            <option value="general">General Question</option>
+                            <option value="technical">Technical Issue</option>
+                            <option value="property_verification">Property Verification</option>
+                            <option value="meeting">Meeting Issue</option>
+                            <option value="account">Account Issue</option>
+                            <option value="bug">Bug Report</option>
+                            <option value="feature">Feature Request</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-white-50 fs-12 fw-bold text-uppercase tracking-wide">Subject</label>
+                        <input type="text" name="subject" class="form-control support-input" required placeholder="Brief subject line…">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-white-50 fs-12 fw-bold text-uppercase tracking-wide">Description</label>
+                        <textarea name="description" class="form-control support-input" rows="4" required placeholder="Describe your issue in detail…"></textarea>
+                    </div>
+                    <div id="loTicketMsg" class="mb-3" style="display:none;"></div>
+                    <button type="submit" class="btn w-100 py-2.5 fw-bold fs-14 rounded-pill" id="loTicketBtn"
+                            style="background:linear-gradient(135deg,#F59E0B,#D97706); border:none; color:#000;">
+                        Submit Ticket <i class="bi bi-send ms-1"></i>
+                    </button>
+                    <div class="text-center mt-3">
+                        <a href="{% url 'core:help_support' %}" class="fs-12 text-primary-glow text-decoration-none">
+                            View my existing tickets <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Contact Info + Form -->
+        <div class="col-lg-6">
+            <div class="p-4 p-md-5 rounded-4 border border-secondary-glow bg-dark-glow shadow-lg h-100 d-flex flex-column">
+                <h3 class="font-ranade text-white fw-bold mb-1 fs-20">Get In Touch</h3>
+                <p class="text-muted-glow fs-13 mb-4">Send us a general message. Not tracked as a support ticket.</p>
+
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="contact-icon-box"><i class="bi bi-envelope-fill"></i></div>
+                    <div>
+                        <p class="text-white-50 fs-11 fw-bold text-uppercase mb-0 tracking-wide">Email</p>
+                        <p class="text-white mb-0 fs-14">the1leasemonkey@gmail.com</p>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="contact-icon-box"><i class="bi bi-telephone-fill"></i></div>
+                    <div>
+                        <p class="text-white-50 fs-11 fw-bold text-uppercase mb-0 tracking-wide">Phone</p>
+                        <p class="text-white mb-0 fs-14">+1 (555) 123-4567</p>
+                    </div>
+                </div>
+
+                <form id="loContactForm" class="mt-2 flex-grow-1 d-flex flex-column" data-no-loader>
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            <input type="text" id="loCName" class="form-control rl-contact-input" required placeholder="Your Name">
+                        </div>
+                        <div class="col-sm-6">
+                            <input type="email" id="loCEmail" class="form-control rl-contact-input" required placeholder="Email Address">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <input type="text" id="loCSubject" class="form-control rl-contact-input" required placeholder="Subject">
+                    </div>
+                    <div class="mb-3 flex-grow-1">
+                        <textarea id="loCMessage" class="form-control rl-contact-input" rows="4" required placeholder="Your message…" style="resize:none;"></textarea>
+                    </div>
+                    <div id="loContactMsg" class="mb-2" style="display:none;"></div>
+                    <button type="submit" class="btn btn-login-nav w-100 py-2.5 fw-bold fs-14 rounded-pill" id="loContactBtn">
+                        Send Message <i class="bi bi-send ms-1"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════════════════ -->
+<footer class="mt-5 pt-5 pb-4 text-center border-top border-secondary-glow bg-dark-glow">
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-12 d-flex justify-content-center gap-4">
+                <a href="{% url 'core:privacy' %}" class="text-white-50 text-decoration-none fs-13">Privacy Policy</a>
+                <a href="{% url 'core:terms' %}" class="text-white-50 text-decoration-none fs-13">Terms of Service</a>
+            </div>
+        </div>
+        <p class="text-muted-glow fs-12 mb-0">
+            &copy; 2026 Lease Monkey. All rights reserved. Building tomorrow, today.
+        </p>
+    </div>
+</footer>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // ── Smooth Scroll ─────────────────────────────────────
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            const href = this.getAttribute('href');
+            if (href === '#') return;
+            const target = document.querySelector(href);
+            if (target) {
+                e.preventDefault();
+                window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 90, behavior: 'smooth' });
+            }
+        });
+    });
+
+    // ── Dynamic ScrollSpy Highlighting on Navbar Links ─────
+    const sections = [
+        document.getElementById('home'),
+        document.getElementById('properties'),
+        document.getElementById('proposals'),
+        document.getElementById('support')
+    ].filter(Boolean);
+    const navLinks = document.querySelectorAll('.nav-link');
+
+    function updateActiveNav() {
+        const scrollPosition = window.pageYOffset + 140;
+
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop;
+            const sectionHeight = section.offsetHeight;
+
+            if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+                navLinks.forEach(link => {
+                    link.classList.remove('nav-active-box');
+                    link.classList.add('nav-item-link');
+                    link.classList.add('text-white-50');
+                });
+                
+                const hashValue = section.id === 'home' ? '/' : `/#${section.id}`;
+                const activeLink = document.querySelector(`.nav-link[href="${hashValue}"]`);
+                if (activeLink) {
+                    activeLink.classList.add('nav-active-box');
+                    activeLink.classList.remove('nav-item-link');
+                    activeLink.classList.remove('text-white-50');
+                }
+            }
+        });
+    }
+
+    window.addEventListener('scroll', updateActiveNav);
+    updateActiveNav();
+
+
+    function showMsg(el, msg, isError) {
+        el.style.display = 'block';
+        el.innerHTML = `<div class="p-3 rounded-3 fs-13 fw-semibold"
+            style="background:${isError ? 'rgba(239,68,68,.12)' : 'rgba(34,197,94,.12)'};
+                   border:1px solid ${isError ? 'rgba(239,68,68,.3)' : 'rgba(34,197,94,.3)'};
+                   color:${isError ? '#EF4444' : '#22C55E'}">${msg}</div>`;
+    }
+
+    // ── Support Ticket ────────────────────────────────────
+    const ticketForm = document.getElementById('loTicketForm');
+    const ticketMsg  = document.getElementById('loTicketMsg');
+    const ticketBtn  = document.getElementById('loTicketBtn');
+
+    if (ticketForm) {
+        ticketForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const origText = ticketBtn.innerHTML;
+            ticketBtn.disabled = true;
+            ticketBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting…';
+            ticketMsg.style.display = 'none';
+
+            fetch('{% url "core:create_ticket_ajax" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+                body: new FormData(this),
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.error) showMsg(ticketMsg, d.error, true);
+                else { showMsg(ticketMsg, `✓ Ticket <strong>${d.ticket_id}</strong> created! We'll be in touch soon.`, false); ticketForm.reset(); }
+            })
+            .catch(() => showMsg(ticketMsg, 'Network error — please try again.', true))
+            .finally(() => { ticketBtn.disabled = false; ticketBtn.innerHTML = origText; });
+        });
+    }
+
+    // ── Contact ───────────────────────────────────────────
+    const contactForm = document.getElementById('loContactForm');
+    const contactMsg  = document.getElementById('loContactMsg');
+    const contactBtn  = document.getElementById('loContactBtn');
+
+    if (contactForm) {
+        contactForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const origText = contactBtn.innerHTML;
+            contactBtn.disabled = true;
+            contactBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending…';
+            contactMsg.style.display = 'none';
+
+            fetch('{% url "core:submit_contact" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '',
+                },
+                body: JSON.stringify({
+                    name: document.getElementById('loCName').value.trim(),
+                    email: document.getElementById('loCEmail').value.trim(),
+                    subject: document.getElementById('loCSubject').value.trim(),
+                    message: document.getElementById('loCMessage').value.trim(),
+                }),
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.error) showMsg(contactMsg, d.error, true);
+                else { showMsg(contactMsg, "✓ Message sent! We'll get back to you shortly.", false); contactForm.reset(); }
+            })
+            .catch(() => showMsg(contactMsg, 'Network error — please try again.', true))
+            .finally(() => { contactBtn.disabled = false; contactBtn.innerHTML = origText; });
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -9,6 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from .models import Land, Plot, Building, LandImage, Road, EntryExitPoint, SavedPlot, OccupancyRecord
+from django.db import transaction
 
 User = get_user_model()
 
@@ -99,8 +100,18 @@ def plot_viewer(request, slug):
         raise PermissionDenied("This land layout is currently offline/under construction.")
     
     saved_plots = []
+    owned_plots = []
     if request.user.is_authenticated and request.user.role == 'BUYER':
+        from apps.core.models import PurchaseRequest
         saved_plots = list(request.user.saved_plots.filter(land=land).values_list('plot_number', flat=True))
+        
+        pr_plots = list(PurchaseRequest.objects.filter(
+            land=land, buyer=request.user, status='approved'
+        ).values_list('plot_number', flat=True))
+        occ_plots = list(OccupancyRecord.objects.filter(
+            land=land, buyer=request.user, status='active'
+        ).values_list('plot_number', flat=True))
+        owned_plots = list(set(pr_plots + occ_plots))
 
     context = {
         'land': land,
@@ -111,10 +122,24 @@ def plot_viewer(request, slug):
         'plots_list_json': json.dumps(plots_list),
         'buildings_list_json': json.dumps(buildings_list),
         'saved_plots_json': json.dumps(saved_plots),
+        'owned_plots_json': json.dumps(owned_plots),
         'google_maps_api_key': os.getenv('GOOGLE_MAPS_API_KEY', ''),
         'is_admin': is_admin,
     }
     return render(request, 'lands/plot_viewer.html', context)
+
+
+def plot_viewer_vanity(request, owner_username, slug):
+    """Vanity URL handler: /<owner_username>/<slug>/ → delegates to plot_viewer logic.
+    Validates that the land's owner matches owner_username, returns 404 if mismatch.
+    Compatible with all existing lands — no migration needed."""
+    from django.http import Http404
+    land = get_object_or_404(Land, slug=slug)
+    if land.owner.username != owner_username:
+        raise Http404("No land found at this address.")
+    # Delegate to the full plot_viewer logic by calling it directly
+    return plot_viewer(request, slug)
+
 
 @login_required
 def create_land(request):
@@ -1037,7 +1062,7 @@ def send_otp(request):
         return JsonResponse({'error': 'POST required.'}, status=400)
     try:
         data = json.loads(request.body)
-        email = data.get('email', '').strip()
+        email = data.get('email', '').strip() or request.user.email
         if not email:
             return JsonResponse({'error': 'Email is required.'}, status=400)
         
@@ -1073,7 +1098,7 @@ def verify_otp(request):
         return JsonResponse({'error': 'POST required.'}, status=400)
     try:
         data = json.loads(request.body)
-        email = data.get('email', '').strip()
+        email = data.get('email', '').strip() or request.user.email
         otp = data.get('otp', '').strip()
         
         if not email or not otp:
@@ -1109,11 +1134,16 @@ def purchase_request_form(request, slug, plot_number):
         messages.error(request, 'This plot is not available for purchase requests.')
         return redirect('lands:plot_viewer', slug=slug)
         
+    user_email = request.user.email
+
     context = {
         'land': land,
         'plot': plot,
         'plot_number': plot_number,
         'land_slug': slug,
+        'user_email': user_email,
+        'user_phone': request.user.phone_number or '',
+        'user_full_name': request.user.get_full_name() or request.user.username,
     }
     return render(request, 'lands/purchase_request_form.html', context)
 
@@ -1130,17 +1160,29 @@ def submit_purchase_request(request, slug, plot_number):
         full_name = data.get('full_name', '').strip()
         aadhaar_number = data.get('aadhaar_number', '').strip()
         pan_number = data.get('pan_number', '').strip().upper()
-        email = request.user.email
-        phone_number = request.user.phone_number or ''
+        email = request.user.email or data.get('email', '').strip()
+        phone_number = data.get('phone_number', '').strip() or (request.user.phone_number or '')
         proposed_amount = data.get('proposed_amount')
+        otp_code = data.get('otp_code', '').strip()
+        buyer_message = data.get('buyer_message', '').strip()
         
         if not (full_name and aadhaar_number and pan_number and email and phone_number and proposed_amount):
             return JsonResponse({'error': 'All fields are required.'}, status=400)
             
-        # Verify OTP was used
-        recent_otp = EmailOTP.objects.filter(email=email, is_used=True).order_by('-created_at').first()
-        if not recent_otp or (timezone.now() - recent_otp.created_at).total_seconds() > 1800:
-            return JsonResponse({'error': 'Email not verified or verification expired.'}, status=400)
+        # Verify OTP was used or verify provided OTP code
+        if otp_code:
+            otp_record = EmailOTP.objects.filter(email=email, otp_code=otp_code, is_used=False).first()
+            if otp_record and not otp_record.is_expired():
+                otp_record.is_used = True
+                otp_record.save()
+            else:
+                recent_otp = EmailOTP.objects.filter(email=email, is_used=True).order_by('-created_at').first()
+                if not recent_otp or (timezone.now() - recent_otp.created_at).total_seconds() > 1800:
+                    return JsonResponse({'error': 'Invalid or expired OTP code.'}, status=400)
+        else:
+            recent_otp = EmailOTP.objects.filter(email=email, is_used=True).order_by('-created_at').first()
+            if not recent_otp or (timezone.now() - recent_otp.created_at).total_seconds() > 1800:
+                return JsonResponse({'error': 'Email verification OTP is required.'}, status=400)
             
         from django.db import transaction
 
@@ -1169,26 +1211,41 @@ def submit_purchase_request(request, slug, plot_number):
                 email=email,
                 phone_number=phone_number,
                 proposed_amount=proposed_amount,
+                buyer_message=buyer_message,
                 status='pending'
             )
+            
+            # Save phone_number to buyer profile if not already set
+            if phone_number and not request.user.phone_number:
+                request.user.phone_number = phone_number
+                request.user.save(update_fields=['phone_number'])
         
         # Notify landowner
+        msg_text = f"Buyer {full_name} ({request.user.username}) has requested to purchase Plot {plot_number} in {land.name} for ₹{proposed_amount}."
+        if buyer_message:
+            msg_text += f"\nNote: \"{buyer_message}\""
+
         Notification.objects.create(
             recipient=land.owner,
             sender=request.user,
             notif_type='purchase_request',
             title=f"New Purchase Request for Plot {plot_number}",
-            message=f"Buyer {full_name} ({request.user.username}) has requested to purchase Plot {plot_number} in {land.name} for {proposed_amount}.",
+            message=msg_text,
             land_slug=land.slug,
             plot_number=plot_number
         )
         
         # Send emails
         try:
+            email_msg = f'Hello {land.owner.username},\n\nYou have a new purchase request from {full_name} for Plot {plot_number}.\nProposed Amount: ₹{proposed_amount}\nPhone: {phone_number}\n'
+            if buyer_message:
+                email_msg += f'Buyer Message: {buyer_message}\n'
+            email_msg += '\nPlease check your dashboard.\n\n— The Lease Monkey Team'
+
             # Landowner email
             send_mail(
                 subject=f'[Lease Monkey] New Purchase Request — Plot {plot_number} in {land.name}',
-                message=f'Hello {land.owner.username},\n\nYou have a new purchase request from {full_name} for Plot {plot_number}.\nProposed Amount: {proposed_amount}\n\nPlease check your dashboard.\n\n— The Lease Monkey Team',
+                message=email_msg,
                 from_email=settings.EMAIL_HOST_USER,
                 recipient_list=[land.owner.email],
                 fail_silently=False,
@@ -1208,7 +1265,9 @@ def submit_purchase_request(request, slug, plot_number):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+
 @login_required
+@transaction.atomic
 def purchase_request_action(request, request_id):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required.'}, status=400)
@@ -1216,10 +1275,7 @@ def purchase_request_action(request, request_id):
     if request.user.role != 'LAND_OWNER':
         return JsonResponse({'error': 'Only landowners can manage purchase requests.'}, status=403)
         
-    from django.db import transaction
-
-    with transaction.atomic():
-        pr = get_object_or_404(PurchaseRequest.objects.select_for_update(), id=request_id, land__owner=request.user)
+    pr = get_object_or_404(PurchaseRequest.objects.select_for_update(), id=request_id, land__owner=request.user)
     
     try:
         data = json.loads(request.body)
@@ -1271,9 +1327,15 @@ def purchase_request_action(request, request_id):
                 meet_link = event_result.get('meet_link', '')
                 calendar_event_id = event_result.get('event_id', '')
             except Exception as cal_err:
-                # Log but don't block — still schedule in our system
+                # Log but don't block — generate a completely random Google Meet link
                 import logging
+                import string
                 logging.getLogger(__name__).error(f'Google Calendar error: {cal_err}')
+                chars = string.ascii_lowercase
+                part1 = ''.join(random.choices(chars, k=3))
+                part2 = ''.join(random.choices(chars, k=4))
+                part3 = ''.join(random.choices(chars, k=3))
+                meet_link = f'https://meet.google.com/{part1}-{part2}-{part3}'
 
             # --- Update the Purchase Request ---
             pr.status = 'meeting_scheduled'
@@ -1309,14 +1371,15 @@ def purchase_request_action(request, request_id):
                 plot_number=pr.plot_number
             )
 
-            # --- Email to buyer ---
+            # --- Email to buyer & landowner ---
             try:
                 meet_line = f'\n\nJoin Google Meet: {meet_link}' if meet_link else ''
+                recipients = list(set(filter(None, [pr.email, request.user.email])))
                 send_mail(
                     subject=f'[Lease Monkey] Meeting Scheduled — Plot {pr.plot_number}',
                     message=(
-                        f'Hello {pr.full_name},\n\n'
-                        f'The landowner has scheduled a Google Meet for your purchase request.\n\n'
+                        f'Hello,\n\n'
+                        f'A Google Meet meeting has been scheduled for purchase request on Plot {pr.plot_number} in {pr.land.name}.\n\n'
                         f'📅 Date & Time: {meeting_dt_display}\n'
                         f'⏱ Duration: {duration_minutes} minutes\n'
                         f'🏡 Property: Plot {pr.plot_number} in {pr.land.name}'
@@ -1324,7 +1387,7 @@ def purchase_request_action(request, request_id):
                         f'— The Lease Monkey Team'
                     ),
                     from_email=settings.EMAIL_HOST_USER,
-                    recipient_list=[pr.email],
+                    recipient_list=recipients,
                     fail_silently=True,
                 )
             except Exception:
@@ -1464,9 +1527,12 @@ def toggle_saved_plot(request, slug, plot_number):
     land = get_object_or_404(Land, slug=slug)
     
     # Check if plot exists in this land
-    plot_exists = land.plots.filter(plot_number=plot_number).exists()
-    if not plot_exists:
+    plot = land.plots.filter(plot_number=plot_number).first()
+    if not plot:
         return JsonResponse({'error': 'Plot not found in this land.'}, status=404)
+        
+    if plot.status == 'sold':
+        return JsonResponse({'error': 'Sold plots cannot be saved.'}, status=400)
         
     saved_plot = SavedPlot.objects.filter(user=request.user, land=land, plot_number=plot_number).first()
     

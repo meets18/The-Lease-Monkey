@@ -401,9 +401,19 @@ html, body { overflow: hidden; height: 100%; }
                 <div class="apd-empty">No plots mapped yet.</div>
             </div>
         </div>
-        <div class="apd-footer">
-            <span class="apd-count-info" id="apdCountInfo">0 plots</span>
-            <span class="apd-count-info" style="font-size:11px; color: rgba(255,255,255,0.25);">Click a card to select & edit that plot</span>
+        <div class="apd-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <span class="apd-count-info" id="apdCountInfo">0 plots</span>
+                <button type="button" id="btnApdSelectAll" class="btn btn-xs btn-outline-info font-ranade fw-bold" onclick="toggleSelectAllApdPlots();" style="font-size: 10px; border-radius: 6px; padding: 3px 10px; color: #38bdf8 !important; border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.08);">
+                    Select All
+                </button>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <button type="button" id="btnApdBatchDelete" class="btn btn-sm btn-danger font-ranade fw-bold px-3 py-1.5" onclick="deleteSelectedPlots();" style="display: none; border-radius: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; background-color: #DC2626 !important; border: none; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);">
+                    <i class="bi bi-trash3 me-1"></i>Delete Selected (<span id="apdSelectedCount">0</span>)
+                </button>
+                <span class="apd-count-info" style="font-size:11px; color: rgba(255,255,255,0.25);">Click cards to select multiple plots</span>
+            </div>
         </div>
     </div>
 </div>
@@ -540,10 +550,12 @@ html, body { overflow: hidden; height: 100%; }
                     <button type="button" id="tabBuildings" class="pcreator-seg-btn" onclick="setWorkspaceMode('buildings')">Buildings</button>
                 </div>
             </div>
+        </div>
 
-            <div class="pcreator-divider" style="margin: 12px 0;"></div>
+        <!-- Scrollable content area (Forms & Overviews) -->
+        <div style="overflow-y: auto; flex: 1; min-height: 0; overscroll-behavior: contain; padding: 10px 20px 20px;">
 
-            <!-- Site Plan Overlay Section -->
+            <!-- Site Plan Overlay Section (Moved to scrollable area) -->
             <div class="pcreator-section">
                 <div class="pcreator-section-label" style="margin-bottom: 8px;"><i class="bi bi-image me-1"></i> Site Plan Overlay</div>
                 <div class="mb-2">
@@ -582,10 +594,8 @@ html, body { overflow: hidden; height: 100%; }
                 <!-- Auto-loader status info -->
                 <div id="overlayLoaderStatus" class="fs-10 text-white-50 mt-1" style="display: none;"></div>
             </div>
-        </div>
 
-        <!-- Scrollable content area (Forms & Overviews) -->
-        <div style="overflow-y: auto; flex: 1; min-height: 0; overscroll-behavior: contain; padding: 10px 20px 20px;">
+            <div class="pcreator-divider" style="margin: 12px 0;"></div>
 
         <!-- ═══ 1. PLOTS — Plot Details ═══ -->
         <div id="sectionPlots" class="workspace-section">
@@ -1020,13 +1030,15 @@ html, body { overflow: hidden; height: 100%; }
 
         if (plotsOnly.length === 0) {
             grid.innerHTML = '<div class="apd-empty"><i class="bi bi-search" style="font-size:2rem; margin-bottom:12px; display:block;"></i>No plots match your filters.</div>';
+            updateBatchDeleteButtonState();
             return;
         }
 
         grid.innerHTML = plotsOnly.map((plot, idx) => {
             const rawStatus = (plot.status || 'available').toLowerCase();
             const style = APD_STATUS_STYLES[rawStatus] || APD_STATUS_STYLES.available;
-            return `<div class="apd-plot-card" style="animation-delay: ${idx * 0.035}s; border-color: ${style.border};">
+            return `<div class="apd-plot-card" style="animation-delay: ${idx * 0.035}s; border-color: ${style.border};" onclick="handleCardClick(event, '${plot.number}')">
+                <input type="checkbox" class="apd-plot-checkbox" data-plot-number="${plot.number}" onclick="event.stopPropagation(); updateBatchDeleteButtonState();" style="position: absolute; top: 14px; right: 14px; width: 18px; height: 18px; cursor: pointer; accent-color: #00b2ff; z-index: 10;">
                 <div class="apd-plot-number">Plot ${plot.number}</div>
                 <div class="apd-plot-meta">${plot.area || '—'} sq ft &nbsp;·&nbsp; ${plot.facing || '—'}</div>
                 <span class="apd-plot-status" style="background: ${style.bg}; color: ${style.color};">${rawStatus.toUpperCase()}</span>
@@ -1044,6 +1056,135 @@ html, body { overflow: hidden; height: 100%; }
                 </div>
             </div>`;
         }).join('');
+        
+        updateBatchDeleteButtonState();
+    }
+
+    // Toggle checkbox on card click
+    window.handleCardClick = function(e, plotNumber) {
+        if (e.target.closest('.apd-plot-actions') || e.target.classList.contains('apd-plot-checkbox')) {
+            return;
+        }
+        const checkbox = document.querySelector(`.apd-plot-checkbox[data-plot-number="${plotNumber}"]`);
+        if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            updateBatchDeleteButtonState();
+        }
+    };
+
+    // Toggle Select All / Deselect All
+    window.toggleSelectAllApdPlots = function() {
+        const checkboxes = document.querySelectorAll('.apd-plot-checkbox');
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        checkboxes.forEach(cb => cb.checked = !allChecked);
+        updateBatchDeleteButtonState();
+    };
+
+    // Update batch delete button count and visibility
+    window.updateBatchDeleteButtonState = function() {
+        const checkboxes = document.querySelectorAll('.apd-plot-checkbox');
+        const checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
+        const count = checkedBoxes.length;
+
+        const selectAllBtn = document.getElementById('btnApdSelectAll');
+        if (selectAllBtn && checkboxes.length > 0) {
+            const allChecked = checkboxes.length === count;
+            selectAllBtn.innerText = allChecked ? "Deselect All" : "Select All";
+        }
+
+        const deleteBtn = document.getElementById('btnApdBatchDelete');
+        const countSpan = document.getElementById('apdSelectedCount');
+        if (deleteBtn && countSpan) {
+            if (count > 0) {
+                countSpan.innerText = count;
+                deleteBtn.style.display = 'inline-flex';
+            } else {
+                deleteBtn.style.display = 'none';
+            }
+        }
+    };
+
+    // Batch Delete Selected Plots
+    window.deleteSelectedPlots = async function() {
+        const selectedPlotNumbers = Array.from(document.querySelectorAll('.apd-plot-checkbox:checked')).map(cb => cb.dataset.plotNumber);
+        if (selectedPlotNumbers.length === 0) {
+            alert("No plots selected.");
+            return;
+        }
+
+        const isLandOwner = USER_ROLE === 'LAND_OWNER';
+        const itemLabel = `${selectedPlotNumbers.length} plot${selectedPlotNumbers.length !== 1 ? 's' : ''}`;
+
+        if (isLandOwner) {
+            if (!confirm(`Request admin to delete the selected ${itemLabel}?\n\nThe admin will review your requests. The plots will NOT be deleted until approved.`)) return;
+        } else {
+            if (!confirm(`Are you sure you want to delete the selected ${itemLabel}?`)) return;
+        }
+
+        closeAllPlotsDialog();
+
+        let successCount = 0;
+        let errorMessages = [];
+
+        for (const plotNumber of selectedPlotNumbers) {
+            const url = isLandOwner
+                ? `/lands/request-delete-plot/{{ land.slug }}/${encodeURIComponent(plotNumber)}/`
+                : `/lands/plots-creator/{{ land.slug }}/delete/${encodeURIComponent(plotNumber)}/`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                });
+                const res = await response.json();
+                if (isLandOwner) {
+                    if (res.status === 'ok') {
+                        successCount++;
+                    } else {
+                        errorMessages.push(`Plot ${plotNumber}: ${res.error || 'Failed'}`);
+                    }
+                } else {
+                    if (res.success) {
+                        successCount++;
+                        const index = existingPlots.findIndex(p => p.number === plotNumber && p.type !== 'building');
+                        if (index > -1) {
+                            existingPlots.splice(index, 1);
+                        }
+                    } else {
+                        errorMessages.push(`Plot ${plotNumber}: ${res.error || 'Failed'}`);
+                    }
+                }
+            } catch (err) {
+                errorMessages.push(`Plot ${plotNumber}: Network error`);
+            }
+        }
+
+        if (!isLandOwner && successCount > 0) {
+            registeredPlotLayers.forEach(layer => map.removeLayer(layer));
+            registeredPlotLayers = [];
+
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker && layer.options.icon && layer.options.icon.options.className === 'plot-number-tooltip') {
+                    map.removeLayer(layer);
+                }
+            });
+
+            existingPlots.forEach(plot => {
+                renderPlotOnMap(plot);
+            });
+
+            updatePlotsSidebarList();
+        }
+
+        if (errorMessages.length > 0) {
+            alert(`Finished batch deletion.\n\nSuccessfully deleted/requested: ${successCount} plots.\nErrors:\n${errorMessages.join('\n')}`);
+        } else {
+            if (isLandOwner) {
+                alert(`Successfully sent deletion requests for all ${successCount} selected plots.`);
+            } else {
+                alert(`Successfully deleted all ${successCount} selected plots.`);
+            }
+        }
     }
 
     // Close dialog on backdrop click
@@ -2903,7 +3044,7 @@ html, body { overflow: hidden; height: 100%; }
 
         sitePlanOverlay = L.imageOverlay(imgUrl, scaledBounds, {
             opacity: overlayOpacity,
-            interactive: true,
+            interactive: false,
             zIndex: 500
         });
 

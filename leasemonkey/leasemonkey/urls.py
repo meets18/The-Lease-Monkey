@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from apps.lands.views import plot_viewer_vanity
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -26,6 +27,9 @@ urlpatterns = [
     path('ai/', include('apps.ai.urls')),
     path('', include('apps.core.urls', namespace='core')),
     path("__reload__/", include("django_browser_reload.urls")),
+    # Vanity URL: /<owner_username>/<land_slug>/ → plot viewer
+    # Must be last to avoid shadowing other routes
+    path('<str:owner_username>/<slug:slug>/', plot_viewer_vanity, name='plot_viewer_vanity'),
 ]
 
 if settings.DEBUG:
