@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load static wizard_tags %}
 
 {% block title %}Landowner Registration — The Lease Monkey{% endblock %}
@@ -418,10 +418,24 @@
         <!-- =================== STEP 3: Land Info =================== -->
         {% elif step == 3 %}
             <h3 style="font-family:'Ranade',sans-serif;font-weight:700;color:#1F2937;margin-bottom:0.25rem;">Land / Property Information</h3>
-            <p style="color:#64748B;font-size:0.9rem;margin-bottom:1.75rem;">Tell us about the land you wish to register.</p>
+            <p style="color:#64748B;font-size:0.9rem;margin-bottom:1.25rem;">Tell us about the land you wish to register.</p>
+
+            <div class="p-3 rounded-3 mb-4 border d-flex align-items-start gap-3" style="background:#FFF8EB; border-color:rgba(245,158,11,0.3) !important;">
+                <div style="width:36px; height:36px; border-radius:8px; background:rgba(245,158,11,0.15);" class="d-flex align-items-center justify-content-center flex-shrink-0">
+                    <i class="bi bi-credit-card-2-front-fill fs-5" style="color:#D97706;"></i>
+                </div>
+                <div class="fs-13">
+                    <strong class="d-block text-dark mb-0.5">Hosting Subscription Notice (₹200/month)</strong>
+                    <span class="text-secondary" style="line-height:1.4; display:block;">
+                        After admin document verification & plot layout digitizing, a monthly fee of <strong>₹200/month (+GST)</strong> via Cashfree Payments applies per live land for public directory listing & buyer proposals.
+                    </span>
+                </div>
+            </div>
+
             <form method="POST" action="{% url 'landowner_register_step3' %}" id="step3Form">
                 {% csrf_token %}
                 <div class="row g-4">
+
                     <div class="col-12">
                         <label class="lo-label">Land / Property Name</label>
                         <input type="text" name="land_name" class="lo-input" value="{{ data.land_name|default:'' }}" required placeholder="e.g. Green Valley Estate">

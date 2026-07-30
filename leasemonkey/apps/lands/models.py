@@ -240,7 +240,9 @@ class LandRegistrationRequest(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending Review'),
         ('under_review', 'Under Review'),
-        ('being_added', 'Being Added'),
+        ('payment_pending', 'Payment Pending (24h)'),
+        ('payment_completed', 'Payment Received — Awaiting Build'),
+        ('being_added', 'Being Digitized'),
         ('approved', 'Approved'),
         ('live', 'Live'),
         ('rejected', 'Rejected'),
@@ -272,8 +274,9 @@ class LandRegistrationRequest(models.Model):
     admin_remarks = models.TextField(blank=True, help_text="Internal admin notes (not shown to landowner)")
     admin_message = models.TextField(blank=True, default='', help_text="Message or queries to landowner")
     rejection_reason = models.TextField(blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='pending')
     land = models.OneToOneField(Land, on_delete=models.SET_NULL, null=True, blank=True, related_name='registration_request')
+    payment_deadline = models.DateTimeField(null=True, blank=True, help_text="24-hour payment deadline set after admin approval")
     submitted_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
 

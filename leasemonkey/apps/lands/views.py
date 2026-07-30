@@ -1061,7 +1061,7 @@ def send_otp(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required.'}, status=400)
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body) if request.body else {}
         email = data.get('email', '').strip() or request.user.email
         if not email:
             return JsonResponse({'error': 'Email is required.'}, status=400)
@@ -1080,8 +1080,8 @@ def send_otp(request):
         
         # Send OTP via email using EMAIL_HOST_USER
         send_mail(
-            subject='[Lease Monkey] Your OTP for Purchase Request',
-            message=f'Hello,\n\nYour randomly generated OTP for verifying your email for the purchase request is: {otp}\n\nThis OTP is valid for 5 minutes and will be automatically deleted afterwards.\n\n— The Lease Monkey Team',
+            subject='[Lease Monkey] Your Verification Code',
+            message=f'Hello,\n\nYour randomly generated OTP for verifying your email is: {otp}\n\nThis OTP is valid for 5 minutes.\n\n— The Lease Monkey Team',
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[email],
             fail_silently=False,
@@ -1097,16 +1097,19 @@ def verify_otp(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required.'}, status=400)
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body) if request.body else {}
         email = data.get('email', '').strip() or request.user.email
         otp = data.get('otp', '').strip()
         
         if not email or not otp:
             return JsonResponse({'error': 'Email and OTP are required.'}, status=400)
             
-        otp_record = EmailOTP.objects.filter(email=email, otp_code=otp, is_used=False).first()
+        otp_record = EmailOTP.objects.filter(email=email, otp_code=otp).first()
         if not otp_record:
-            return JsonResponse({'error': 'Incorrect OTP or email.'}, status=400)
+            return JsonResponse({'error': 'Incorrect OTP code.'}, status=400)
+
+        if otp_record.is_used:
+            return JsonResponse({'status': 'verified', 'message': 'Email already verified.'})
             
         if otp_record.is_expired():
             return JsonResponse({'error': 'OTP expired. Please request a new one.'}, status=400)
@@ -1578,7 +1581,7 @@ def submit_land_request(request):
         
         # Location Details
         state = request.POST.get('state', '').strip()
-        district = ''
+        district = request.POST.get('district', '').strip()
         city_village = request.POST.get('city_village', '').strip()
         complete_address = request.POST.get('complete_address', '').strip()
         pin_code = request.POST.get('pin_code', '').strip()
@@ -1612,9 +1615,7 @@ def submit_land_request(request):
             errors.append("Please upload at least one ownership document.")
         if not floor_plan:
             errors.append("Site floor plan layout is required.")
-        if not plot_pricing_csv:
-            errors.append("Plot sizing and pricing sheet (CSV) is required.")
-        elif not plot_pricing_csv.name.lower().endswith('.csv'):
+        if plot_pricing_csv and not plot_pricing_csv.name.lower().endswith('.csv'):
             errors.append("Plot pricing sheet must be a valid CSV file.")
 
         try:
@@ -1627,7 +1628,7 @@ def submit_land_request(request):
 
         if errors:
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                return JsonResponse({'status': 'error', 'errors': errors}, status=400)
+                return JsonResponse({'status': 'error', 'errors': errors, 'error': errors[0]}, status=400)
             for err in errors:
                 messages.error(request, err)
             return redirect('landowner_dashboard')
@@ -1800,45 +1801,114 @@ def admin_set_request_review(request, req_id):
 
 @login_required
 def admin_register_land_from_request(request, req_id):
-    """Approves a land request for digitization, creates draft Land record, status -> 'being_added', opens plotter."""
+    """
+    Admin approves a land registration request. New workflow:
+    1. Creates draft Land record (is_live=False).
+    2. Sets status -> 'payment_pending' with a 24-hour deadline.
+    3. Notifies landowner to pay from their Payments tab.
+    4. If payment is already completed, opens the Plot Creator directly.
+    """
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=400)
     if request.user.role != 'ADMIN' and not request.user.is_superuser:
         raise PermissionDenied
 
     from apps.lands.models import LandRegistrationRequest
+    from apps.core.models import Notification
+    from django.core.mail import send_mail
+    from django.conf import settings
     from django.utils import timezone
+    import datetime
 
     req = get_object_or_404(LandRegistrationRequest, pk=req_id)
 
+    # Already being digitized → open plotter
     if req.status in ['being_added', 'approved', 'live'] and req.land:
-        messages.info(request, "This request is already registered/approved. Opening the plotter.")
+        messages.info(request, "This land is already being digitized or is live. Opening the plotter.")
         return redirect(f'/lands/creator/?slug={req.land.slug}')
 
-    if Land.objects.filter(name__iexact=req.property_name).exists():
-        messages.error(request, f"A land named '{req.property_name}' already exists. Edit the request before registering.")
+    # Payment already received → open plotter for digitizing
+    if req.status == 'payment_completed' and req.land:
+        req.status = 'being_added'
+        req.save(update_fields=['status'])
+        messages.success(request, f"Payment confirmed. Opening Creator to build '{req.land.name}'.")
+        return redirect(f'/lands/creator/?slug={req.land.slug}')
+
+    # Payment pending (already approved, waiting for landowner to pay) → just redirect to detail
+    if req.status == 'payment_pending':
+        deadline_str = req.payment_deadline.strftime('%d %b %Y, %I:%M %p') if req.payment_deadline else 'N/A'
+        messages.info(request, f"Already approved. Waiting for landowner to complete payment by {deadline_str}.")
         return redirect('lands:admin_land_request_detail', req_id=req_id)
 
-    # Use the precise location fields (including complete address) for geocoding pinpoint accuracy
-    location = f"{req.complete_address}, {req.city_village}, {req.state} {req.pin_code}" if req.city_village else req.location
+    # Create draft Land record if not yet created
+    if not req.land:
+        if Land.objects.filter(name__iexact=req.property_name).exclude(pk=None).exists():
+            existing = Land.objects.filter(name__iexact=req.property_name).first()
+            if not hasattr(existing, 'registration_request') or existing.registration_request.pk != req.pk:
+                messages.error(request, f"A land named '{req.property_name}' already exists.")
+                return redirect('lands:admin_land_request_detail', req_id=req_id)
 
-    land = Land.objects.create(
-        name=req.property_name,
-        owner=req.owner,
-        location=location,
-        area=0.00,
-        average_plot_price=req.average_plot_price,
-        description=req.description,
-        is_live=False,
+        location = (
+            f"{req.complete_address}, {req.city_village}, {req.state} {req.pin_code}"
+            if req.city_village else req.location
+        )
+        land = Land.objects.create(
+            name=req.property_name,
+            owner=req.owner,
+            location=location,
+            area=0.00,
+            average_plot_price=req.average_plot_price,
+            description=req.description,
+            is_live=False,
+        )
+        req.land = land
+
+    # Set 24-hour payment deadline
+    deadline = timezone.now() + datetime.timedelta(hours=24)
+    req.status = 'payment_pending'
+    req.payment_deadline = deadline
+    req.reviewed_at = timezone.now()
+    req.save(update_fields=['status', 'land', 'payment_deadline', 'reviewed_at'])
+
+    deadline_str = deadline.strftime('%d %b %Y, %I:%M %p')
+
+    # In-app notification to landowner
+    Notification.objects.create(
+        recipient=req.owner,
+        sender=request.user,
+        notif_type='lo_registration_request',
+        title="✅ Land Registration Approved — Complete Payment Within 24 Hours",
+        message=(
+            f"Your registration for '{req.property_name}' has been approved! "
+            f"Please complete the ₹200/month hosting fee payment from your Payments tab "
+            f"by {deadline_str}. Once paid, admin will digitize your plot layout and make it live."
+        )
     )
 
-    req.status = 'being_added'
-    req.land = land
-    req.reviewed_at = timezone.now()
-    req.save(update_fields=['status', 'land', 'reviewed_at'])
+    # Email notification to landowner
+    send_mail(
+        subject=f"Lease Monkey: Payment Required — '{req.property_name}' Approved",
+        message=(
+            f"Hello {req.owner.get_full_name() or req.owner.username},\n\n"
+            f"Your land registration for '{req.property_name}' has been approved!\n\n"
+            f"Next Step: Please pay the ₹200/month hosting fee (+ GST) within 24 hours "
+            f"(deadline: {deadline_str}) from the Payments tab in your Landowner Dashboard.\n\n"
+            f"Once payment is confirmed, our team will digitize your plot layout and publish "
+            f"your property live for buyers to browse.\n\n"
+            f"— The Lease Monkey Team"
+        ),
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[req.owner.email],
+        fail_silently=True
+    )
 
-    messages.success(request, f"Land '{land.name}' created as draft. Start tracing boundaries in the plotter.")
-    return redirect(f'/lands/creator/?slug={land.slug}')
+    messages.success(
+        request,
+        f"✅ Approved! '{req.property_name}' payment deadline set to {deadline_str}. Landowner notified."
+    )
+    return redirect('lands:admin_land_request_detail', req_id=req_id)
+
+
 
 
 @login_required
@@ -2050,7 +2120,14 @@ def toggle_land_live(request, slug):
     land.is_live = not land.is_live
     land.save(update_fields=['is_live'])
 
+    # Sync registration request status
+    from apps.lands.models import LandRegistrationRequest
+    req = LandRegistrationRequest.objects.filter(land=land).first()
+
     if land.is_live:
+        if req:
+            req.status = 'live'
+            req.save(update_fields=['status'])
         notify = request.POST.get('notify', 'false').lower() == 'true'
         if notify:
             Notification.objects.create(
@@ -2061,7 +2138,7 @@ def toggle_land_live(request, slug):
                 message=(
                     f'Congratulations!\n\n'
                     f'Your property "{land.name}" has been digitized and is now LIVE on Lease Monkey.\n\n'
-                    f'Buyers can now view and request plots.'
+                    f'Buyers can now view your plots and submit requests.'
                 )
             )
             send_mail(

@@ -35,11 +35,27 @@
         <form method="POST" action="{% url 'onboarding_landowner' %}" class="font-opensans">
             {% csrf_token %}
             
-            <div class="p-3 bg-dark border border-secondary-glow rounded-3 text-center mb-4">
+            <div class="p-3 bg-dark border border-secondary-glow rounded-3 text-center mb-3">
                 <p class="text-white fs-14 mb-0">
-                    To start leasing your plots, you will submit registration requests for each land property, including ownership documents and floor layouts.
+                    To start leasing your plots, submit registration requests for each land property, including ownership documents and floor layouts.
                 </p>
             </div>
+
+            <!-- Hosting Subscription Transparency Card -->
+            <div class="p-3.5 rounded-3 mb-4 border d-flex align-items-start gap-3"
+                 style="background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(217,119,6,0.04)); border-color: rgba(245,158,11,0.25) !important;">
+                <div style="width:38px; height:38px; border-radius:10px; background:rgba(245,158,11,0.18);"
+                     class="d-flex align-items-center justify-content-center text-amber-glow flex-shrink-0">
+                    <i class="bi bi-credit-card-2-front-fill fs-5" style="color:#F59E0B;"></i>
+                </div>
+                <div>
+                    <h6 class="font-ranade text-white fw-bold fs-14 mb-1">Hosting Subscription — ₹200/month per Live Land</h6>
+                    <p class="text-white-50 fs-12 mb-0" style="line-height: 1.5;">
+                        Once your property is verified and digitized, a flat hosting fee of <strong>₹200/month (+GST)</strong> via Cashfree Payments activates real-time public map directory listing, buyer proposals, and video meeting scheduling.
+                    </p>
+                </div>
+            </div>
+
 
             <div class="d-flex flex-column gap-2 mt-4">
                 <button type="submit" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider">

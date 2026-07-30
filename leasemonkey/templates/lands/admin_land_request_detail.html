@@ -32,12 +32,16 @@
                     <span class="badge bg-warning text-dark fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Pending Review</span>
                 {% elif req.status == 'under_review' %}
                     <span class="badge bg-info text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Under Review</span>
+                {% elif req.status == 'payment_pending' %}
+                    <span class="badge text-white fs-12 px-3 py-1.5 text-uppercase" style="background-color:#F59E0B; border-radius: var(--radius-badge);">⏳ Awaiting Payment (24h)</span>
+                {% elif req.status == 'payment_completed' %}
+                    <span class="badge text-white fs-12 px-3 py-1.5 text-uppercase" style="background-color:#8B5CF6; border-radius: var(--radius-badge);">💳 Payment Received — Build Required</span>
                 {% elif req.status == 'being_added' %}
                     <span class="badge bg-primary text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge); background-color: #0284c7 !important;">Being Digitized</span>
                 {% elif req.status == 'approved' %}
                     <span class="badge bg-success text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Approved (Offline)</span>
                 {% elif req.status == 'live' %}
-                    <span class="badge bg-success text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge); background-color: #059669 !important;">Live</span>
+                    <span class="badge bg-success text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge); background-color: #059669 !important;">🟢 Live</span>
                 {% elif req.status == 'rejected' %}
                     <span class="badge bg-danger text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Rejected</span>
                 {% endif %}
@@ -241,12 +245,37 @@
                     <form method="POST" action="{% url 'lands:admin_register_land' req.id %}" style="margin: 0;">
                         {% csrf_token %}
                         <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2.5 px-4" style="background-color: var(--color-success); border-radius: var(--radius-btn); border: none;">
-                            Register Land &amp; Digitise
+                            ✅ Approve &amp; Request Payment
                         </button>
                     </form>
                     <button class="btn btn-outline-danger fs-12 fw-bold text-uppercase py-2.5 px-4" style="border-radius: var(--radius-btn);" onclick="openRejectModal();">
                         Reject Request
                     </button>
+                {% elif req.status == 'payment_pending' %}
+                    <div class="w-100 p-3 rounded-3 border d-flex justify-content-between align-items-center flex-wrap gap-2" style="background:#FFFBEB; border-color:rgba(245,158,11,0.35) !important;">
+                        <div>
+                            <p class="fs-13 fw-bold mb-0" style="color:#92400E;">⏳ Waiting for Landowner Payment</p>
+                            {% if req.payment_deadline %}
+                            <p class="fs-12 text-muted mb-0">Deadline: {{ req.payment_deadline|date:"d M Y, h:i A" }}</p>
+                            {% endif %}
+                        </div>
+                        <button class="btn btn-outline-danger fs-11 text-uppercase fw-bold py-2 px-3" style="border-radius: var(--radius-btn);" onclick="openRejectModal();">Reject</button>
+                    </div>
+                {% elif req.status == 'payment_completed' %}
+                    <div class="w-100 p-3 rounded-3 border d-flex justify-content-between align-items-center flex-wrap gap-2" style="background:rgba(139,92,246,0.07); border-color:rgba(139,92,246,0.3) !important;">
+                        <div>
+                            <p class="fs-13 fw-bold mb-1" style="color:#5B21B6;">💳 Payment Received — Ready to Digitize</p>
+                            <p class="fs-12 text-muted mb-0">Landowner has paid. Open the Plot Creator to trace the layout, then publish live.</p>
+                        </div>
+                        {% if req.land %}
+                        <form method="POST" action="{% url 'lands:admin_register_land' req.id %}" style="margin: 0;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2.5 px-4" style="background-color:#7C3AED; border-radius: var(--radius-btn); border: none;">
+                                Open Plot Creator &amp; Digitize <i class="bi bi-arrow-right ms-1"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
                 {% elif req.status == 'being_added' %}
                     <div class="text-primary fw-bold fs-14 bg-sky-500 bg-opacity-10 border border-sky-500 rounded p-3 w-100 d-flex justify-content-between align-items-center flex-wrap gap-2" style="background-color: rgba(14, 165, 233, 0.08); border-color: rgba(14, 165, 233, 0.3); color: #0284c7;">
                         <span><i class="bi bi-cone-striped me-1"></i> Digitization in progress. Draft land layout created.</span>

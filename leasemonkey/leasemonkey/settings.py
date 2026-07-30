@@ -49,7 +49,9 @@ INSTALLED_APPS = [
     'apps.lands.apps.LandsConfig',
     'apps.core.apps.CoreConfig',
     'apps.ai.apps.AiConfig',
+    'apps.payments.apps.PaymentsConfig',
 ]
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -166,4 +168,12 @@ LANDOWNER_EMAIL = os.getenv('LANDOWNER_EMAIL', '')
 GOOGLE_CLIENT_ID     = os.getenv('GOOGLE_CLIENT_ID', '')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
 GOOGLE_REFRESH_TOKEN = os.getenv('GOOGLE_REFRESH_TOKEN', '')
+
+# ─── Cashfree Payment Gateway (Read from .env) ─────────────────────────
+CASHFREE_CLIENT_ID          = os.getenv('CASHFREE_CLIENT_ID', '')
+CASHFREE_CLIENT_SECRET_KEY  = os.getenv('CASHFREE_CLIENT_SECRET_KEY', '')
+CASHFREE_WEBHOOK_SECRET     = os.getenv('CASHFREE_WEBHOOK_SECRET', '')
+CASHFREE_ENVIRONMENT        = os.getenv('CASHFREE_ENVIRONMENT', 'SANDBOX')
+CASHFREE_API_VERSION        = '2023-08-01'
+
 GOOGLE_CALENDAR_EMAIL = os.getenv('GOOGLE_CALENDAR_EMAIL', 'the1leasemonkey@gmail.com')

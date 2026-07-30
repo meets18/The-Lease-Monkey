@@ -427,7 +427,45 @@
                     {% endfor %}
                 </div>
             </div>
-        </section>
+        <!-- Notification Detail Modal -->
+        <div class="modal fade" id="notifDetailModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content notif-modal-content">
+                    <div class="modal-header notif-modal-header border-bottom pb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="notif-modal-icon-badge">
+                                <i class="bi bi-bell-fill"></i>
+                            </div>
+                            <h5 class="modal-title font-ranade fw-bold mb-0" id="notifDetailTitle">Notification Details</h5>
+                        </div>
+                        <button type="button" class="btn-close notif-btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="fs-13 fw-semibold text-muted-glow" id="notifDetailTime"></span>
+                            <span class="badge px-3 py-1.5 rounded-pill fs-12" id="notifDetailStatus"></span>
+                        </div>
+                        <div class="notif-message-box p-3.5 rounded-3 mb-2">
+                            <p class="fs-14 mb-0" id="notifDetailMessage" style="white-space: pre-wrap; line-height: 1.6;"></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top pt-3 d-flex justify-content-between">
+                        <button type="button" class="btn btn-sm btn-danger-soft px-3.5 py-2 fs-13 fw-bold" id="btnNotifDetailDelete">
+                            <i class="bi bi-trash3-fill me-1.5"></i> Delete
+                        </button>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm fw-bold px-3 py-2 fs-13" data-bs-dismiss="modal"
+                                onclick="switchTab('notifs');" style="background:rgba(249,109,0,0.15);border:1px solid rgba(249,109,0,0.3);color:#fb923c;">
+                                <i class="bi bi-arrow-up-right-square me-1"></i> Open
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary-soft px-4 py-2 fs-13 fw-bold" data-bs-dismiss="modal">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
     </main>
 </div>

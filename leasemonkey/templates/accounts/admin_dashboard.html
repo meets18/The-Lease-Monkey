@@ -59,6 +59,12 @@
                         <i class="bi bi-file-earmark-person-fill"></i> Registrations
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkPayments" onclick="switchTab('payments');"
+                        class="sidebar-link">
+                        <i class="bi bi-credit-card-2-front-fill"></i> Payments
+                    </a>
+                </li>
             </ul>
         </nav>
 
@@ -572,6 +578,132 @@
             </div>
         </section>
 
+        <!-- PAYMENTS SECTION -->
+        <section id="sectionPayments" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="h3 font-ranade text-white fw-bold mb-1">Payment Transactions</h2>
+                    <p class="text-muted-glow fs-14 mb-0">Read-only log of all processed payment transactions on the platform.</p>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3 text-center">
+                        <div class="fs-11 text-muted-glow text-uppercase fw-bold mb-1">Total Transactions</div>
+                        <div class="fs-24 fw-bold text-cyan-glow">{{ payment_transactions|length }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3 text-center">
+                        <div class="fs-11 text-muted-glow text-uppercase fw-bold mb-1">Successful</div>
+                        <div class="fs-24 fw-bold" style="color:#22c55e;">{{ payment_transactions|length }}</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3 text-center">
+                        <div class="fs-11 text-muted-glow text-uppercase fw-bold mb-1">Failed</div>
+                        <div class="fs-24 fw-bold" style="color:#ef4444;">0</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3 text-center">
+                        <div class="fs-11 text-muted-glow text-uppercase fw-bold mb-1">Revenue (Approx.)</div>
+                        <div class="fs-24 fw-bold text-orange">&#8377;
+                            {% with total=0 %}
+                            {% for txn in payment_transactions %}{% if txn.status == 'success' %}{{ txn.amount }}{% endif %}{% endfor %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search / Filter -->
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <input type="text" id="paymentSearch" class="form-control bg-dark border-secondary text-white fs-14 py-2"
+                           placeholder="Search by Transaction ID, User, or Land..." onkeyup="filterPayments()">
+                </div>
+                <div class="col-md-3">
+                    <select id="paymentStatusFilter" class="form-select bg-dark border-secondary text-white fs-14 py-2" onchange="filterPayments()">
+                        <option value="all">All Statuses</option>
+                        <option value="success">Success</option>
+                        <option value="pending">Pending</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="paymentSort" class="form-select bg-dark border-secondary text-white fs-14 py-2" onchange="filterPayments()">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
+                <table class="table table-dark table-hover align-middle mb-0 fs-13" id="paymentsTable">
+                    <thead>
+                        <tr class="border-bottom border-secondary-glow">
+                            <th class="text-muted-glow fw-semibold py-3 px-3">#</th>
+                            <th class="text-muted-glow fw-semibold py-3">Transaction ID</th>
+                            <th class="text-muted-glow fw-semibold py-3">Done By</th>
+                            <th class="text-muted-glow fw-semibold py-3">Land</th>
+                            <th class="text-muted-glow fw-semibold py-3">Amount</th>
+                            <th class="text-muted-glow fw-semibold py-3">Method</th>
+                            <th class="text-muted-glow fw-semibold py-3">Status</th>
+                            <th class="text-muted-glow fw-semibold py-3">Date &amp; Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paymentsTableBody">
+                        {% if payment_transactions %}
+                        {% for txn in payment_transactions %}
+                        <tr class="payment-txn-row border-bottom border-secondary-glow"
+                            data-txn-id="{{ txn.transaction_id|lower }}"
+                            data-user="{{ txn.user.username|lower }}"
+                            data-land="{% if txn.subscription.land %}{{ txn.subscription.land.name|lower }}{% endif %}"
+                            data-status="{{ txn.status }}"
+                            data-ts="{{ txn.created_at|date:'U' }}">
+                            <td class="py-3 px-3 text-muted-glow">{{ forloop.counter }}</td>
+                            <td class="py-3">
+                                <code class="text-cyan-glow fs-11">{{ txn.transaction_id }}</code>
+                            </td>
+                            <td class="py-3">
+                                <span class="text-white fw-semibold">{{ txn.user.username }}</span><br>
+                                <span class="text-muted-glow fs-11">{{ txn.user.get_full_name }}</span>
+                            </td>
+                            <td class="py-3 text-white-50">
+                                {% if txn.subscription.land %}
+                                {{ txn.subscription.land.name }}
+                                {% else %}-{% endif %}
+                            </td>
+                            <td class="py-3 fw-bold text-orange">&#8377;{{ txn.amount }}</td>
+                            <td class="py-3 text-muted-glow fs-12">{{ txn.payment_method }}</td>
+                            <td class="py-3">
+                                {% if txn.status == 'success' %}
+                                <span class="badge bg-success-glow fs-10 px-2 py-1">Success</span>
+                                {% elif txn.status == 'pending' %}
+                                <span class="badge bg-warning-glow fs-10 px-2 py-1">Pending</span>
+                                {% else %}
+                                <span class="badge bg-danger-glow fs-10 px-2 py-1">Failed</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 text-muted-glow fs-12">{{ txn.created_at|date:'d M Y, H:i' }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="py-5 text-center text-muted-glow">
+                                <i class="bi bi-credit-card fs-2 d-block mb-2"></i>
+                                No payment transactions recorded yet.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
     </main>
 </div>
 
@@ -761,6 +893,7 @@
             tickets: { section: 'sectionTickets', link: 'tabLinkTickets' },
             notifs: { section: 'sectionNotifications', link: 'tabLinkNotifs' },
             applications: { section: 'sectionApplications', link: 'tabLinkApplications' },
+            payments: { section: 'sectionPayments', link: 'tabLinkPayments' },
         };
         if (!tabMap[tabName]) return;
         Object.keys(tabMap).forEach(t => {
@@ -818,6 +951,40 @@
         });
         
         sortedRows.forEach(row => tbody.appendChild(row));
+    }
+
+    function filterPayments() {
+        const searchVal = (document.getElementById('paymentSearch').value || '').toLowerCase();
+        const statusVal = document.getElementById('paymentStatusFilter').value;
+        const sortVal = document.getElementById('paymentSort').value;
+
+        const tbody = document.getElementById('paymentsTableBody');
+        if (!tbody) return;
+        const rows = Array.from(tbody.querySelectorAll('.payment-txn-row'));
+
+        rows.forEach(row => {
+            const txnId = row.getAttribute('data-txn-id') || '';
+            const user = row.getAttribute('data-user') || '';
+            const land = row.getAttribute('data-land') || '';
+            const status = row.getAttribute('data-status') || '';
+
+            const matchesSearch = txnId.includes(searchVal) || user.includes(searchVal) || land.includes(searchVal);
+            const matchesStatus = (statusVal === 'all') || (status === statusVal);
+
+            if (matchesSearch && matchesStatus) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const sortedRows = rows.sort((a, b) => {
+            const tsA = parseInt(a.getAttribute('data-ts') || '0', 10);
+            const tsB = parseInt(b.getAttribute('data-ts') || '0', 10);
+            return sortVal === 'newest' ? (tsB - tsA) : (tsA - tsB);
+        });
+
+        sortedRows.forEach(r => tbody.appendChild(r));
     }
 
     document.addEventListener("DOMContentLoaded", function () {

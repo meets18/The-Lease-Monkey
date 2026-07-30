@@ -25,7 +25,9 @@ urlpatterns = [
     path('accounts/', include('apps.accounts.urls')),
     path('lands/', include('apps.lands.urls')),
     path('ai/', include('apps.ai.urls')),
+    path('payments/', include('apps.payments.urls')),
     path('', include('apps.core.urls', namespace='core')),
+
     path("__reload__/", include("django_browser_reload.urls")),
     # Vanity URL: /<owner_username>/<land_slug>/ → plot viewer
     # Must be last to avoid shadowing other routes

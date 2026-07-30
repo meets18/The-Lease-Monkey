@@ -256,6 +256,48 @@ def landowner_dashboard(request):
          'answer': 'Yes, you can cancel a purchase request while it is still in "Pending" status. Contact support if you need assistance with an already-processed request.'},
     ]
 
+    from apps.payments.models import PaymentTransaction, LandSubscription
+    from apps.payments.views import check_and_expire_subscriptions, check_and_send_expiry_notifications
+    import datetime
+    from django.utils import timezone
+
+    try:
+        check_and_expire_subscriptions()
+        check_and_send_expiry_notifications()
+    except Exception:
+        pass
+
+    payment_transactions = PaymentTransaction.objects.filter(
+        user=request.user
+    ).select_related('subscription', 'subscription__land').order_by('-created_at')
+
+    # Subscriptions for this landowner's lands
+    land_subscriptions = LandSubscription.objects.filter(
+        land__owner=request.user
+    ).select_related('land').order_by('-end_date')
+
+    # Pending-payment requests (approved by admin, awaiting landowner payment)
+    pending_payment_requests = LandRegistrationRequest.objects.filter(
+        owner=request.user,
+        status='payment_pending'
+    ).order_by('payment_deadline')
+
+    # Annotate: days left for pending payments
+    now = timezone.now()
+    for req in pending_payment_requests:
+        if req.payment_deadline:
+            delta = req.payment_deadline - now
+            req.hours_left = max(0, int(delta.total_seconds() // 3600))
+        else:
+            req.hours_left = None
+
+    # Subscriptions expiring within 5 days (for renewal alert)
+    expiring_soon = land_subscriptions.filter(
+        status='active',
+        end_date__gte=now,
+        end_date__lte=now + datetime.timedelta(days=5)
+    )
+
     context = {
         'lands': lands,
         'notifications': notifications,
@@ -267,9 +309,15 @@ def landowner_dashboard(request):
         'occupancy_records': occupancy_records,
         'land_requests': land_requests,
         'landowner_tickets': landowner_tickets,
+        'payment_transactions': payment_transactions,
+        'land_subscriptions': land_subscriptions,
+        'pending_payment_requests': pending_payment_requests,
+        'expiring_soon': expiring_soon,
         'faqs': faqs,
     }
     return render(request, 'accounts/landowner_dashboard.html', context)
+
+
 
 
 @login_required(login_url='portal_selection')
@@ -302,12 +350,18 @@ def admin_dashboard(request):
     from apps.ai.models import SupportTicket
     from apps.core.models import Ticket
     from apps.accounts.models import LandownerApplication
+    from apps.payments.models import PaymentTransaction
     tickets = SupportTicket.objects.all().order_by('-created_at')
     support_tickets = Ticket.objects.select_related('user').all().order_by('-created_at')
     open_tickets_count = support_tickets.filter(status='open').count()
     landowner_applications = LandownerApplication.objects.all().order_by('-created_at')
     land_requests = LandRegistrationRequest.objects.all().order_by('-submitted_at')
     pending_requests_count = land_requests.filter(status='pending').count()
+
+    # Payments tab — show non-sensitive transaction info only
+    payment_transactions = PaymentTransaction.objects.select_related(
+        'user', 'subscription__land'
+    ).all().order_by('-created_at')[:200]
 
     context = {
         'lands': lands,
@@ -321,6 +375,7 @@ def admin_dashboard(request):
         'landowner_applications': landowner_applications,
         'land_requests': land_requests,
         'pending_requests_count': pending_requests_count,
+        'payment_transactions': payment_transactions,
     }
     return render(request, 'accounts/admin_dashboard.html', context)
 
