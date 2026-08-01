@@ -52,17 +52,16 @@
                         {% if unread_count %}<span class="admin-notif-badge ms-auto">{{ unread_count }}</span>{% endif %}
                     </a>
                 </li>
-
-                <li class="nav-item">
-                    <a href="javascript:void(0);" id="tabLinkApplications" onclick="switchTab('applications');"
-                        class="sidebar-link">
-                        <i class="bi bi-file-earmark-person-fill"></i> Registrations
-                    </a>
-                </li>
                 <li class="nav-item">
                     <a href="javascript:void(0);" id="tabLinkPayments" onclick="switchTab('payments');"
                         class="sidebar-link">
                         <i class="bi bi-credit-card-2-front-fill"></i> Payments
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkApplications" onclick="switchTab('applications');"
+                        class="sidebar-link">
+                        <i class="bi bi-file-earmark-person-fill"></i> Registrations
                     </a>
                 </li>
             </ul>
@@ -897,8 +896,10 @@
         };
         if (!tabMap[tabName]) return;
         Object.keys(tabMap).forEach(t => {
-            document.getElementById(tabMap[t].section).style.display = (t === tabName) ? 'block' : 'none';
-            document.getElementById(tabMap[t].link).classList.toggle('active', t === tabName);
+            const sec = document.getElementById(tabMap[t].section);
+            const lnk = document.getElementById(tabMap[t].link);
+            if (sec) sec.style.display = (t === tabName) ? 'block' : 'none';
+            if (lnk) lnk.classList.toggle('active', t === tabName);
         });
         sessionStorage.setItem('admin_active_tab', tabName);
         window.location.hash = tabName;

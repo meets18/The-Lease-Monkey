@@ -65,7 +65,12 @@
                 {% else %}
                 <li><a href="/" class="nav-link nav-item-link text-white-50">HOME</a></li>
                 {% endif %}
-                {% if user.is_authenticated and user.role == 'BUYER' %}
+                {% if user.is_authenticated and user.role == 'ADMIN' %}
+                <li><a href="{% url 'admin_dashboard' %}#lands" class="nav-link nav-item-link text-white-50">LANDS</a></li>
+                <li><a href="{% url 'admin_dashboard' %}#layouts" class="nav-link nav-item-link text-white-50">LAND REQUESTS</a></li>
+                <li><a href="{% url 'admin_dashboard' %}#tickets" class="nav-link nav-item-link text-white-50">TICKETS</a></li>
+                <li><a href="{% url 'admin_dashboard' %}#notifs" class="nav-link nav-item-link text-white-50">NOTIFICATIONS</a></li>
+                {% elif user.is_authenticated and user.role == 'BUYER' %}
                 <li><a href="/#properties" class="nav-link nav-item-link text-white-50" data-no-loader>RECOMMENDED</a></li>
                 <li><a href="/#proposals" class="nav-link nav-item-link text-white-50" data-no-loader>MY PROPOSALS</a></li>
                 <li><a href="/#saved" class="nav-link nav-item-link text-white-50" data-no-loader>SAVED PLOTS</a></li>

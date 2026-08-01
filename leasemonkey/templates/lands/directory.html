@@ -25,6 +25,14 @@
           <option value="medium">Medium (10 - 50 Acres)</option>
           <option value="large">Large (&gt; 50 Acres)</option>
         </select>
+        <select id="directoryPriceFilter" class="lands-filter-select" onchange="filterDirectoryLands()">
+          <option value="all">All Prices</option>
+          <option value="under_5l">Under ₹5 Lakh</option>
+          <option value="5l_10l">₹5 - 10 Lakh</option>
+          <option value="10l_25l">₹10 - 25 Lakh</option>
+          <option value="25l_50l">₹25 - 50 Lakh</option>
+          <option value="above_50l">Above ₹50 Lakh</option>
+        </select>
         <select id="directorySort" class="lands-filter-select" onchange="filterDirectoryLands()">
           <option value="name_asc">Name (A-Z)</option>
           <option value="name_desc">Name (Z-A)</option>
@@ -1267,6 +1275,7 @@
   function filterDirectoryLands() {
     const searchVal = document.getElementById('directorySearch').value.toLowerCase();
     const sizeVal = document.getElementById('directorySizeFilter').value;
+    const priceVal = document.getElementById('directoryPriceFilter').value;
     const sortVal = document.getElementById('directorySort').value;
     const grid = document.getElementById('landsGrid');
     const wrapperCards = Array.from(grid.querySelectorAll('.land-card-wrapper'));
@@ -1289,7 +1298,21 @@
         matchesSize = (areaVal > 50);
       }
 
-      if (matchesSearch && matchesSize) {
+      let matchesPrice = true;
+      const priceValNum = parseFloat(land.average_plot_price);
+      if (priceVal === 'under_5l') {
+        matchesPrice = (priceValNum < 500000);
+      } else if (priceVal === '5l_10l') {
+        matchesPrice = (priceValNum >= 500000 && priceValNum < 1000000);
+      } else if (priceVal === '10l_25l') {
+        matchesPrice = (priceValNum >= 1000000 && priceValNum < 2500000);
+      } else if (priceVal === '25l_50l') {
+        matchesPrice = (priceValNum >= 2500000 && priceValNum < 5000000);
+      } else if (priceVal === 'above_50l') {
+        matchesPrice = (priceValNum >= 5000000);
+      }
+
+      if (matchesSearch && matchesSize && matchesPrice) {
         wrapper.style.display = '';
       } else {
         wrapper.style.display = 'none';
