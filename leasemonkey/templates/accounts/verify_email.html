@@ -25,7 +25,7 @@
         {% endif %}
 
         <!-- OTP Form -->
-        <form method="POST" action="{% url 'verify_email' %}" autocomplete="off">
+        <form method="POST" action="{% url 'verify_email' %}" autocomplete="off" id="verifyOtpForm">
             {% csrf_token %}
             
             <!-- OTP field -->
@@ -38,17 +38,49 @@
             </div>
 
             <!-- Submit Button -->
-            <button type="submit" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider mb-3">
+            <button type="submit" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider">
                 Verify OTP & Continue <i class="bi bi-arrow-right ms-1"></i>
             </button>
-
-            <!-- Back to Signup / Login link -->
-            <div class="text-center mt-3 fs-13">
-                <a href="{% url 'buyer_login' %}" class="text-muted-glow hover-white text-decoration-none">
-                    <i class="bi bi-arrow-left me-1"></i> Return to Login
-                </a>
-            </div>
         </form>
+
+        <!-- Resend OTP (with 1-minute cooldown) -->
+        <div class="text-center mb-4 mt-3">
+            <form method="POST" action="{% url 'resend_registration_otp' %}" id="resendOtpForm" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" id="resendOtpBtn" class="btn btn-link text-muted-glow hover-white text-decoration-none fs-13 p-0 border-0" style="background:transparent;" data-cooldown="{{ resend_cooldown|default:60 }}" disabled>
+                    <i class="bi bi-arrow-clockwise me-1"></i> <span id="resendOtpLabel">Resend OTP</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Cancel Registration (deletes the unverified account) -->
+        <form method="POST" action="{% url 'cancel_registration' %}" id="cancelRegistrationForm">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-cancel-otp w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider">
+                <i class="bi bi-x-circle me-1"></i> Cancel Registration
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Confirm Cancel Registration Modal -->
+<div class="modal fade" id="confirmCancelModal" tabindex="-1" aria-hidden="true" data-no-loader>
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content notif-modal-content text-center p-3">
+            <div class="modal-header notif-modal-header border-0 pb-0 justify-content-center">
+                <div class="notif-modal-icon-badge mx-auto" style="background:rgba(255,74,74,0.15); border-color:rgba(255,74,74,0.35);">
+                    <i class="bi bi-x-circle-fill" style="color:#ff4a4a;"></i>
+                </div>
+            </div>
+            <div class="modal-body pt-3">
+                <h5 class="modal-title font-ranade fw-bold mb-2">Cancel Registration?</h5>
+                <p class="fs-13 text-muted-glow mb-0" style="line-height:1.6;">Are you sure you want to cancel your registration?</p>
+            </div>
+            <div class="modal-footer border-0 pt-2 justify-content-center">
+                <button type="button" id="confirmCancelNo" class="btn btn-sm fw-bold px-3 py-2 fs-13" style="background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.3);color:#94a3b8;">Go Back</button>
+                <button type="button" id="confirmCancelYes" class="btn btn-sm fw-bold px-3 py-2 fs-13" style="background:rgba(255,74,74,0.15);border:1px solid rgba(255,74,74,0.35);color:#ff6b6b;">Yes, Cancel</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -87,5 +119,132 @@
     box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
     color: #1F2937 !important;
 }
+.btn-cancel-otp {
+    background: transparent;
+    border: 1px solid rgba(255, 74, 74, 0.45);
+    color: #ff6b6b;
+    border-radius: 100px;
+    padding: 12px 28px;
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    transition: all 0.25s ease;
+}
+.btn-cancel-otp:hover {
+    background: rgba(255, 74, 74, 0.12);
+    border-color: #ff4a4a;
+    color: #ffffff;
+    transform: translateY(-2px);
+}
+[data-theme="light"] .btn-cancel-otp {
+    border-color: rgba(220, 38, 38, 0.45);
+    color: #dc2626;
+}
+[data-theme="light"] .btn-cancel-otp:hover {
+    background: rgba(220, 38, 38, 0.1);
+    border-color: #dc2626;
+    color: #991b1b;
+}
 </style>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const verifyForm = document.getElementById('verifyOtpForm');
+        const cancelForm = document.getElementById('cancelRegistrationForm');
+        const resendForm = document.getElementById('resendOtpForm');
+        const resendBtn = document.getElementById('resendOtpBtn');
+        const resendLabel = document.getElementById('resendOtpLabel');
+
+        // ── Leave guard: anything other than Verify OTP asks first ──
+        function lockPage(e) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+        window.addEventListener('beforeunload', lockPage);
+
+        function unlockPage() {
+            window.removeEventListener('beforeunload', lockPage);
+        }
+
+        // ── Confirm-cancel modal ─────────────────────────────────────
+        const confirmModalEl = document.getElementById('confirmCancelModal');
+        const confirmModal = confirmModalEl && window.bootstrap ? new bootstrap.Modal(confirmModalEl) : null;
+        const btnConfirmYes = document.getElementById('confirmCancelYes');
+        const btnConfirmNo = document.getElementById('confirmCancelNo');
+        let asking = null; // 'link' | 'cancel'
+
+        // Any link on the page (navbar etc.) → ask for confirmation first.
+        document.addEventListener('click', function (e) {
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+            e.preventDefault();
+            asking = 'link';
+            if (confirmModal) confirmModal.show();
+        });
+
+        // Cancel Registration button → ask first.
+        if (cancelForm) {
+            cancelForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                asking = 'cancel';
+                if (confirmModal) confirmModal.show();
+            });
+        }
+
+        if (btnConfirmYes) {
+            btnConfirmYes.addEventListener('click', function () {
+                asking = null;
+                if (confirmModal) confirmModal.hide();
+                unlockPage();
+                if (cancelForm) cancelForm.submit();
+            });
+        }
+
+        if (btnConfirmNo) {
+            btnConfirmNo.addEventListener('click', function () {
+                asking = null;
+                if (confirmModal) confirmModal.hide();
+                if (window.hideTopProgress) window.hideTopProgress();
+            });
+        }
+
+        if (confirmModalEl) {
+            confirmModalEl.addEventListener('hidden.bs.modal', function () {
+                if (asking === 'link' && window.hideTopProgress) window.hideTopProgress();
+                asking = null;
+            });
+        }
+
+        // Verify OTP and Resend OTP are allowed to leave the page.
+        if (verifyForm) verifyForm.addEventListener('submit', unlockPage);
+        if (resendForm) resendForm.addEventListener('submit', unlockPage);
+
+        // ── Resend OTP: 60-second countdown (server-backed) ──────────
+        if (resendBtn && resendLabel) {
+            function fmtCountdown(r) {
+                return Math.floor(r / 60) + ':' + String(r % 60).padStart(2, '0');
+            }
+
+            let remaining = Math.max(0, parseInt(resendBtn.getAttribute('data-cooldown'), 10) || 60);
+            if (remaining <= 0) {
+                resendBtn.disabled = false;
+                resendLabel.textContent = 'Resend OTP';
+            } else {
+                resendBtn.disabled = true;
+                resendLabel.textContent = 'Resend OTP (' + fmtCountdown(remaining) + ')';
+                const timerId = setInterval(function () {
+                    remaining -= 1;
+                    if (remaining <= 0) {
+                        resendBtn.disabled = false;
+                        resendLabel.textContent = 'Resend OTP';
+                        clearInterval(timerId);
+                    } else {
+                        resendLabel.textContent = 'Resend OTP (' + fmtCountdown(remaining) + ')';
+                    }
+                }, 1000);
+            }
+        }
+    })();
+</script>
+{% endblock extra_js %}

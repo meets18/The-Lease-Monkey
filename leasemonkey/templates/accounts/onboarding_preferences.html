@@ -123,6 +123,18 @@
                 </div>
             </div>
 
+            <!-- Your Address -->
+            <div class="mb-4">
+                <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50 d-block">Your Address</label>
+                <div class="row g-2">
+                    <div class="col-12 mb-1">
+                        <input type="text" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" id="address" name="address" placeholder="Complete Address (House, Street, Locality)">
+                    </div>
+                    {% include 'accounts/_india_address_fields.html' with select_class='form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2' current_state=user.state current_city=user.city %}
+                </div>
+                <small class="text-white-50 fs-11">Land in your city or state will be recommended first.</small>
+            </div>
+
             <!-- Submit preferences Button -->
             <button type="submit" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider mb-3">
                 Save & Finish <i class="bi bi-check2-circle ms-1"></i>

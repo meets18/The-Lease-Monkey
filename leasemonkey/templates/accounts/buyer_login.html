@@ -40,9 +40,11 @@
         {% if messages %}
             <div class="mb-3">
                 {% for message in messages %}
-                    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} bg-opacity-10 border border-opacity-35 py-2 px-3 rounded fs-13 text-center" role="alert">
-                        {{ message }}
-                    </div>
+                    {% if message.tags != 'info' %}
+                        <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} bg-opacity-10 border border-opacity-35 py-2 px-3 rounded fs-13 text-center" role="alert">
+                            {{ message }}
+                        </div>
+                    {% endif %}
                 {% endfor %}
             </div>
         {% endif %}
@@ -86,44 +88,53 @@
                 <form method="POST" action="{% url 'buyer_register' %}" autocomplete="off">
                     {% csrf_token %}
                     <div class="row g-3 mb-3">
+                        {% if field_errors.form %}
+                            {% for err in field_errors.form %}
+                                <div class="col-12">
+                                    <div class="fs-12" style="color:#ff4a4a;">{{ err }}</div>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
                         <div class="col-12">
                             <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Full Name</label>
-                            <input type="text" name="first_name" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" value="{{ reg_name|default:'' }}" required placeholder="Your full name">
+                            <input type="text" name="first_name" id="registerFirstName" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2 {% if field_errors.first_name %}is-invalid{% endif %}" value="{{ reg_name|default:'' }}" required placeholder="Your full name">
+                            {% for err in field_errors.first_name %}<div class="fs-12 mt-1" style="color:#ff4a4a;">{{ err }}</div>{% endfor %}
                         </div>
                         <div class="col-12">
                             <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Email Address</label>
-                            <input type="email" name="email" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" value="{{ reg_email|default:'' }}" required placeholder="you@example.com">
+                            <input type="email" name="email" id="registerEmail" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2 {% if field_errors.email %}is-invalid{% endif %}" value="{{ reg_email|default:'' }}" required placeholder="you@example.com">
+                            {% for err in field_errors.email %}<div class="fs-12 mt-1" style="color:#ff4a4a;">{{ err }}</div>{% endfor %}
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Username</label>
-                            <input type="text" name="username" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" value="{{ reg_username|default:'' }}" required placeholder="Choose a username">
+                            <input type="text" name="username" id="registerUsername" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2 {% if field_errors.username %}is-invalid{% endif %}" value="{{ reg_username|default:'' }}" required placeholder="Choose a username" {% if field_errors.username %}data-server-error="This username is already taken."{% endif %}>
+                            <div id="usernameAvailabilityMsg" class="fs-12 mt-1" style="display:{% if field_errors.username %}block{% else %}none{% endif %};{% if field_errors.username %} color:#ff4a4a;{% endif %}">{% if field_errors.username %}{% for err in field_errors.username %}{{ err }}{% endfor %}{% endif %}</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Date of Birth</label>
-                            <input type="date" name="dob" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" value="{{ reg_dob|default:'' }}" required>
+                            <input type="date" name="dob" id="registerDob" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2 {% if field_errors.dob %}is-invalid{% endif %}" value="{{ reg_dob|default:'' }}" required>
+                            {% for err in field_errors.dob %}<div class="fs-12 mt-1" style="color:#ff4a4a;">{{ err }}</div>{% endfor %}
                         </div>
                         <div class="col-12">
                             <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Phone Number</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-dark-glow border-secondary-glow text-muted-glow fs-14 px-2">
-                                    <select name="phone_country_code" class="bg-transparent border-0 text-white fs-13" style="outline:none;">
-                                        <option value="+91" class="text-dark">+91</option>
-                                        <option value="+1" class="text-dark">+1</option>
-                                        <option value="+44" class="text-dark">+44</option>
-                                        <option value="+61" class="text-dark">+61</option>
-                                        <option value="+971" class="text-dark">+971</option>
-                                    </select>
+                                    <span class="text-white fs-13">+91</span>
+                                    <input type="hidden" name="phone_country_code" value="+91">
                                 </span>
-                                <input type="tel" name="phone_number" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" value="{{ reg_phone|default:'' }}" required placeholder="9876543210">
+                                <input type="tel" name="phone_number" id="registerPhone" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2 {% if field_errors.phone %}is-invalid{% endif %}" value="{{ reg_phone|default:'' }}" required placeholder="9876543210">
                             </div>
+                            {% for err in field_errors.phone %}<div class="fs-12 mt-1" style="color:#ff4a4a;">{{ err }}</div>{% endfor %}
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Password</label>
-                            <input type="password" name="password" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" required placeholder="Min 12 chars">
+                            <input type="password" name="password" id="registerPassword" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2 {% if field_errors.password %}is-invalid{% endif %}" required placeholder="Min 12 chars">
+                            {% for err in field_errors.password %}<div class="fs-12 mt-1" style="color:#ff4a4a;">{{ err }}</div>{% endfor %}
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Confirm Password</label>
-                            <input type="password" name="confirm_password" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2" required placeholder="Re-enter password">
+                            <input type="password" name="confirm_password" id="registerConfirmPassword" class="form-control bg-dark-glow border-secondary-glow text-white fs-14 py-2 {% if field_errors.confirm_password %}is-invalid{% endif %}" required placeholder="Re-enter password">
+                            {% for err in field_errors.confirm_password %}<div class="fs-12 mt-1" style="color:#ff4a4a;">{{ err }}</div>{% endfor %}
                         </div>
                     </div>
 
@@ -137,6 +148,26 @@
 
     </div>
 </div>
+
+<!-- Bottom-right toast for info messages (e.g. registration cancelled) -->
+{% if messages %}
+    {% for message in messages %}
+        {% if message.tags == 'info' %}
+            <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 20000; pointer-events: none;">
+                <div id="infoToast" class="toast show align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true"
+                    style="pointer-events: auto; background: #fee2e2; color: #b91c1c; border: 1px solid rgba(185, 28, 28, 0.45); border-radius: 10px; box-shadow: 0 8px 24px rgba(127, 29, 29, 0.35);">
+                    <div class="d-flex align-items-center">
+                        <div class="toast-body fs-14 fw-bold d-flex align-items-center gap-2">
+                            <i class="bi bi-x-circle-fill" style="color: #dc2626;"></i>
+                            <span>{{ message }}</span>
+                        </div>
+                        <button type="button" id="infoToastClose" class="btn-close me-2 m-auto" aria-label="Close"></button>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    {% endfor %}
+{% endif %}
 
 <style>
 .max-w-500 { max-width: 500px; }
@@ -199,5 +230,66 @@
 }
 /* Smaller select inside input-group */
 .input-group select option { color: #1F2937; background: #fff; }
+/* Info toast: smooth fade-out */
+#infoToast {
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+#infoToast.toast-fading {
+    opacity: 0;
+    transform: translateY(10px);
+}
 </style>
+
+<script>
+    (function () {
+        const input = document.getElementById('registerUsername');
+        const msg = document.getElementById('usernameAvailabilityMsg');
+        if (!input || !msg) return;
+        let timer = null;
+
+        const check = function () {
+            const value = input.value.trim();
+            if (!value) {
+                msg.style.display = 'none';
+                input.classList.remove('is-valid', 'is-invalid');
+                return;
+            }
+            fetch('/accounts/register/buyer/check-username/?username=' + encodeURIComponent(value))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.available) {
+                        input.classList.remove('is-invalid');
+                        input.classList.add('is-valid');
+                        msg.style.color = '#00ffc4';
+                        msg.textContent = 'Username available';
+                    } else {
+                        input.classList.remove('is-valid');
+                        input.classList.add('is-invalid');
+                        msg.style.color = '#ff4a4a';
+                        msg.textContent = data.message || 'This username is already taken.';
+                    }
+                    msg.style.display = 'block';
+                })
+                .catch(function () { /* network error: leave silent */ });
+        };
+
+        input.addEventListener('blur', check);
+        input.addEventListener('input', function () {
+            clearTimeout(timer);
+            timer = setTimeout(check, 400);
+        });
+
+        // ── Info toast: smooth fade-out after 5 seconds ───────────────
+        const infoToast = document.getElementById('infoToast');
+        if (infoToast) {
+            function dismissInfoToast() {
+                infoToast.classList.add('toast-fading');
+                setTimeout(function () { infoToast.remove(); }, 500);
+            }
+            const infoToastClose = document.getElementById('infoToastClose');
+            if (infoToastClose) infoToastClose.addEventListener('click', dismissInfoToast);
+            setTimeout(dismissInfoToast, 5000);
+        }
+    })();
+</script>
 {% endblock %}

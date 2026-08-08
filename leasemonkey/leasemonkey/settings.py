@@ -25,7 +25,8 @@ dotenv.load_dotenv(BASE_DIR / '.env')
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-a4(iboht+ffs#ut9m2c_%6$zs(4afz$giy_6ygip^e3iy*g+g='
+# Set DJANGO_SECRET_KEY in .env / environment variables.
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-a4(iboht+ffs#ut9m2c_%6$zs(4afz$giy_6ygip^e3iy*g+g=')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -77,6 +78,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.accounts.context_processors.india_locations',
             ],
         },
     },

@@ -493,7 +493,7 @@
     border: 1px solid rgba(255, 94, 0, 0.1);
     border-radius: 12px;
     padding: 28px;
-    width: 400px;
+    width: 500px;
     max-width: 90vw;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
     animation: otpFadeIn 0.2s ease;
@@ -1003,21 +1003,7 @@
                         <input type="text" name="address" class="profile-input" id="fieldAddress"
                                value="{{ user.address|default:'' }}" placeholder="123 Main St" disabled>
                     </div>
-                    <div class="profile-form-group">
-                        <label>City</label>
-                        <input type="text" name="city" class="profile-input" id="fieldCity"
-                               value="{{ user.city|default:'' }}" placeholder="New York" disabled>
-                    </div>
-                    <div class="profile-form-group">
-                        <label>State</label>
-                        <input type="text" name="state" class="profile-input" id="fieldState"
-                               value="{{ user.state|default:'' }}" placeholder="NY" disabled>
-                    </div>
-                    <div class="profile-form-group full-width">
-                        <label>Country</label>
-                        <input type="text" name="country" class="profile-input" id="fieldCountry"
-                               value="{{ user.country|default:'' }}" placeholder="United States" disabled>
-                    </div>
+                    {% include 'accounts/_india_address_fields.html' with col_class='' field_class='profile-form-group' select_class='profile-input' disabled='disabled' current_state=user.state current_city=user.city %}
                 </div>
 
                 <div class="profile-form-actions" id="profileEditActions" style="display:none;">
@@ -1179,19 +1165,6 @@
                 <h2>Account Credentials</h2>
 
                 <div class="security-group">
-                    <h3>Email Address</h3>
-                    <div class="security-field">
-                        <div class="security-field-label">
-                            <span>Current Email</span>
-                            <span>{{ user.email }}</span>
-                        </div>
-                        <button type="button" class="btn-security-action" onclick="openOtpModal('change_email')">
-                            Change Email
-                        </button>
-                    </div>
-                </div>
-
-                <div class="security-group">
                     <h3>Password</h3>
                     <div class="security-field">
                         <div class="security-field-label">
@@ -1212,28 +1185,8 @@
 <div class="otp-overlay" id="otpOverlay">
     <div class="otp-modal">
         <div class="otp-step active" id="otpStep1">
-            <h3 id="otpTitle">Change Email</h3>
-            <p id="otpDesc">Enter your new email address to receive a verification code.</p>
-
-            <div class="otp-input-group" id="otpEmailGroup">
-                <label>New Email Address</label>
-                <input type="email" id="otpNewEmail" class="otp-input" placeholder="new@example.com">
-            </div>
-
-            <div class="otp-input-group" id="otpPasswordGroup" style="display:none;">
-                <label>Current Password</label>
-                <input type="password" id="otpCurrentPassword" class="otp-input" placeholder="Enter current password">
-            </div>
-
-            <div class="otp-input-group" id="otpNewPasswordGroup" style="display:none;">
-                <label>New Password</label>
-                <input type="password" id="otpNewPassword" class="otp-input" placeholder="At least 8 characters">
-            </div>
-
-            <div class="otp-input-group" id="otpConfirmGroup" style="display:none;">
-                <label>Confirm New Password</label>
-                <input type="password" id="otpConfirmPassword" class="otp-input" placeholder="Re-enter new password">
-            </div>
+            <h3 id="otpTitle">Change Password</h3>
+            <p id="otpDesc">We'll send a verification code to your registered email.</p>
 
             <div class="otp-error" id="otpStepError"></div>
 
@@ -1248,7 +1201,6 @@
             <p>Enter the 6-digit code sent to your email.</p>
 
             <input type="hidden" id="otpPurpose" value="">
-            <input type="hidden" id="otpTargetEmail" value="">
 
             <div class="otp-input-group">
                 <label>OTP Code</label>
@@ -1260,6 +1212,34 @@
             <div class="otp-actions">
                 <button type="button" class="btn-profile-cancel" onclick="closeOtpModal()">Cancel</button>
                 <button type="button" class="btn-profile-save" onclick="verifyOtp()">Verify</button>
+            </div>
+
+            <div class="text-center mt-3">
+                <button type="button" class="btn btn-link text-muted-glow hover-white text-decoration-none fs-13 p-0 border-0" style="background:transparent;" onclick="sendOtp()">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Resend OTP
+                </button>
+            </div>
+        </div>
+
+        <div class="otp-step" id="otpStep3">
+            <h3>Set New Password</h3>
+            <p>Your identity is verified. Choose your new password.</p>
+
+            <div class="otp-input-group">
+                <label>New Password</label>
+                <input type="password" id="otpNewPassword" class="otp-input" placeholder="Min 12 chars, Upper, Lower, Number, Symbol">
+            </div>
+
+            <div class="otp-input-group">
+                <label>Confirm New Password</label>
+                <input type="password" id="otpConfirmPassword" class="otp-input" placeholder="Re-enter new password">
+            </div>
+
+            <div class="otp-error" id="otpPasswordError"></div>
+
+            <div class="otp-actions">
+                <button type="button" class="btn-profile-cancel" onclick="closeOtpModal()">Cancel</button>
+                <button type="button" class="btn-profile-save" onclick="setNewPassword()">Update Password</button>
             </div>
         </div>
     </div>
@@ -1405,6 +1385,7 @@ function cancelEdit() {
         field.disabled = true;
     });
     document.getElementById('personalForm').reset();
+    if (window.refreshIndiaCitySelect) window.refreshIndiaCitySelect();
     document.getElementById('profileEditActions').style.display = 'none';
     document.getElementById('profileViewActions').style.display = 'flex';
 }
@@ -1420,28 +1401,17 @@ function openOtpModal(purpose) {
 
     document.getElementById('otpStep1').classList.add('active');
     document.getElementById('otpStep2').classList.remove('active');
+    document.getElementById('otpStep3').classList.remove('active');
     document.getElementById('otpStepError').classList.remove('show');
     document.getElementById('otpVerifyError').classList.remove('show');
+    document.getElementById('otpPasswordError').classList.remove('show');
     document.getElementById('otpCode').value = '';
-    document.getElementById('otpNewEmail').value = '';
-    document.getElementById('otpCurrentPassword').value = '';
     document.getElementById('otpNewPassword').value = '';
     document.getElementById('otpConfirmPassword').value = '';
 
-    if (purpose === 'change_email') {
-        document.getElementById('otpTitle').textContent = 'Change Email';
-        document.getElementById('otpDesc').textContent = 'Enter your new email address to receive a verification code.';
-        document.getElementById('otpEmailGroup').style.display = '';
-        document.getElementById('otpPasswordGroup').style.display = 'none';
-        document.getElementById('otpNewPasswordGroup').style.display = 'none';
-        document.getElementById('otpConfirmGroup').style.display = 'none';
-    } else if (purpose === 'change_password') {
+    if (purpose === 'change_password') {
         document.getElementById('otpTitle').textContent = 'Change Password';
-        document.getElementById('otpDesc').textContent = 'Enter your current password and a new password.';
-        document.getElementById('otpEmailGroup').style.display = 'none';
-        document.getElementById('otpPasswordGroup').style.display = '';
-        document.getElementById('otpNewPasswordGroup').style.display = '';
-        document.getElementById('otpConfirmGroup').style.display = '';
+        document.getElementById('otpDesc').textContent = "We'll send a verification code to your registered email.";
     }
 
     document.getElementById('otpOverlay').classList.add('open');
@@ -1453,74 +1423,84 @@ function closeOtpModal() {
 
 function sendOtp() {
     var purpose = currentPurpose;
-    var email = '';
-
-    if (purpose === 'change_email') {
-        email = document.getElementById('otpNewEmail').value.trim();
-        if (!email) { showOtpError('Please enter your new email address.'); return; }
-        if (!email.includes('@')) { showOtpError('Please enter a valid email address.'); return; }
-    } else if (purpose === 'change_password') {
-        email = '{{ user.email|escapejs }}';
-        var currentPw = document.getElementById('otpCurrentPassword').value;
-        var newPw = document.getElementById('otpNewPassword').value;
-        var confirmPw = document.getElementById('otpConfirmPassword').value;
-        if (!currentPw) { showOtpError('Please enter your current password.'); return; }
-        if (!newPw || newPw.length < 8) { showOtpError('New password must be at least 8 characters.'); return; }
-        if (newPw !== confirmPw) { showOtpError('Passwords do not match.'); return; }
-    }
-
-    document.getElementById('otpTargetEmail').value = email;
-    document.getElementById('otpStepError').classList.remove('show');
 
     fetch('{% url "send_profile_otp" %}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-        body: JSON.stringify({ email: email, purpose: purpose })
+        body: JSON.stringify({ purpose: purpose })
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-        if (data.error) { showOtpError(data.error); }
+        if (data.error) { showSendOtpError(data.error); }
         else {
             document.getElementById('otpStep1').classList.remove('active');
             document.getElementById('otpStep2').classList.add('active');
         }
     })
-    .catch(function() { showOtpError('Failed to send OTP. Please try again.'); });
+    .catch(function() { showSendOtpError('Failed to send OTP. Please try again.'); });
 }
 
 function verifyOtp() {
     var purpose = currentPurpose;
-    var email = document.getElementById('otpTargetEmail').value;
     var otp = document.getElementById('otpCode').value.trim();
 
     if (!otp || otp.length !== 6) { showVerifyError('Please enter the 6-digit OTP.'); return; }
 
     document.getElementById('otpVerifyError').classList.remove('show');
 
-    var body = { email: email, otp: otp, purpose: purpose };
-    if (purpose === 'change_password') {
-        body.new_password = document.getElementById('otpNewPassword').value;
-    }
-
     fetch('{% url "verify_profile_otp" %}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-        body: JSON.stringify(body)
+        body: JSON.stringify({ otp: otp, purpose: purpose })
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.error) { showVerifyError(data.error); }
         else {
-            closeOtpModal();
-            alert(data.message || 'Update successful!');
-            window.location.reload();
+            document.getElementById('otpStep2').classList.remove('active');
+            document.getElementById('otpStep3').classList.add('active');
         }
     })
     .catch(function() { showVerifyError('Verification failed. Please try again.'); });
 }
 
+function setNewPassword() {
+    var newPw = document.getElementById('otpNewPassword').value;
+    var confirmPw = document.getElementById('otpConfirmPassword').value;
+
+    if (!newPw || !confirmPw) { showPasswordError('Please fill in both password fields.'); return; }
+    if (newPw !== confirmPw) { showPasswordError('Passwords do not match.'); return; }
+
+    document.getElementById('otpPasswordError').classList.remove('show');
+
+    fetch('{% url "set_profile_password" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify({ new_password: newPw, confirm_password: confirmPw })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) { showPasswordError(data.error); }
+        else {
+            closeOtpModal();
+            alert(data.message || 'Password updated successfully!');
+            window.location.reload();
+        }
+    })
+    .catch(function() { showPasswordError('Failed to update password. Please try again.'); });
+}
+
+function showSendOtpError(msg) {
+    if (document.getElementById('otpStep2').classList.contains('active')) {
+        showVerifyError(msg);
+    } else {
+        showOtpError(msg);
+    }
+}
+
 function showOtpError(msg) { var el = document.getElementById('otpStepError'); el.textContent = msg; el.classList.add('show'); }
 function showVerifyError(msg) { var el = document.getElementById('otpVerifyError'); el.textContent = msg; el.classList.add('show'); }
+function showPasswordError(msg) { var el = document.getElementById('otpPasswordError'); el.textContent = msg; el.classList.add('show'); }
 
 document.getElementById('otpOverlay').addEventListener('click', function(e) {
     if (e.target === this) closeOtpModal();
@@ -1547,6 +1527,7 @@ function showProfileAlert(msg, type = 'success') {
         wrapper.parentNode.insertBefore(container, wrapper);
     }
     container.innerHTML = '<div class="alert alert-' + (type === 'danger' ? 'error' : type) + '">' + msg + '</div>';
+    if (window.scheduleAlertFade) window.scheduleAlertFade(container.querySelector('.alert'));
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

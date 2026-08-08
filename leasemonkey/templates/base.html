@@ -17,7 +17,7 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
     <!-- Custom styling -->
-    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}?v={% now 'U' %}">
     <style>
         /* Browse Lands & Login — standardized navbar CTAs */
         .btn-browse-nav,
@@ -32,9 +32,9 @@
 </head>
 
 <body>
-    <!-- Page Loader Overlay -->
+    <!-- Top Progress Bar (Browser-style loading indicator) -->
     <div id="pageLoader" aria-hidden="true">
-        <div class="page-loader-spinner"></div>
+        <div class="page-progress-bar"></div>
     </div>
     <!-- Animated Grid Background (Electric Xtra) -->
     <div class="grid-bg"></div>
@@ -685,53 +685,187 @@
     <!-- Land Hosting Payment Modal -->
     {% include 'components/payment_modal.html' %}
 
-    <!-- Page Loader Script -->
+    <!-- Top Progress Bar Script (browser-style, NProgress-like) -->
     <script>
         (function () {
+            'use strict';
+
             const loader = document.getElementById('pageLoader');
             if (!loader) return;
+            const bar = loader.querySelector('.page-progress-bar');
+            const navbar = document.getElementById('navbar');
 
-            // Hide loader once DOM + resources are ready
-            function hideLoader() {
-                loader.classList.add('loader-hidden');
-                setTimeout(() => { loader.style.display = 'none'; }, 400);
+            // ── Position: anchored to the bottom edge of the fixed navbar ──
+            function positionBar() {
+                if (navbar) loader.style.top = navbar.offsetHeight + 'px';
+            }
+            positionBar();
+            window.addEventListener('resize', positionBar);
+            window.addEventListener('scroll', function () {
+                requestAnimationFrame(positionBar);
+            }, { passive: true });
+
+            // ── Progress state machine ────────────────────────────────────
+            let visible = false;      // bar currently on screen
+            let current = 0;          // current width %
+            let pending = 0;          // in-flight ops (concurrency-safe)
+            let showTimer = null;     // delayed show (avoid flicker for fast ops)
+            let trickleTimer = null;  // dynamic progress interval
+            let finishTimer = null;   // fade-out after completion
+
+            function setWidth(v) {
+                current = Math.max(0, Math.min(100, v));
+                bar.style.width = current + '%';
             }
 
-            // Show loader on navigation
-            function showLoader() {
-                loader.style.display = 'flex';
-                loader.classList.remove('loader-hidden');
+            function show() {
+                if (visible) return;
+                visible = true;
+                loader.style.display = 'block';
+                loader.classList.remove('top-progress-fade');
+                setWidth(0);
+                // Quick acceleration: jump to ~15% immediately, then trickle.
+                requestAnimationFrame(function () {
+                    setWidth(15);
+                    trickleTimer = setInterval(trickle, 220);
+                });
             }
 
-            window.addEventListener('load', hideLoader);
-            // Fallback if load event already fired
-            if (document.readyState === 'complete') hideLoader();
+            // Dynamic increments: fast at first, slower as it approaches 95%.
+            function trickle() {
+                if (!visible || current >= 95) return;
+                const inc =
+                    current < 30 ? 7 :
+                    current < 55 ? 4.5 :
+                    current < 75 ? 2.5 :
+                    current < 90 ? 1.2 : 0.6;
+                setWidth(current + inc);
+            }
 
-            // Intercept link clicks that navigate to a new page
+            function done() {
+                pending = Math.max(0, pending - 1);
+                if (pending > 0) return;
+                if (showTimer) { clearTimeout(showTimer); showTimer = null; }
+                if (!visible) return;
+                clearInterval(trickleTimer);
+                // Slow approach then finish: 95% → 100% → hold → fade out.
+                setWidth(100);
+                finishTimer = setTimeout(function () {
+                    loader.classList.add('top-progress-fade');
+                    setTimeout(function () {
+                        visible = false;
+                        loader.style.display = 'none';
+                        setWidth(0);
+                        loader.classList.remove('top-progress-fade');
+                    }, 400);
+                }, 250);
+            }
+
+            function start(immediate) {
+                pending++;
+                if (visible || showTimer) return;
+                // Small delay so very fast operations never flash the bar.
+                showTimer = setTimeout(function () {
+                    showTimer = null;
+                    show();
+                }, immediate ? 0 : 180);
+            }
+
+            // Public API for explicit async actions (e.g. land deletion).
+            window.showTopProgress = function () { start(true); };
+            window.hideTopProgress = function () { pending = 0; done(); };
+
+            // ── Auto-support AJAX: fetch + XMLHttpRequest ──────────────────
+            const origFetch = window.fetch;
+            if (typeof origFetch === 'function') {
+                window.fetch = function () {
+                    start(false);
+                    const p = origFetch.apply(this, arguments);
+                    p.then(
+                        function (r) { done(); return r; },
+                        function (e) { done(); throw e; }
+                    );
+                    return p;
+                };
+            }
+            const origSend = XMLHttpRequest.prototype.send;
+            XMLHttpRequest.prototype.send = function () {
+                start(false);
+                this.addEventListener('loadend', function () { done(); });
+                return origSend.apply(this, arguments);
+            };
+
+            // ── Initial page load: animate until window.load fires ─────────
+            window.addEventListener('load', function () {
+                pending = 0;
+                done();
+            });
+            if (document.readyState === 'complete') {
+                pending = 0;
+                done();
+            } else {
+                start(true);
+            }
+
+            // Safety: never let the bar linger past 12s on a hung page.
+            setTimeout(function () {
+                pending = 0;
+                done();
+            }, 12000);
+
+            // ── Link clicks: only real page navigation ─────────────────────
+            function isSamePage(href) {
+                try {
+                    return new URL(href, window.location.origin).pathname === window.location.pathname;
+                } catch (e) {
+                    return false;
+                }
+            }
+
             document.addEventListener('click', function (e) {
                 const link = e.target.closest('a[href]');
                 if (!link) return;
                 const href = link.getAttribute('href') || '';
-                // Skip: external, anchor-only, javascript:, mailto:, data-no-loader, target=_blank
+                // Skip: external, anchor/hash, javascript:, mailto:, tel:,
+                // downloads, target=_blank, data-no-loader, same-page scrolls
                 if (
                     href.startsWith('http') ||
                     href.startsWith('//') ||
                     href.startsWith('#') ||
                     href.startsWith('javascript') ||
                     href.startsWith('mailto') ||
+                    href.startsWith('tel:') ||
+                    link.hasAttribute('download') ||
                     link.hasAttribute('data-no-loader') ||
-                    link.getAttribute('target') === '_blank'
+                    link.getAttribute('target') === '_blank' ||
+                    isSamePage(href)
                 ) return;
-                showLoader();
+                start(true);
             });
 
-            // Intercept standard form submits
+            // ── Form submits: navigation forms trigger the bar ─────────────
+            // Defer one tick so AJAX handlers (which call preventDefault and
+            // submit via fetch/XHR) can cancel silently instead of double
+            // counting ops, which would leave the bar stuck.
             document.addEventListener('submit', function (e) {
                 const form = e.target;
-                if (form && !form.hasAttribute('data-no-loader')) {
-                    showLoader();
-                }
+                if (!form || form.hasAttribute('data-no-loader')) return;
+                setTimeout(function () {
+                    if (!e.defaultPrevented) start(true);
+                }, 0);
             });
+
+            // ── Success alerts: show ~5s then fade out smoothly ────────────
+            // Dynamically-created success alerts can call scheduleAlertFade()
+            // to opt in to the same behaviour.
+            window.scheduleAlertFade = function (el) {
+                if (!el || !el.classList.contains('alert-success')) return;
+                setTimeout(function () {
+                    el.classList.add('alert-fading');
+                    setTimeout(function () { el.remove(); }, 650);
+                }, 5000);
+            };
+            document.querySelectorAll('.alert-success').forEach(window.scheduleAlertFade);
         })();
     </script>
     {% block extra_js %}{% endblock %}

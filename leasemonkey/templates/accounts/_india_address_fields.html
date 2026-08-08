@@ -1,0 +1,58 @@
+{% load static %}
+<div class="{{ col_class|default:'col-6' }} {{ field_class|default:'' }}">
+    <label for="indiaState" class="{{ label_class|default:'form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50' }}">State</label>
+    <select name="{{ state_name|default:'state' }}" id="indiaState" class="{{ select_class|default:'form-control' }}" {% if disabled %}disabled{% endif %}>
+        <option value="">Select State</option>
+        {% for st in india_states_cities %}
+        <option value="{{ st }}" {% if current_state|default:'' == st %}selected{% endif %}>{{ st }}</option>
+        {% endfor %}
+    </select>
+</div>
+<div class="{{ col_class|default:'col-6' }} {{ field_class|default:'' }}">
+    <label for="indiaCity" class="{{ label_class|default:'form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50' }}">{{ city_label|default:'City' }}</label>
+    <select name="{{ city_name|default:'city' }}" id="indiaCity" class="{{ select_class|default:'form-control' }}" data-current="{{ current_city|default:'' }}" data-city-label="{{ city_label|default:'City' }}" {% if disabled %}disabled{% endif %}>
+        <option value="">Select {{ city_label|default:'City' }}</option>
+    </select>
+</div>
+<script>
+(function () {
+    var CITIES = {{ india_cities_json|safe }};
+    var stateSel = document.getElementById('indiaState');
+    var citySel = document.getElementById('indiaCity');
+    if (!stateSel || !citySel) return;
+    var savedCity = citySel.getAttribute('data-current') || '';
+    function fillCities(state, selectedCity) {
+        var list = (CITIES[state] || []).slice();
+        citySel.innerHTML = '';
+        var ph = document.createElement('option');
+        ph.value = '';
+        ph.textContent = 'Select ' + (citySel.getAttribute('data-city-label') || 'City');
+        citySel.appendChild(ph);
+        list.forEach(function (c) {
+            var o = document.createElement('option');
+            o.value = c;
+            o.textContent = c;
+            if (c === selectedCity) {
+                o.selected = true;
+                o.defaultSelected = true;
+            }
+            citySel.appendChild(o);
+        });
+        if (selectedCity && list.indexOf(selectedCity) === -1) {
+            var o = document.createElement('option');
+            o.value = selectedCity;
+            o.textContent = selectedCity;
+            o.selected = true;
+            o.defaultSelected = true;
+            citySel.appendChild(o);
+        }
+    }
+    stateSel.addEventListener('change', function () {
+        fillCities(stateSel.value, '');
+    });
+    window.refreshIndiaCitySelect = function () {
+        fillCities(stateSel.value, savedCity);
+    };
+    fillCities(stateSel.value, savedCity);
+})();
+</script>

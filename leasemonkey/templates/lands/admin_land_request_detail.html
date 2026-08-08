@@ -40,6 +40,8 @@
                     <span class="badge bg-primary text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge); background-color: #0284c7 !important;">Being Digitized</span>
                 {% elif req.status == 'approved' %}
                     <span class="badge bg-success text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Approved (Offline)</span>
+                {% elif req.status == 'awaiting_publish_approval' %}
+                    <span class="badge text-white fs-12 px-3 py-1.5 text-uppercase" style="background-color:#D97706; border-radius: var(--radius-badge);">📢 Publishing Requested by Landowner</span>
                 {% elif req.status == 'live' %}
                     <span class="badge bg-success text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge); background-color: #059669 !important;">🟢 Live</span>
                 {% elif req.status == 'rejected' %}
@@ -285,9 +287,16 @@
                         </a>
                         {% endif %}
                     </div>
-                {% elif req.status == 'approved' %}
+                {% elif req.status == 'approved' or req.status == 'awaiting_publish_approval' %}
                     <div class="text-success fw-bold fs-14 bg-success bg-opacity-10 border border-success rounded p-3 w-100 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <span><i class="bi bi-check-circle-fill me-1"></i> Layout fully digitized. Property is currently OFFLINE (Waiting to Go Live).</span>
+                        <div>
+                            {% if req.status == 'awaiting_publish_approval' %}
+                            <span class="badge text-white fs-11 text-uppercase px-3 py-1.5 mb-2" style="background-color:#D97706; border-radius: var(--radius-badge);">Publishing Requested by Landowner</span>
+                            <div class="w-100 fs-13 fw-semibold" style="color:#92400E;"><i class="bi bi-megaphone-fill me-1"></i> The landowner has requested to publish this property. Review and publish if everything is ready.</div>
+                            {% else %}
+                            <span><i class="bi bi-check-circle-fill me-1"></i> Layout fully digitized. Property is currently OFFLINE (Waiting to Go Live).</span>
+                            {% endif %}
+                        </div>
                         <div class="d-flex gap-2">
                             {% if req.land %}
                             <a href="{% url 'lands:plot_creator' req.land.slug %}" class="btn btn-outline-secondary fs-11 text-uppercase fw-bold py-2 px-3 text-decoration-none">

@@ -16,13 +16,19 @@ urlpatterns = [
     path('preferences/', views.preferences, name='preferences'),
     path('profile/send-otp/', views.send_profile_otp, name='send_profile_otp'),
     path('profile/verify-otp/', views.verify_profile_otp, name='verify_profile_otp'),
+    path('profile/set-password/', views.set_profile_password, name='set_profile_password'),
     
     # Buyer Onboarding & Password Recovery URLs
     path('register/buyer/', views.buyer_register, name='buyer_register'),
+    path('register/buyer/check-username/', views.check_username_availability, name='check_username_availability'),
     path('register/verify/', views.verify_email, name='verify_email'),
+    path('register/resend-otp/', views.resend_registration_otp, name='resend_registration_otp'),
+    path('register/cancel/', views.cancel_registration, name='cancel_registration'),
     path('register/onboarding-preferences/', views.onboarding_preferences, name='onboarding_preferences'),
     path('forgot-password/', views.forgot_password, name='forgot_password'),
-    path('forgot-password/reset/', views.forgot_password_reset, name='forgot_password_reset'),
+    path('forgot-password/verify-otp/', views.forgot_password_otp, name='forgot_password_otp'),
+    path('forgot-password/resend-otp/', views.forgot_password_resend_otp, name='forgot_password_resend_otp'),
+    path('forgot-password/new-password/', views.forgot_password_new, name='forgot_password_new'),
 
     # Deletion Endpoints
     path('profile/send-delete-otp/', views.send_delete_otp, name='send_delete_otp'),
@@ -40,6 +46,7 @@ urlpatterns = [
     path('register/landowner/review/', views.landowner_register_review, name='landowner_register_review'),
     path('register/landowner/submit/', views.landowner_register_submit, name='landowner_register_submit'),
     path('register/landowner/success/', views.landowner_register_success, name='landowner_register_success'),
+    path('register/landowner/cancel/', views.landowner_register_cancel, name='landowner_register_cancel'),
 
     # Admin Review Endpoints
     path('admin/landowner-applications/', views.admin_landowner_applications, name='admin_landowner_applications'),

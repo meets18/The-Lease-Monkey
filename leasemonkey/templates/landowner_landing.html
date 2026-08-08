@@ -84,6 +84,19 @@ html { scroll-behavior: smooth; }
 {% block content %}
 
 <!-- ═══════════════════════════════════════════════════════
+     MESSAGES (auto-dismiss success after ~5s)
+════════════════════════════════════════════════════════ -->
+{% if messages %}
+<div class="container mt-4 position-relative" style="z-index: 10;">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}success{% endif %} border border-secondary-glow bg-dark-glow text-white shadow-lg" role="alert">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════
      HERO SECTION  (#home)
 ════════════════════════════════════════════════════════ -->
 <div id="home" class="hero-container section-anchor container d-flex flex-column align-items-center justify-content-center text-center position-relative">

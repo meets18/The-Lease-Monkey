@@ -46,6 +46,7 @@ urlpatterns = [
     path('register-land/', views.submit_land_request, name='submit_land_request'),
     path('register-land/<int:req_id>/', views.landowner_request_detail, name='landowner_request_detail'),
     path('register-land/<int:req_id>/data/', views.landowner_request_data, name='landowner_request_data'),
+    path('register-land/<int:req_id>/request-publish/', views.landowner_request_publish, name='landowner_request_publish'),
 
     # ── Admin: Land Registration Request Queue ──────────────────────────────────
     path('admin/land-requests/', views.admin_land_requests, name='admin_land_requests'),

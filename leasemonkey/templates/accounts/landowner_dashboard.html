@@ -12,7 +12,11 @@
         <!-- Profile badge -->
         <div class="user-profile-badge p-3 rounded-3 mb-4 text-center border border-secondary-glow">
             <div class="profile-avatar mb-2 mx-auto">
-                <i class="bi bi-person-badge-fill fs-3 text-amber-glow"></i>
+                {% if user.profile_picture %}
+                    <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" class="profile-avatar-img">
+                {% else %}
+                    <i class="bi bi-person-badge-fill fs-3 text-amber-glow"></i>
+                {% endif %}
             </div>
             <h5 class="text-white font-ranade fw-bold mb-1 fs-15">{{ user.username }}</h5>
             <span class="badge bg-owner-glow fs-11 text-uppercase">Land Owner</span>
@@ -142,12 +146,13 @@
                                 <button type="button" class="btn btn-sm rounded-pill px-3 py-1 fs-12 fw-bold"
                                         style="background:rgba(34,197,94,0.15); color:#22C55E; border:1px solid rgba(34,197,94,0.3);"
                                         onclick="openPaymentModal('{{ land.name|escapejs }}', '{{ land.slug }}');">
-                                    <i class="bi bi-shield-check me-1"></i>Active (₹200/mo)
+                                    <i class="bi bi-shield-check me-1"></i>Live
                                 </button>
                                 {% else %}
-                                <button type="button" class="btn btn-sm btn-get-started rounded-pill px-3 py-1 fs-12 fw-bold"
+                                <button type="button" class="btn btn-sm rounded-pill px-3 py-1 fs-12 fw-bold"
+                                        style="background:rgba(148,163,184,0.12); color:#94A3B8; border:1px solid rgba(148,163,184,0.3);"
                                         onclick="openPaymentModal('{{ land.name|escapejs }}', '{{ land.slug }}');">
-                                    <i class="bi bi-lightning-charge-fill me-1"></i>Pay ₹200/mo
+                                    <i class="bi bi-power me-1"></i>Offline
                                 </button>
                                 {% endif %}
                             </td>
@@ -230,6 +235,10 @@
                                             {% elif req.status == 'approved' %}
                                             <span class="badge bg-success-glow text-uppercase fs-9">Waiting to Go
                                                 Live</span>
+                                            {% elif req.status == 'awaiting_publish_approval' %}
+                                            <span class="badge bg-warning-glow text-uppercase fs-9"
+                                                style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24;">Waiting
+                                                for Admin Approval</span>
                                             {% elif req.status == 'live' %}
                                             <span class="badge bg-success-glow text-uppercase fs-9"
                                                 style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399;">Live</span>
@@ -246,8 +255,19 @@
                                                 View Progress
                                             </button>
                                             {% elif req.status == 'approved' %}
+                                            {% if req.land %}
+                                            <button type="button" id="btnRequestPublish-{{ req.id }}"
+                                                class="btn btn-get-started py-1 px-2.5 fs-11 fw-bold text-uppercase"
+                                                onclick="event.stopPropagation(); landownerRequestPublish({{ req.id }}, this);">
+                                                Make Live <i class="bi bi-rocket-takeoff ms-0.5"></i>
+                                            </button>
+                                            {% else %}
                                             <span class="text-muted-glow fs-11 fw-bold text-uppercase">Waiting to Go
                                                 Live</span>
+                                            {% endif %}
+                                            {% elif req.status == 'awaiting_publish_approval' %}
+                                            <span class="text-warning-glow fs-11 fw-bold text-uppercase"
+                                                style="color:#fbbf24;">Waiting for Admin Approval</span>
                                             {% elif req.status == 'live' %}
                                             {% if req.land %}
                                             <a href="{% url 'lands:plot_viewer' req.land.slug %}"
@@ -752,7 +772,7 @@
                                 <td class="fw-bold text-cyan-glow font-monospace fs-13 px-3">{{ tx.transaction_id }}</td>
                                 <td class="text-white fw-semibold">{{ tx.subscription.land.name }}</td>
                                 <td class="text-success fw-bold">₹{{ tx.amount }}</td>
-                                <td class="text-muted-glow"><span class="badge bg-dark border border-secondary-glow text-white fs-11 px-2 py-1">{{ tx.payment_method }}</span></td>
+                                <td class="text-muted-glow"><span class="badge bg-warning bg-opacity-20 text-warning fs-11 px-2 py-1 rounded-pill border border-warning border-opacity-25">{{ tx.payment_method }}</span></td>
                                 <td class="text-muted-glow fs-13">{{ tx.created_at|date:"d M Y, H:i" }}</td>
                                  <td class="text-end px-3">
                                     {% if tx.status == 'success' %}
@@ -761,6 +781,9 @@
                                     </span>
                                     {% elif tx.status == 'pending' %}
                                     <span class="badge bg-warning bg-opacity-20 text-warning fs-11 px-2 py-1 rounded-pill">Pending</span>
+                                    {% elif tx.status == 'cancelled' %}
+                                    <span class="badge bg-secondary bg-opacity-20 text-secondary fs-11 px-2 py-1 rounded-pill"
+                                        style="background: rgba(148, 163, 184, 0.15) !important; color: #94a3b8;">Cancelled</span>
                                     {% else %}
                                     <span class="badge bg-danger bg-opacity-20 text-danger fs-11 px-2 py-1 rounded-pill">{{ tx.status|capfirst }}</span>
                                     {% endif %}
@@ -891,6 +914,11 @@
                         class="btn btn-action btn-lg py-2 fs-12 text-uppercase fw-bold text-decoration-none">
                         Manage Plots <i class="bi bi-grid-3x3-gap ms-1"></i>
                     </a>
+                    <button id="modalPayBtn" type="button"
+                        class="btn btn-action btn-lg py-2 fs-12 text-uppercase fw-bold"
+                        style="background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35);">
+                        <i class="bi bi-credit-card me-1"></i> Payment &amp; Hosting
+                    </button>
                     <button id="modalRequestDeleteBtn" type="button"
                         class="btn btn-outline-danger btn-lg py-2 fs-12 text-uppercase fw-bold">
                         Request Deletion <i class="bi bi-trash ms-1"></i>
@@ -1464,6 +1492,32 @@
     </div>
 </div>
 
+<!-- Payment Cancelled Dialog -->
+<div class="modal fade" id="paymentCancelledModal" tabindex="-1" aria-hidden="true" data-no-loader>
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content notif-modal-content text-center p-3">
+            <div class="modal-header notif-modal-header border-0 pb-0 justify-content-center">
+                <div class="notif-modal-icon-badge mx-auto" style="background:rgba(245,158,11,0.15); border-color:rgba(245,158,11,0.35);">
+                    <i class="bi bi-x-circle-fill" style="color:#F59E0B;"></i>
+                </div>
+            </div>
+            <div class="modal-body pt-3">
+                <h5 class="modal-title font-ranade fw-bold mb-2" id="paymentCancelledTitle">Payment Cancelled</h5>
+                <p class="fs-13 text-muted-glow mb-0" id="paymentCancelledMessage" style="line-height: 1.6;">
+                    Your payment was not completed. No charges were made and your registration is still awaiting payment.
+                    You may complete the payment anytime before the payment deadline.
+                </p>
+            </div>
+            <div class="modal-footer border-0 pt-2 justify-content-center">
+                <button type="button" class="btn btn-sm fw-bold px-4 py-2 fs-13" data-bs-dismiss="modal"
+                    style="background:rgba(249,109,0,0.15);border:1px solid rgba(249,109,0,0.3);color:#fb923c;">
+                    Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // ─── Tab Switching ─────────────────────────────────────────────────────────
     function switchTab(tabName) {
@@ -2021,6 +2075,39 @@
         return document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
     }
 
+    // ─── Request Publish (Make Live → Admin Approval) ───────────────────────
+    function landownerRequestPublish(reqId, btnEl) {
+        if (!btnEl || btnEl.disabled) return;
+        btnEl.disabled = true;
+        const origHtml = btnEl.innerHTML;
+        btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sending…';
+
+        fetch(`/lands/register-land/${reqId}/request-publish/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrf(),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                btnEl.outerHTML = '<span class="text-warning-glow fs-11 fw-bold text-uppercase" style="color:#fbbf24;">Waiting for Admin Approval</span>';
+                showToast(data.message || 'Publish request sent to admin.', 'success');
+            } else {
+                btnEl.disabled = false;
+                btnEl.innerHTML = origHtml;
+                showToast(data.error || 'Could not submit publish request.', 'danger');
+            }
+        })
+        .catch(err => {
+            console.error('Publish request error:', err);
+            btnEl.disabled = false;
+            btnEl.innerHTML = origHtml;
+            showToast('Could not submit publish request. Please try again.', 'danger');
+        });
+    }
+
     // ─── Rejection & Digitization Alerts ──────────────────────────────────────
     function showRejectionReason(reqId, propName, reason, state, district, city, address, pin, price, maps, desc, notes) {
         document.getElementById('rejectPropertyName').innerText = propName;
@@ -2228,9 +2315,13 @@
 
     // ─── Land Actions Modal ────────────────────────────────────────────────────
     let currentDeleteUrl = '';
+    let currentPayLandName = '';
+    let currentPayLandSlug = '';
     function openLandActionsModal(rowEl) {
         const get = k => rowEl.getAttribute(k) || '';
-        document.getElementById('modalLandName').innerText = get('data-land-name');
+        currentPayLandName = get('data-land-name');
+        currentPayLandSlug = get('data-land-slug');
+        document.getElementById('modalLandName').innerText = currentPayLandName;
         document.getElementById('modalLandLocation').innerText = get('data-land-location');
         document.getElementById('modalLandArea').innerText = get('data-land-area') + ' Acres';
         document.getElementById('modalLandPrice').innerText = get('data-land-price-label');
@@ -2240,6 +2331,10 @@
         const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('landActionModal'));
         modal.show();
     }
+
+    document.getElementById('modalPayBtn').addEventListener('click', function () {
+        openPaymentModal(currentPayLandName, currentPayLandSlug);
+    });
 
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.land-summary-row').forEach(row => {
@@ -2264,6 +2359,7 @@
         if (!confirm(`Are you sure you want to request deletion of "${landName}"?\n\nThe admin will be notified and will review your request. The land will NOT be deleted until the admin approves.`)) {
             return;
         }
+        if (window.showTopProgress) window.showTopProgress();
         fetch(currentDeleteUrl, {
             method: 'POST',
             headers: {
@@ -2278,10 +2374,14 @@
                 return r.json();
             })
             .then(data => {
+                if (window.hideTopProgress) window.hideTopProgress();
                 bootstrap.Modal.getInstance(document.getElementById('landActionModal')).hide();
                 showToast(data.message || 'Deletion request sent to admin.', 'success');
             })
-            .catch((err) => showToast(err.message || 'Something went wrong. Please try again.', 'danger'));
+            .catch((err) => {
+                if (window.hideTopProgress) window.hideTopProgress();
+                showToast(err.message || 'Something went wrong. Please try again.', 'danger');
+            });
     });
 
     // ─── Mark Notification Read ────────────────────────────────────────────────
@@ -3201,6 +3301,19 @@
                 .catch(function () {
                     // Silently ignore if fetch fails
                 });
+        }
+
+        // ─── Payment Cancelled Dialog (from Cashfree return redirect) ────────
+        if (urlParams.get('payment') === 'cancelled') {
+            const cancelModalEl = document.getElementById('paymentCancelledModal');
+            if (cancelModalEl) {
+                const cancelModal = new bootstrap.Modal(cancelModalEl);
+                cancelModal.show();
+            }
+            if (window.history.replaceState) {
+                const cleanUrl = window.location.pathname + '#payments';
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
         }
     });
 </script>

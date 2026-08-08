@@ -191,6 +191,13 @@ function selectPayMethod(cardEl) {
     if (radio) radio.checked = true;
 }
 
+function getSelectedPayMethod() {
+    const labels = { upi: 'UPI', card: 'Credit Card', netbanking: 'Netbanking' };
+    const checked = document.querySelector('input[name=payMethod]:checked');
+    const val = checked ? checked.value : 'upi';
+    return labels[val] || 'UPI';
+}
+
 function getCsrfToken() {
     const meta = document.querySelector('input[name=csrfmiddlewaretoken]') || document.querySelector('meta[name=csrf-token]');
     if (meta) return meta.value || meta.content;
@@ -215,11 +222,15 @@ function processDemoPayment() {
     }
 
     // Call Cashfree Order Creation API
+    const payFormData = new FormData();
+    payFormData.append('payMethod', getSelectedPayMethod());
+
     fetch(`/payments/create-cashfree-order/${slug}/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCsrfToken()
-        }
+        },
+        body: payFormData
     })
     .then(r => r.json())
     .then(data => {
@@ -242,7 +253,7 @@ function processDemoPayment() {
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verifying Payment…';
             
             const formData = new FormData();
-            formData.append('payMethod', 'Cashfree Sandbox');
+            formData.append('payMethod', getSelectedPayMethod());
 
             fetch(`/payments/process-demo/${slug}/`, {
                 method: 'POST',
@@ -267,7 +278,7 @@ function processDemoPayment() {
         // Fallback demo payment
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Using offline payment…';
         const formData = new FormData();
-        formData.append('payMethod', 'Offline Demo');
+        formData.append('payMethod', getSelectedPayMethod());
 
         fetch(`/payments/process-demo/${slug}/`, {
             method: 'POST',

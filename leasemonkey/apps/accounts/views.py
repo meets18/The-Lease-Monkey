@@ -349,14 +349,23 @@ def admin_dashboard(request):
 
     from apps.ai.models import SupportTicket
     from apps.core.models import Ticket
-    from apps.accounts.models import LandownerApplication
     from apps.payments.models import PaymentTransaction
+    from django.urls import reverse
     tickets = SupportTicket.objects.all().order_by('-created_at')
     support_tickets = Ticket.objects.select_related('user').all().order_by('-created_at')
     open_tickets_count = support_tickets.filter(status='open').count()
     landowner_applications = LandownerApplication.objects.all().order_by('-created_at')
     land_requests = LandRegistrationRequest.objects.all().order_by('-submitted_at')
     pending_requests_count = land_requests.filter(status='pending').count()
+
+    # Map notification land_slug → admin request detail URL so publish-request
+    # notifications can deep-link to the corresponding registration/property.
+    notif_request_urls = {}
+    for n in notifications:
+        if n.land_slug:
+            req = LandRegistrationRequest.objects.filter(land__slug=n.land_slug).first()
+            if req:
+                notif_request_urls[n.id] = reverse('lands:admin_land_request_detail', args=[req.id])
 
     # Payments tab — show non-sensitive transaction info only
     payment_transactions = PaymentTransaction.objects.select_related(
@@ -376,6 +385,7 @@ def admin_dashboard(request):
         'land_requests': land_requests,
         'pending_requests_count': pending_requests_count,
         'payment_transactions': payment_transactions,
+        'notif_request_urls': notif_request_urls,
     }
     return render(request, 'accounts/admin_dashboard.html', context)
 
@@ -391,7 +401,6 @@ def _process_profile_post(request, user, section):
         user.address = request.POST.get('address', '').strip() or None
         user.city = request.POST.get('city', '').strip() or None
         user.state = request.POST.get('state', '').strip() or None
-        user.country = request.POST.get('country', '').strip() or None
 
         photo_updated = False
         if 'profile_picture' in request.FILES:
@@ -553,15 +562,17 @@ def preferences(request):
 
 @login_required
 def send_profile_otp(request):
+    """Sends a password-change OTP to the logged-in user's email (at most once per minute)."""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required.'}, status=400)
     try:
         data = json.loads(request.body)
-        email = data.get('email', '').strip()
-        purpose = data.get('purpose', '')  # 'change_email' or 'change_password'
+        purpose = data.get('purpose', '')
 
-        if not email:
-            return JsonResponse({'error': 'Email is required.'}, status=400)
+        if purpose != 'change_password':
+            return JsonResponse({'error': 'Invalid request purpose.'}, status=400)
+
+        email = request.user.email
 
         # Enforce 1-minute wait
         last_otp = EmailOTP.objects.filter(email=email).order_by('-created_at').first()
@@ -574,10 +585,14 @@ def send_profile_otp(request):
         otp = f"{random.randint(100000, 999999)}"
         EmailOTP.objects.create(email=email, otp_code=otp)
 
-        subject = '[Lease Monkey] OTP for Account Update'
+        # A fresh OTP invalidates any prior verified state.
+        request.session['profile_change_password_verified'] = False
+
+        subject = '[Lease Monkey] OTP for Password Change'
         message = (
-            f'Hello,\n\n'
-            f'Your OTP for {"email change" if purpose == "change_email" else "password change"} is: {otp}\n\n'
+            f'Hello {request.user.first_name or request.user.username},\n\n'
+            f'We received a request to change your password on your account. '
+            f'Your OTP for password change is: {otp}\n\n'
             f'This OTP is valid for 5 minutes.\n\n'
             f'— The Lease Monkey Team'
         )
@@ -586,7 +601,7 @@ def send_profile_otp(request):
             message=message,
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[email],
-            fail_silently=False,
+            fail_silently=True,
         )
 
         return JsonResponse({'status': 'sent', 'message': 'OTP sent successfully.'})
@@ -596,18 +611,21 @@ def send_profile_otp(request):
 
 @login_required
 def verify_profile_otp(request):
+    """Verifies the password-change OTP; the actual password update happens after."""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required.'}, status=400)
     try:
         data = json.loads(request.body)
-        email = data.get('email', '').strip()
         otp = data.get('otp', '').strip()
         purpose = data.get('purpose', '')
 
-        if not email or not otp:
-            return JsonResponse({'error': 'Email and OTP are required.'}, status=400)
+        if purpose != 'change_password':
+            return JsonResponse({'error': 'Invalid request purpose.'}, status=400)
 
-        otp_record = EmailOTP.objects.filter(email=email, otp_code=otp, is_used=False).first()
+        if not otp:
+            return JsonResponse({'error': 'OTP is required.'}, status=400)
+
+        otp_record = EmailOTP.objects.filter(email=request.user.email, otp_code=otp, is_used=False).first()
         if not otp_record:
             return JsonResponse({'error': 'Incorrect OTP.'}, status=400)
         if otp_record.is_expired():
@@ -616,25 +634,54 @@ def verify_profile_otp(request):
         otp_record.is_used = True
         otp_record.save()
 
-        user = request.user
-
-        if purpose == 'change_email':
-            user.email = email
-            user.save()
-            return JsonResponse({'status': 'done', 'message': 'Email updated successfully.'})
-
-        elif purpose == 'change_password':
-            new_password = data.get('new_password', '')
-            if len(new_password) < 8:
-                return JsonResponse({'error': 'Password must be at least 8 characters.'}, status=400)
-            user.set_password(new_password)
-            user.save()
-            update_session_auth_hash(request, user)
-            return JsonResponse({'status': 'done', 'message': 'Password updated successfully.'})
-
-        return JsonResponse({'status': 'verified', 'message': 'OTP verified successfully.'})
+        request.session['profile_change_password_verified'] = True
+        return JsonResponse({'status': 'verified', 'message': 'OTP verified successfully. Now choose your new password.'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def set_profile_password(request):
+    """Sets a new password, allowed only after the OTP has been verified."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+    try:
+        if not request.session.get('profile_change_password_verified'):
+            return JsonResponse({'error': 'Please verify your OTP first.'}, status=400)
+
+        data = json.loads(request.body)
+        new_password = data.get('new_password', '')
+        confirm_password = data.get('confirm_password', '')
+
+        errors = []
+        if not (new_password and confirm_password):
+            errors.append("All fields are required.")
+        if new_password != confirm_password:
+            errors.append("Passwords do not match.")
+        errors.extend(validate_password_strength(new_password))
+
+        if errors:
+            return JsonResponse({'error': errors[0]}, status=400)
+
+        user = request.user
+        user.set_password(new_password)
+        user.save()
+        update_session_auth_hash(request, user)
+
+        request.session['profile_change_password_verified'] = False
+        return JsonResponse({'status': 'done', 'message': 'Password updated successfully.'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def check_username_availability(request):
+    """AJAX endpoint: returns whether a username is already taken (case-insensitive)."""
+    username = request.GET.get('username', '').strip()
+    if not username:
+        return JsonResponse({'available': False, 'message': ''})
+    if User.objects.filter(username__iexact=username).exists():
+        return JsonResponse({'available': False, 'message': 'This username is already taken.'})
+    return JsonResponse({'available': True, 'message': ''})
 
 
 def buyer_register(request):
@@ -660,32 +707,35 @@ def buyer_register(request):
         first_name = request.POST.get('first_name', '').strip()
         dob_str = request.POST.get('dob', '').strip()
         phone_number = request.POST.get('phone_number', '').strip()
-        phone_country_code = request.POST.get('phone_country_code', '').strip()
+        phone_country_code = '+91'
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '')
         confirm_password = request.POST.get('confirm_password', '')
 
-        # Gather any validation errors
-        errors = []
+        # Gather any validation errors keyed by field for inline display
+        field_errors = {}
+
+        def add_field_error(field, err):
+            field_errors.setdefault(field, []).append(err)
 
         if not (email and first_name and dob_str and phone_number and username and password and confirm_password):
-            errors.append("All fields are required.")
+            add_field_error('form', "All fields are required.")
 
         # Email check
         if email and User.objects.filter(email__iexact=email).exists():
-            errors.append("An account with this email already exists.")
+            add_field_error('email', "An account with this email already exists.")
 
         # Username check
         if username and User.objects.filter(username__iexact=username).exists():
-            errors.append("This username is already taken.")
+            add_field_error('username', "This username is already taken.")
 
         # Confirm password check
         if password != confirm_password:
-            errors.append("Passwords do not match.")
+            add_field_error('confirm_password', "Passwords do not match.")
 
         # Password strength validation
-        pw_errors = validate_password_strength(password)
-        errors.extend(pw_errors)
+        for pw_err in validate_password_strength(password):
+            add_field_error('password', pw_err)
 
         # DOB Age check (>= 18)
         dob = None
@@ -693,27 +743,27 @@ def buyer_register(request):
             try:
                 dob = datetime.strptime(dob_str, "%Y-%m-%d").date()
                 if calculate_age(dob) < 18:
-                    errors.append("You must be at least 18 years old to register.")
+                    add_field_error('dob', "You must be at least 18 years old to register.")
             except ValueError:
-                errors.append("Invalid date of birth format.")
+                add_field_error('dob', "Invalid date of birth format.")
 
         # Phone uniqueness check
         full_phone = f"{phone_country_code}{phone_number}"
         full_phone = re.sub(r'[\s\-]', '', full_phone)
         if phone_number and User.objects.filter(phone_number=full_phone).exists():
-            errors.append("An account with this phone number already exists.")
+            add_field_error('phone', "An account with this phone number already exists.")
 
-        if errors:
-            for err in errors:
-                messages.error(request, err)
-            # Re-render login card showing the registration form active
+        if field_errors:
+            # Re-render login card showing the registration form active with inline errors
             return render(request, 'accounts/buyer_login.html', {
                 'active_tab': 'register',
                 'reg_email': email,
                 'reg_name': first_name,
                 'reg_dob': dob_str,
                 'reg_phone': phone_number,
+                'reg_country': phone_country_code,
                 'reg_username': username,
+                'field_errors': field_errors,
             })
 
         # Save user to DB as unverified
@@ -741,7 +791,7 @@ def buyer_register(request):
                     f'Hello {first_name},\n\n'
                     f'Thank you for registering with Lease Monkey. Your email verification OTP is:\n\n'
                     f'🔑 {otp}\n\n'
-                    f'This OTP is valid for 5 minutes. If you do not verify your email within 1 hour, your account details will be removed.\n\n'
+                    f'This OTP is valid for 5 minutes.\n\n'
                     f'— The Lease Monkey Team'
                 ),
                 from_email=settings.EMAIL_HOST_USER,
@@ -760,12 +810,74 @@ def buyer_register(request):
     return redirect('buyer_login')
 
 
+def cancel_registration(request):
+    """Cancels an in-progress buyer registration: deletes the unverified
+    account and its OTP records, clears the session, and returns to login."""
+    if request.method != 'POST':
+        return redirect('buyer_login')
+
+    email = request.session.get('verify_email_addr')
+    if email:
+        try:
+            User.objects.filter(email__iexact=email, is_verified=False).delete()
+            EmailOTP.objects.filter(email__iexact=email).delete()
+        except Exception:
+            pass
+        request.session.pop('verify_email_addr', None)
+        messages.info(request, "Your registration has been cancelled.")
+    else:
+        messages.info(request, "No pending registration found.")
+    return redirect('buyer_login')
+
+
+def resend_registration_otp(request):
+    """Resends the registration OTP to the pending email (at most once per minute)."""
+    if request.method != 'POST':
+        return redirect('verify_email')
+
+    email = request.session.get('verify_email_addr')
+    if not email:
+        messages.error(request, "No registration session found. Please sign up again.")
+        return redirect('buyer_login')
+
+    # Rate limit: at least 60 seconds since the last OTP was issued
+    last = EmailOTP.objects.filter(email=email).order_by('-created_at').first()
+    if last and (timezone.now() - last.created_at).total_seconds() < 60:
+        messages.info(request, "Please wait a moment before requesting another OTP.")
+        return redirect('verify_email')
+
+    otp = f"{random.randint(100000, 999999)}"
+    EmailOTP.objects.create(email=email, otp_code=otp)
+    send_mail(
+        subject='[Lease Monkey] Resend: Verify Your Email Address',
+        message=(
+            f'Hello,\n\n'
+            f'Your new email verification OTP is:\n\n'
+            f'🔑 {otp}\n\n'
+            f'This OTP is valid for 5 minutes.\n\n'
+            f'— The Lease Monkey Team'
+        ),
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[email],
+        fail_silently=True,
+    )
+    messages.success(request, 'A new OTP has been sent to your email.')
+    return redirect('verify_email')
+
+
 def verify_email(request):
     """Renders OTP verification page and processes OTP submissions."""
     email = request.session.get('verify_email_addr')
     if not email:
         messages.error(request, "No registration session found. Please sign up again.")
         return redirect('buyer_login')
+
+    # Remaining seconds before a resend is allowed (persists across re-renders).
+    resend_cooldown = 60
+    last_otp = EmailOTP.objects.filter(email=email).order_by('-created_at').first()
+    if last_otp:
+        resend_cooldown = max(0, int(60 - (timezone.now() - last_otp.created_at).total_seconds()))
+    page_ctx = {'resend_cooldown': resend_cooldown}
 
     if request.method == 'POST':
         otp_submitted = request.POST.get('otp', '').strip()
@@ -775,15 +887,15 @@ def verify_email(request):
         
         if not record:
             messages.error(request, "No verification request found for this email.")
-            return render(request, 'accounts/verify_email.html')
+            return render(request, 'accounts/verify_email.html', page_ctx)
             
         if record.is_expired():
             messages.error(request, "The verification code has expired. Please log in to request a new OTP.")
-            return render(request, 'accounts/verify_email.html')
+            return render(request, 'accounts/verify_email.html', page_ctx)
             
         if record.otp_code != otp_submitted:
             messages.error(request, "Invalid verification code.")
-            return render(request, 'accounts/verify_email.html')
+            return render(request, 'accounts/verify_email.html', page_ctx)
             
         # Success!
         record.is_used = True
@@ -805,7 +917,7 @@ def verify_email(request):
             messages.error(request, "Associated user account was not found.")
             return redirect('buyer_login')
 
-    return render(request, 'accounts/verify_email.html')
+    return render(request, 'accounts/verify_email.html', page_ctx)
 
 
 @login_required(login_url='portal_selection')
@@ -868,7 +980,14 @@ def onboarding_preferences(request):
         prefs.property_condition = property_condition
         prefs.proximity_preferences = proximity_list
         prefs.save()
-        
+
+        # Save buyer address (used to prioritize same city/state land recommendations)
+        user = request.user
+        user.address = request.POST.get('address', '').strip() or None
+        user.city = request.POST.get('city', '').strip() or None
+        user.state = request.POST.get('state', '').strip() or None
+        user.save()
+
         messages.success(request, "Onboarding completed! Preferences saved successfully.")
         return redirect('/')
         
@@ -914,71 +1033,140 @@ def forgot_password(request):
             pass
             
         request.session['reset_password_email'] = email
+        request.session['reset_password_verified'] = False
         messages.success(request, "A password reset code has been sent to your email.")
-        return redirect('forgot_password_reset')
+        return redirect('forgot_password_otp')
         
     return render(request, 'accounts/forgot_password.html')
 
 
-def forgot_password_reset(request):
-    """Validates the reset OTP and updates the user's password."""
+def forgot_password_otp(request):
+    """OTP verification step for password reset, kept separate from setting the new password."""
     email = request.session.get('reset_password_email')
     if not email:
         messages.error(request, "Reset session has expired. Please request another code.")
         return redirect('forgot_password')
-        
+
+    # Already verified — skip straight to the new-password step.
+    if request.session.get('reset_password_verified'):
+        return redirect('forgot_password_new')
+
+    # Remaining seconds before a resend is allowed (persists across re-renders).
+    resend_cooldown = 60
+    last_otp = EmailOTP.objects.filter(email=email).order_by('-created_at').first()
+    if last_otp:
+        resend_cooldown = max(0, int(60 - (timezone.now() - last_otp.created_at).total_seconds()))
+    page_ctx = {'resend_cooldown': resend_cooldown}
+
     if request.method == 'POST':
         otp_submitted = request.POST.get('otp', '').strip()
-        new_password = request.POST.get('new_password', '')
-        confirm_password = request.POST.get('confirm_password', '')
-        
-        errors = []
-        if not (otp_submitted and new_password and confirm_password):
-            errors.append("All fields are required.")
-            
-        if new_password != confirm_password:
-            errors.append("Passwords do not match.")
-            
-        pw_errors = validate_password_strength(new_password)
-        errors.extend(pw_errors)
-        
-        if errors:
-            for err in errors:
-                messages.error(request, err)
-            return render(request, 'accounts/forgot_password_reset.html')
-            
-        # Check OTP
+
+        if not otp_submitted:
+            messages.error(request, "Please enter the 6-digit verification code.")
+            return render(request, 'accounts/forgot_password_otp.html', page_ctx)
+
         record = EmailOTP.objects.filter(email=email, is_used=False).order_by('-created_at').first()
         if not record:
             messages.error(request, "No active reset request found for this email.")
-            return render(request, 'accounts/forgot_password_reset.html')
-            
+            return render(request, 'accounts/forgot_password_otp.html', page_ctx)
+
         if record.is_expired():
-            messages.error(request, "Verification code has expired.")
-            return render(request, 'accounts/forgot_password_reset.html')
-            
+            messages.error(request, "The verification code has expired. Please request a new one.")
+            return render(request, 'accounts/forgot_password_otp.html', page_ctx)
+
         if record.otp_code != otp_submitted:
             messages.error(request, "Invalid verification code.")
-            return render(request, 'accounts/forgot_password_reset.html')
-            
-        # All valid! Update password
+            return render(request, 'accounts/forgot_password_otp.html', page_ctx)
+
+        # Verified successfully — mark the code used and move to the password step.
+        record.is_used = True
+        record.save()
+        request.session['reset_password_verified'] = True
+        messages.success(request, "Verification successful. Now choose your new password.")
+        return redirect('forgot_password_new')
+
+    return render(request, 'accounts/forgot_password_otp.html', page_ctx)
+
+
+def forgot_password_resend_otp(request):
+    """Resends the password reset OTP (at most once per minute)."""
+    if request.method != 'POST':
+        return redirect('forgot_password_otp')
+
+    email = request.session.get('reset_password_email')
+    if not email:
+        messages.error(request, "Reset session has expired. Please request another code.")
+        return redirect('forgot_password')
+
+    # Rate limit: at least 60 seconds since the last OTP was issued.
+    last = EmailOTP.objects.filter(email=email).order_by('-created_at').first()
+    if last and (timezone.now() - last.created_at).total_seconds() < 60:
+        messages.info(request, "Please wait a moment before requesting another OTP.")
+        return redirect('forgot_password_otp')
+
+    otp = f"{random.randint(100000, 999999)}"
+    EmailOTP.objects.create(email=email, otp_code=otp)
+    send_mail(
+        subject='[Lease Monkey] Resend: Password Reset Verification Code',
+        message=(
+            f'Hello,\n\n'
+            f'Your new password reset verification code is:\n\n'
+            f'🔑 {otp}\n\n'
+            f'This code is valid for 5 minutes.\n\n'
+            f'— The Lease Monkey Team'
+        ),
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[email],
+        fail_silently=True,
+    )
+    messages.success(request, 'A new verification code has been sent to your email.')
+    return redirect('forgot_password_otp')
+
+
+def forgot_password_new(request):
+    """Sets a new password after the reset OTP has been verified."""
+    email = request.session.get('reset_password_email')
+    if not email or not request.session.get('reset_password_verified'):
+        messages.error(request, "Please request a new code and verify your email first.")
+        return redirect('forgot_password_otp')
+
+    if request.method == 'POST':
+        new_password = request.POST.get('new_password', '')
+        confirm_password = request.POST.get('confirm_password', '')
+
+        errors = []
+        if not (new_password and confirm_password):
+            errors.append("All fields are required.")
+
+        if new_password != confirm_password:
+            errors.append("Passwords do not match.")
+
+        pw_errors = validate_password_strength(new_password)
+        errors.extend(pw_errors)
+
+        if errors:
+            for err in errors:
+                messages.error(request, err)
+            return render(request, 'accounts/forgot_password_new.html')
+
         try:
             user = User.objects.get(email=email)
             user.set_password(new_password)
             user.save()
-            
-            # Clear session
-            record.is_used = True
-            record.save()
-            request.session.pop('reset_password_email', None)
-            
-            messages.success(request, "Password updated successfully. Please log in with your new credentials.")
-            return redirect('buyer_login')
         except User.DoesNotExist:
             messages.error(request, "Associated user account was not found.")
+            request.session.pop('reset_password_email', None)
+            request.session.pop('reset_password_verified', None)
             return redirect('buyer_login')
-            
-    return render(request, 'accounts/forgot_password_reset.html')
+
+        # Clear session
+        request.session.pop('reset_password_email', None)
+        request.session.pop('reset_password_verified', None)
+
+        messages.success(request, "Password updated successfully. Please log in with your new credentials.")
+        return redirect('buyer_login')
+
+    return render(request, 'accounts/forgot_password_new.html')
 
 
 @login_required
@@ -1078,7 +1266,7 @@ import os
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.core.files import File
-from apps.accounts.models import LandownerApplication
+from apps.accounts.models import LandownerApplication, RejectedLandownerFlag
 from apps.core.models import Notification
 from datetime import datetime
 
@@ -1111,6 +1299,15 @@ def landowner_register_step1(request):
                 errors.append('Invalid date of birth format.')
         if email and User.objects.filter(email__iexact=email).exists():
             errors.append('An account with this email already exists.')
+        if email:
+            flag = RejectedLandownerFlag.objects.filter(email__iexact=email).order_by('-rejected_at').first()
+            if flag:
+                wait_seconds = 7200 - (timezone.now() - flag.rejected_at).total_seconds()
+                if wait_seconds > 0:
+                    wait_minutes = int(wait_seconds // 60) + 1
+                    errors.append(
+                        f'Your previous application was rejected. You can try again in about {wait_minutes} minute(s).'
+                    )
         if mobile_number and len(mobile_number) < 10:
             errors.append('Invalid mobile number.')
 
@@ -1162,6 +1359,8 @@ def landowner_register_step2(request):
             errors.append('This Aadhaar number has already been used in a pending or approved application.')
         if LandownerApplication.objects.filter(pan_number=pan_number).exclude(status='REJECTED').exists():
             errors.append('This PAN number has already been used in a pending or approved application.')
+        if RejectedLandownerFlag.objects.filter(aadhaar_number=aadhaar_number, pan_number=pan_number).exclude(email__iexact=lo_data.get('email', '')).exists():
+            messages.warning(request, 'These identity details match a previously rejected application and will be flagged for admin review.')
 
         if errors:
             for e in errors:
@@ -1192,6 +1391,14 @@ def landowner_register_step3(request):
         return redirect('landowner_register_step2')
 
     if request.method == 'POST':
+        if request.POST.get('action') == 'back':
+            for key in ['land_name', 'land_address', 'state', 'district', 'pincode', 'total_area', 'ownership_details']:
+                value = request.POST.get(key)
+                if value is not None:
+                    lo_data[key] = value.strip() if isinstance(value, str) else value
+            request.session['lo_reg_data'] = lo_data
+            return redirect('landowner_register_step2')
+
         land_name = request.POST.get('land_name', '').strip()
         land_address = request.POST.get('land_address', '').strip()
         state = request.POST.get('state', '').strip()
@@ -1285,6 +1492,14 @@ def landowner_register_step4(request):
     })
 
 
+def _otp_resend_cooldown(email):
+    """Seconds remaining before an OTP can be resent for this email (0 = allowed now)."""
+    last_otp = EmailOTP.objects.filter(email=email).order_by('-created_at').first()
+    if not last_otp:
+        return 0
+    return max(0, int(60 - (timezone.now() - last_otp.created_at).total_seconds()))
+
+
 def landowner_register_send_otp(request):
     """Send OTP for email verification (step 5)."""
     lo_data = _lo_wizard_data(request)
@@ -1294,13 +1509,12 @@ def landowner_register_send_otp(request):
         return redirect('landowner_register_step1')
 
     # Enforce 1-minute resend cooldown
-    last_otp = EmailOTP.objects.filter(email=email).order_by('-created_at').first()
-    if last_otp:
-        time_diff = (timezone.now() - last_otp.created_at).total_seconds()
-        if time_diff < 60:
-            wait_time = int(60 - time_diff)
-            messages.warning(request, f'Please wait {wait_time} seconds before requesting another OTP.')
-            return render(request, 'accounts/landowner_register.html', {'step': 5, 'data': lo_data, 'otp_sent': True})
+    cooldown = _otp_resend_cooldown(email)
+    if cooldown > 0:
+        messages.warning(request, f'Please wait {cooldown} seconds before requesting another OTP.')
+        return render(request, 'accounts/landowner_register.html', {
+            'step': 5, 'data': lo_data, 'otp_sent': True, 'resend_cooldown': cooldown,
+        })
 
     otp = f"{random.randint(100000, 999999)}"
     EmailOTP.objects.create(email=email, otp_code=otp)
@@ -1325,6 +1539,7 @@ def landowner_register_send_otp(request):
         'step': 5,
         'data': lo_data,
         'otp_sent': True,
+        'resend_cooldown': 60,
     })
 
 
@@ -1341,15 +1556,15 @@ def landowner_register_verify_otp(request):
 
         if not otp:
             messages.error(request, 'Please enter the OTP.')
-            return render(request, 'accounts/landowner_register.html', {'step': 5, 'data': lo_data, 'otp_sent': True})
+            return render(request, 'accounts/landowner_register.html', {'step': 5, 'data': lo_data, 'otp_sent': True, 'resend_cooldown': _otp_resend_cooldown(email)})
 
         record = EmailOTP.objects.filter(email=email, otp_code=otp, is_used=False).order_by('-created_at').first()
         if not record:
             messages.error(request, 'Invalid OTP.')
-            return render(request, 'accounts/landowner_register.html', {'step': 5, 'data': lo_data, 'otp_sent': True})
+            return render(request, 'accounts/landowner_register.html', {'step': 5, 'data': lo_data, 'otp_sent': True, 'resend_cooldown': _otp_resend_cooldown(email)})
         if record.is_expired():
             messages.error(request, 'OTP has expired. Please request a new one.')
-            return render(request, 'accounts/landowner_register.html', {'step': 5, 'data': lo_data, 'otp_sent': True})
+            return render(request, 'accounts/landowner_register.html', {'step': 5, 'data': lo_data, 'otp_sent': True, 'resend_cooldown': _otp_resend_cooldown(email)})
 
         record.is_used = True
         record.save()
@@ -1363,6 +1578,7 @@ def landowner_register_verify_otp(request):
         'step': 5,
         'data': lo_data,
         'otp_sent': True,
+        'resend_cooldown': _otp_resend_cooldown(email),
     })
 
 
@@ -1424,7 +1640,7 @@ def landowner_register_submit(request):
         orig_name = lo_data.get(f'{field_name}_name', field_name)
         if temp_path and default_storage.exists(temp_path):
             with default_storage.open(temp_path) as f:
-                getattr(app, field_name).save(orig_name, File(f))
+                getattr(app, field_name).save(f'{field_name}_{orig_name}', File(f))
             default_storage.delete(temp_path)
     app.save(update_fields=['aadhaar_document', 'pan_document', 'ownership_document'])
 
@@ -1496,6 +1712,37 @@ def landowner_register_success(request):
     return render(request, 'accounts/landowner_register.html', {
         'step': 'done',
     })
+
+
+def landowner_register_cancel(request):
+    """Abandons an in-progress landowner registration: clears the wizard
+    session data and deletes any documents staged in temp storage. Only the
+    pending session is touched; no user/application records are affected."""
+    if request.method != 'POST':
+        return redirect('landowner_register_step1')
+
+    lo_data = request.session.get('lo_reg_data', {})
+    if lo_data:
+        from django.core.files.storage import default_storage
+
+        session_key = request.session.session_key or 'nosession'
+        for field_name in ['aadhaar_document', 'pan_document', 'ownership_document']:
+            temp_path = lo_data.get(f'{field_name}_path')
+            if temp_path and default_storage.exists(temp_path):
+                default_storage.delete(temp_path)
+        try:
+            folder = f'temp_lo_app/{session_key}'
+            for name in default_storage.listdir(folder)[1]:
+                default_storage.delete(f'{folder}/{name}')
+            default_storage.delete(folder)
+        except Exception:
+            pass
+        request.session.pop('lo_reg_data', None)
+        messages.info(request, 'Your in-progress registration has been cleared.')
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'done'})
+    return redirect('landowner_login')
 
 
 # ---------------------------------------------------------------------------
@@ -1619,12 +1866,14 @@ def admin_landowner_reject(request, app_id):
     if not reason:
         return JsonResponse({'error': 'Rejection reason is required.'}, status=400)
 
+    applicant_name = app.first_name
+    applicant_email = app.email
     app.reject(admin_user=request.user, reason=reason)
 
     send_mail(
         subject='[Lease Monkey] Landowner Registration Update',
         message=(
-            f'Dear {app.first_name},\n\n'
+            f'Dear {applicant_name},\n\n'
             f'Thank you for your interest in registering as a Landowner with Lease Monkey.\n\n'
             f'After reviewing your application (ID: #{app.pk}), we regret to inform you that it has been rejected.\n\n'
             f'Reason: {reason}\n\n'
@@ -1632,7 +1881,7 @@ def admin_landowner_reject(request, app_id):
             f'— The Lease Monkey Team'
         ),
         from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[app.email],
+        recipient_list=[applicant_email],
         fail_silently=True,
     )
 

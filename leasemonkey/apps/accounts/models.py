@@ -2,9 +2,17 @@ import re
 import random
 import secrets
 import string
+import uuid
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
+
+
+def get_profile_pic_path(instance, filename):
+    """Stores profile pictures under a folder named after the user."""
+    ext = filename.split('.')[-1] if '.' in filename else ''
+    name = f"{uuid.uuid4().hex[:8]}_{uuid.uuid4().hex[:8]}.{ext}"
+    return f"profile_pics/{instance.username}/{name}"
 
 class UserManager(BaseUserManager):
     def create_user(self, username, email=None, password=None, **extra_fields):
@@ -62,11 +70,10 @@ class User(AbstractUser):
     is_first_login = models.BooleanField(default=True)
     date_of_birth = models.DateField(null=True, blank=True)
     
-    profile_picture = models.ImageField(upload_to='profile_pics/', null=True, blank=True)
+    profile_picture = models.ImageField(upload_to=get_profile_pic_path, null=True, blank=True)
     address = models.CharField(max_length=255, null=True, blank=True)
     city = models.CharField(max_length=100, null=True, blank=True)
     state = models.CharField(max_length=100, null=True, blank=True)
-    country = models.CharField(max_length=100, null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -111,6 +118,12 @@ class UserPreferences(models.Model):
         return f"Preferences for {self.user.username}"
 
 
+def get_landowner_doc_path(instance, filename):
+    """Stores application documents under a folder tagged with the application id + email."""
+    email = re.sub(r'[^a-zA-Z0-9._+-@]', '_', instance.email or 'noemail')
+    return f"landowner_applications/app_{instance.pk}_{email}/{filename}"
+
+
 class LandownerApplication(models.Model):
     APPLICATION_STATUS = [
         ('PENDING', 'Pending'),
@@ -122,7 +135,7 @@ class LandownerApplication(models.Model):
     # Personal Information (Step 1)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
-    date_of_birth = models.DateField()
+    date_of_birth = models.DateField(null=True, blank=True)
     mobile_number = models.CharField(max_length=15)
     email = models.EmailField()
 
@@ -136,13 +149,13 @@ class LandownerApplication(models.Model):
     state = models.CharField(max_length=100)
     district = models.CharField(max_length=100)
     pincode = models.CharField(max_length=6)
-    total_area = models.DecimalField(max_digits=10, decimal_places=2)
+    total_area = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     ownership_details = models.TextField()
 
     # Document Upload (Step 4)
-    aadhaar_document = models.FileField(upload_to='landowner_applications/documents/')
-    pan_document = models.FileField(upload_to='landowner_applications/documents/')
-    ownership_document = models.FileField(upload_to='landowner_applications/documents/')
+    aadhaar_document = models.FileField(upload_to=get_landowner_doc_path)
+    pan_document = models.FileField(upload_to=get_landowner_doc_path)
+    ownership_document = models.FileField(upload_to=get_landowner_doc_path)
 
     # Verification
     email_verified = models.BooleanField(default=False)
@@ -203,10 +216,55 @@ class LandownerApplication(models.Model):
         return user, password
 
     def reject(self, admin_user, reason=''):
+        # Retain only the identifying numbers for future flagging; email is kept
+        # as the lookup key for the re-registration cooldown.
+        RejectedLandownerFlag.objects.create(
+            email=self.email,
+            aadhaar_number=self.aadhaar_number,
+            pan_number=self.pan_number,
+        )
+        # Remove uploaded documents from storage.
+        for field in ['aadhaar_document', 'pan_document', 'ownership_document']:
+            f = getattr(self, field)
+            if f and f.name:
+                f.delete(save=False)
+        # Scrub all application data except aadhaar + pan.
+        self.first_name = ''
+        self.last_name = ''
+        self.date_of_birth = None
+        self.mobile_number = ''
+        self.email = ''
+        self.land_name = ''
+        self.land_address = ''
+        self.state = ''
+        self.district = ''
+        self.pincode = ''
+        self.total_area = None
+        self.ownership_details = ''
+        self.admin_remarks = ''
+        self.email_verified = False
+        self.approved_user = None
         self.status = 'REJECTED'
         self.rejection_reason = reason
         self.reviewed_at = timezone.now()
-        self.save(update_fields=['status', 'rejection_reason', 'reviewed_at', 'updated_at'])
+        self.save()
+
+
+class RejectedLandownerFlag(models.Model):
+    """Lightweight record kept when a landowner application is rejected.
+    Contains only the identifiers used to flag the applicant on future
+    re-registration attempts (email is the cooldown lookup key)."""
+
+    email = models.EmailField(db_index=True)
+    aadhaar_number = models.CharField(max_length=12)
+    pan_number = models.CharField(max_length=10)
+    rejected_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-rejected_at']
+
+    def __str__(self):
+        return f"Rejected flag {self.aadhaar_number} / {self.pan_number}"
 
 
 class OCRValidation(models.Model):

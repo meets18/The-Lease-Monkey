@@ -34,6 +34,19 @@ def get_cashfree_base_url():
     return 'https://sandbox.cashfree.com/pg'
 
 
+PAYMENT_METHOD_LABELS = {
+    'upi': 'UPI',
+    'card': 'Credit Card',
+    'netbanking': 'Netbanking',
+}
+
+
+def get_payment_method_label(request):
+    """Resolve the payment method selected in the checkout modal to a display label."""
+    raw = request.POST.get('payMethod', '').strip().lower()
+    return PAYMENT_METHOD_LABELS.get(raw, raw or 'UPI')
+
+
 def notify_admin_payment_received(land, landowner, amount):
     """Notify all admins that a landowner has paid; admin now needs to digitize and publish."""
     admins = User.objects.filter(role=User.ADMIN)
@@ -215,7 +228,9 @@ def create_cashfree_order(request, slug):
                 subscription=sub, user=request.user,
                 transaction_id=order_id, order_id=order_id,
                 payment_session_id=payment_session_id,
-                amount=amount, payment_method='Cashfree Sandbox', status='pending'
+                amount=amount,
+                payment_method=get_payment_method_label(request),
+                status='pending'
             )
             return JsonResponse({
                 'success': True,
@@ -275,13 +290,39 @@ def cashfree_return(request):
                 )
             else:
                 messages.success(request, "Payment received! Admin has been notified.")
-            return redirect('/accounts/landowner/dashboard/?payment=success#payments')
+            return redirect('/accounts/dashboard/landowner/?payment=success#payments')
         else:
-            order_status = res_data.get('order_status', 'PENDING')
-            messages.warning(request, f"Payment not yet complete. Status: {order_status}. Please try again from your Payments tab.")
-            return redirect('/accounts/landowner/dashboard/#payments')
-    except Exception as e:
+            # Payment was cancelled, abandoned, or the order/session expired.
+            # Record the cancellation WITHOUT activating anything: subscription,
+            # registration status, land visibility, and admin notifications stay untouched.
+            tx = PaymentTransaction.objects.filter(order_id=order_id).first()
+            if tx and tx.status == 'pending':
+                tx.status = 'cancelled'
+                tx.save(update_fields=['status'])
+            messages.info(
+                request,
+                "Your payment was not completed. No charges were made and your registration is still awaiting payment. "
+                "You may complete the payment anytime before the payment deadline."
+            )
+            return redirect('/accounts/dashboard/landowner/?payment=cancelled#payments')
+    except requests.exceptions.RequestException as e:
         messages.error(request, f"Error verifying payment: {str(e)}")
+        return redirect('landowner_dashboard')
+    except (ValueError, KeyError) as e:
+        # Unparseable or unexpected gateway response — never crash, send user back safely.
+        tx = PaymentTransaction.objects.filter(order_id=order_id).first()
+        if tx and tx.status == 'pending':
+            tx.status = 'cancelled'
+            tx.save(update_fields=['status'])
+        messages.info(
+            request,
+            "Your payment was not completed. No charges were made and your registration is still awaiting payment. "
+            "You may complete the payment anytime before the payment deadline."
+        )
+        return redirect('/accounts/dashboard/landowner/?payment=cancelled#payments')
+    except Exception:
+        # Absolute safety net — any unexpected failure returns the user to their dashboard.
+        messages.warning(request, "Payment verification could not be completed. Please check your Payments tab.")
         return redirect('landowner_dashboard')
 
 
@@ -342,7 +383,7 @@ def process_demo_payment(request, slug):
         transaction_id=f"LM-PAY-{uuid.uuid4().hex[:8].upper()}",
         order_id=f"demo_{uuid.uuid4().hex[:10]}",
         amount=236.00,
-        payment_method=request.POST.get('payMethod', 'Cashfree Sandbox'),
+        payment_method=get_payment_method_label(request),
         status='success'
     )
 

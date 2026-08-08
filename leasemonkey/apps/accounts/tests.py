@@ -235,7 +235,7 @@ class OnboardingFlowTests(TestCase):
         self.assertEqual(prefs.property_condition, 'never_leased')
 
     def test_forgot_password_flow(self):
-        """Verify forgot password email verification and OTP password updates."""
+        """Verify forgot password: email check, separate OTP verification, then new password."""
         buyer = User.objects.create_user(
             username='recover_buyer',
             email='recover@test.com',
@@ -244,9 +244,14 @@ class OnboardingFlowTests(TestCase):
             is_verified=True
         )
 
+        # Unregistered email must be rejected
+        response = self.client.post(reverse('forgot_password'), {'email': 'nobody@test.com'})
+        self.assertEqual(response.status_code, 200)
+
         # Request reset OTP
         response = self.client.post(reverse('forgot_password'), {'email': 'recover@test.com'})
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('forgot_password_otp'))
 
         # Get generated OTP
         from apps.core.models import EmailOTP
@@ -257,14 +262,41 @@ class OnboardingFlowTests(TestCase):
         session['reset_password_email'] = 'recover@test.com'
         session.save()
 
-        # Submit OTP and new password
-        payload = {
-            'otp': record.otp_code,
-            'new_password': 'NewPassword123!',
-            'confirm_password': 'NewPassword123!'
-        }
-        response = self.client.post(reverse('forgot_password_reset'), payload)
+        # Wrong OTP stays on the verification page with an error
+        response = self.client.post(reverse('forgot_password_otp'), {'otp': '000000'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Invalid verification code.')
+
+        # Correct OTP moves to the new-password step (OTP page must not set the password)
+        response = self.client.post(reverse('forgot_password_otp'), {'otp': record.otp_code})
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('forgot_password_new'))
+        buyer.refresh_from_db()
+        self.assertTrue(buyer.check_password('OldPassword123!'))
+
+        # New-password step without verification flag is rejected
+        session = self.client.session
+        session.pop('reset_password_verified', None)
+        session.save()
+        response = self.client.post(
+            reverse('forgot_password_new'),
+            {'new_password': 'NewPassword123!', 'confirm_password': 'NewPassword123!'}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('forgot_password_otp'))
+
+        # Verify OTP again, then set the new password
+        EmailOTP.objects.create(email='recover@test.com', otp_code='654321')
+        response = self.client.post(reverse('forgot_password_otp'), {'otp': '654321'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('forgot_password_new'))
+
+        response = self.client.post(
+            reverse('forgot_password_new'),
+            {'new_password': 'NewPassword123!', 'confirm_password': 'NewPassword123!'}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('buyer_login'))
 
         # Verify password updated successfully by trying to authenticate
         user = authenticate(username='recover_buyer', password='NewPassword123!')
@@ -636,5 +668,86 @@ class LandownerOnboardingAndManagementTests(TestCase):
         
         # Check land is deleted (cascaded)
         self.assertFalse(Land.objects.filter(pk=land.pk).exists())
+
+
+class RejectedLandownerFlagTests(TestCase):
+    def setUp(self):
+        from datetime import date
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.accounts.models import LandownerApplication
+
+        self.admin = User.objects.create_user(
+            username='reject_admin', email='reject_admin@test.com',
+            password='AdminPassword123!', role='ADMIN', is_verified=True,
+        )
+        dummy = SimpleUploadedFile("doc.jpg", b"file_content", content_type="image/jpeg")
+        self.app = LandownerApplication.objects.create(
+            first_name='Ravi', last_name='Kumar',
+            date_of_birth=date(1990, 1, 1), mobile_number='9876543210',
+            email='ravi.kumar@test.com', aadhaar_number='111122223333',
+            pan_number='ABCDE1234F', land_name='Green Farm',
+            land_address='Village Rd', state='Rajasthan', district='Jaipur',
+            pincode='302001', total_area=3.50, ownership_details='Self Owned',
+            aadhaar_document=dummy, pan_document=dummy, ownership_document=dummy,
+            email_verified=True,
+        )
+
+    def test_reject_keeps_only_aadhaar_and_pan(self):
+        from apps.accounts.models import RejectedLandownerFlag
+        self.app.reject(admin_user=self.admin, reason='Fraudulent documents')
+
+        flag = RejectedLandownerFlag.objects.filter(email='ravi.kumar@test.com').first()
+        self.assertIsNotNone(flag)
+        self.assertEqual(flag.aadhaar_number, '111122223333')
+        self.assertEqual(flag.pan_number, 'ABCDE1234F')
+
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.status, 'REJECTED')
+        self.assertEqual(self.app.rejection_reason, 'Fraudulent documents')
+        self.assertEqual(self.app.first_name, '')
+        self.assertEqual(self.app.email, '')
+        self.assertEqual(self.app.land_name, '')
+        self.assertIsNone(self.app.date_of_birth)
+        self.assertIsNone(self.app.total_area)
+        self.assertFalse(self.app.aadhaar_document)
+        self.assertFalse(self.app.pan_document)
+        self.assertFalse(self.app.ownership_document)
+        self.assertEqual(self.app.aadhaar_number, '111122223333')
+        self.assertEqual(self.app.pan_number, 'ABCDE1234F')
+
+    def test_re_registration_blocked_within_two_hours(self):
+        from apps.accounts.models import RejectedLandownerFlag
+        RejectedLandownerFlag.objects.create(
+            email='ravi.kumar@test.com',
+            aadhaar_number='111122223333',
+            pan_number='ABCDE1234F',
+        )
+        response = self.client.post(reverse('landowner_register_step1'), {
+            'first_name': 'Ravi', 'last_name': 'Kumar',
+            'date_of_birth': '1990-01-01', 'mobile_number': '9876543210',
+            'email': 'ravi.kumar@test.com',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'previous application was rejected')
+
+    def test_re_registration_allowed_after_two_hours(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        from apps.accounts.models import RejectedLandownerFlag
+        flag = RejectedLandownerFlag.objects.create(
+            email='ravi.kumar@test.com',
+            aadhaar_number='111122223333',
+            pan_number='ABCDE1234F',
+        )
+        RejectedLandownerFlag.objects.filter(pk=flag.pk).update(
+            rejected_at=timezone.now() - timedelta(hours=3)
+        )
+        response = self.client.post(reverse('landowner_register_step1'), {
+            'first_name': 'Ravi', 'last_name': 'Kumar',
+            'date_of_birth': '1990-01-01', 'mobile_number': '9876543210',
+            'email': 'ravi.kumar@test.com',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('landowner_register_step2'), response.url)
 
 

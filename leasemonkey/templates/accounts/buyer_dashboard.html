@@ -9,8 +9,14 @@
     <aside class="sidebar-wrapper d-none d-lg-flex flex-column p-4 border-end border-secondary-glow bg-dark-glow">
         <!-- Profile summary card -->
         <div class="user-profile-badge p-3 rounded-3 mb-4 text-center border border-secondary-glow">
-            <div class="profile-avatar mb-2 mx-auto"><i class="bi bi-person-fill fs-3 text-primary-glow"></i></div>
-            <h5 class="text-white font-ranade fw-bold mb-1 fs-15">{{ user.email }}</h5>
+            <div class="profile-avatar mb-2 mx-auto">
+                {% if user.profile_picture %}
+                    <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" class="profile-avatar-img">
+                {% else %}
+                    <i class="bi bi-person-fill fs-3 text-primary-glow"></i>
+                {% endif %}
+            </div>
+            <h5 class="text-white font-ranade fw-bold mb-1 fs-15">{{ user.username }}</h5>
             <span class="badge bg-success-glow fs-11 text-uppercase">Active Buyer</span>
         </div>
 

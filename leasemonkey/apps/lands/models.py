@@ -24,6 +24,18 @@ class Land(models.Model):
         max_length=255,
         default='Sitapura, Jaipur'
     )
+    city_village = models.CharField(
+        max_length=150,
+        default='',
+        blank=True,
+        help_text="City or village where the land is located"
+    )
+    state = models.CharField(
+        max_length=100,
+        default='',
+        blank=True,
+        help_text="State where the land is located"
+    )
     slug = models.SlugField(
         max_length=150,
         unique=True,
@@ -244,6 +256,7 @@ class LandRegistrationRequest(models.Model):
         ('payment_completed', 'Payment Received — Awaiting Build'),
         ('being_added', 'Being Digitized'),
         ('approved', 'Approved'),
+        ('awaiting_publish_approval', 'Awaiting Publish Approval'),
         ('live', 'Live'),
         ('rejected', 'Rejected'),
         ('deleted', 'Deleted'),

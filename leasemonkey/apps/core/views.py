@@ -10,6 +10,7 @@ from .models import Notification
 
 
 from django.shortcuts import redirect, render
+from django.db.models import Case, IntegerField, Q, Value, When
 from apps.lands.models import Land, SavedPlot, Plot
 from apps.core.models import PurchaseRequest, Notification
 
@@ -42,7 +43,26 @@ class LandingPageView(TemplateView):
                 lands_qs = lands_qs.filter(average_plot_price__gte=prefs.min_budget)
             if prefs.max_budget:
                 lands_qs = lands_qs.filter(average_plot_price__lte=prefs.max_budget)
-            recommended_lands = lands_qs.order_by('-created_at')[:6]
+
+            # Prefer land in the same city/village or state as the buyer
+            city = (user.city or '').strip()
+            state = (user.state or '').strip()
+            area_match = Q()
+            if city:
+                area_match |= Q(city_village__iexact=city)
+            if state:
+                area_match |= Q(state__iexact=state)
+            if city or state:
+                lands_qs = lands_qs.annotate(
+                    area_priority=Case(
+                        When(area_match, then=Value(0)),
+                        default=Value(1),
+                        output_field=IntegerField(),
+                    )
+                )
+                recommended_lands = lands_qs.order_by('area_priority', '-created_at')[:6]
+            else:
+                recommended_lands = lands_qs.order_by('-created_at')[:6]
             # Fallback: if no matches after filtering, show latest
             if not recommended_lands.exists():
                 recommended_lands = Land.objects.filter(is_live=True).order_by('-created_at')[:6]

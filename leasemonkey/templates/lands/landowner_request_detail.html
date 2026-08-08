@@ -138,7 +138,21 @@
                     <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#DBEAFE;color:#1D4ED8;">Being Digitized</span>
                 {% elif req.status == 'approved' %}
                     <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#DCFCE7;color:#166534;">Waiting to Go Live</span>
-                {% elif req.status == 'live' %}
+                {% elif req.status == 'awaiting_publish_approval' %}
+                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#FEF3C7;color:#92400E;">Awaiting Admin Approval</span>
+        {% elif req.status == 'awaiting_publish_approval' %}
+        <div class="alert border-0 shadow-sm rounded-3 p-3 mb-4 fs-14" style="background-color: #FFFBEB; border-left: 4px solid #D97706 !important; color: #92400E;">
+            <div class="d-flex align-items-start gap-2">
+                <div style="font-size: 16px; flex-shrink: 0; margin-top: 1px;">
+                    <i class="bi bi-hourglass-split" style="color: #D97706;"></i>
+                </div>
+                <div>
+                    <strong class="fw-bold d-block mb-0.5" style="color: #B45309;">Publishing Request Submitted</strong>
+                    <span>You have requested to publish this property. An administrator will review it and make it live once everything is verified. You will be notified as soon as it is published.</span>
+                </div>
+            </div>
+        </div>
+        {% elif req.status == 'live' %}
                     <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#DCFCE7;color:#166534;">Live</span>
                 {% elif req.status == 'rejected' %}
                     <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#FEE2E2;color:#B91C1C;">Rejected</span>
@@ -168,13 +182,13 @@
                     <div class="timeline-label">Submitted</div>
                 </div>
 
-                {% if req.status == 'live' or req.status == 'approved' or req.status == 'being_added' or req.status == 'under_review' or req.status == 'pending' %}
+                {% if req.status == 'live' or req.status == 'approved' or req.status == 'awaiting_publish_approval' or req.status == 'being_added' or req.status == 'under_review' or req.status == 'pending' %}
                 <div class="timeline-connector completed"></div>
                 {% else %}
                 <div class="timeline-connector future"></div>
                 {% endif %}
 
-                {% if req.status == 'live' or req.status == 'approved' or req.status == 'being_added' %}
+                {% if req.status == 'live' or req.status == 'approved' or req.status == 'awaiting_publish_approval' or req.status == 'being_added' %}
                 <div class="timeline-step completed">
                     <div class="timeline-circle"><i class="bi bi-check-lg"></i></div>
                     <div class="timeline-label">Pending Review</div>
@@ -191,13 +205,13 @@
                 </div>
                 {% endif %}
 
-                {% if req.status == 'live' or req.status == 'approved' or req.status == 'being_added' %}
+                {% if req.status == 'live' or req.status == 'approved' or req.status == 'awaiting_publish_approval' or req.status == 'being_added' %}
                 <div class="timeline-connector completed"></div>
                 {% else %}
                 <div class="timeline-connector future"></div>
                 {% endif %}
 
-                {% if req.status == 'live' or req.status == 'approved' %}
+                {% if req.status == 'live' or req.status == 'approved' or req.status == 'awaiting_publish_approval' %}
                 <div class="timeline-step completed">
                     <div class="timeline-circle"><i class="bi bi-check-lg"></i></div>
                     <div class="timeline-label">Being Digitized</div>
@@ -214,13 +228,13 @@
                 </div>
                 {% endif %}
 
-                {% if req.status == 'live' or req.status == 'approved' %}
+                {% if req.status == 'live' or req.status == 'approved' or req.status == 'awaiting_publish_approval' %}
                 <div class="timeline-connector completed"></div>
                 {% else %}
                 <div class="timeline-connector future"></div>
                 {% endif %}
 
-                {% if req.status == 'live' %}
+                {% if req.status == 'live' or req.status == 'awaiting_publish_approval' %}
                 <div class="timeline-step completed">
                     <div class="timeline-circle"><i class="bi bi-check-lg"></i></div>
                     <div class="timeline-label">Approved</div>
@@ -237,7 +251,7 @@
                 </div>
                 {% endif %}
 
-                {% if req.status == 'live' %}
+                {% if req.status == 'live' or req.status == 'awaiting_publish_approval' %}
                 <div class="timeline-connector completed"></div>
                 {% else %}
                 <div class="timeline-connector future"></div>
@@ -247,6 +261,11 @@
                 <div class="timeline-step current">
                     <div class="timeline-circle"><i class="bi bi-globe2"></i></div>
                     <div class="timeline-label">Live</div>
+                </div>
+                {% elif req.status == 'awaiting_publish_approval' %}
+                <div class="timeline-step current">
+                    <div class="timeline-circle"><i class="bi bi-hourglass-split"></i></div>
+                    <div class="timeline-label">Awaiting Admin Approval</div>
                 </div>
                 {% else %}
                 <div class="timeline-step future">

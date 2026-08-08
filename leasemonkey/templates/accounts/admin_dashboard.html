@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load wizard_tags %}
 
 {% block title %}Admin Dashboard — The Lease Monkey{% endblock %}
 
@@ -11,7 +12,11 @@
         <!-- Profile summary badge -->
         <div class="user-profile-badge p-3 rounded-3 mb-4 text-center border border-secondary-glow">
             <div class="profile-avatar mb-2 mx-auto">
-                <i class="bi bi-shield-lock-fill fs-3 text-cyan-glow"></i>
+                {% if user.profile_picture %}
+                    <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" class="profile-avatar-img">
+                {% else %}
+                    <i class="bi bi-shield-lock-fill fs-3 text-cyan-glow"></i>
+                {% endif %}
             </div>
             <h5 class="text-white font-ranade fw-bold mb-1 fs-15">{{ user.username }}</h5>
             <span class="badge bg-admin-glow fs-11 text-uppercase">System Admin</span>
@@ -270,6 +275,8 @@
                                 <i class="bi bi-grid-3x3-gap fs-4 text-warning"></i>
                                 {% elif notif.notif_type == 'request_approved' %}
                                 <i class="bi bi-check-circle-fill fs-4 text-success"></i>
+                                {% elif notif.notif_type == 'publish_request' %}
+                                <i class="bi bi-rocket-takeoff-fill fs-4 text-warning"></i>
                                 {% else %}
                                 <i class="bi bi-bell-fill fs-4 text-cyan-glow"></i>
                                 {% endif %}
@@ -283,6 +290,14 @@
                                     </div>
                                 </div>
                                 <p class="text-muted-glow fs-13 mb-0 text-truncate" style="max-width: 500px;">{{ notif.message }}</p>
+
+                                {% if notif.id in notif_request_urls %}
+                                <a href="{{ notif_request_urls|get_item:notif.id }}" class="btn btn-sm px-3 py-1 fs-11 fw-bold text-uppercase mt-2 text-decoration-none"
+                                   onclick="event.stopPropagation();"
+                                   style="background:rgba(249,109,0,0.15);border:1px solid rgba(249,109,0,0.3);color:#fb923c;">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i> View Request
+                                </a>
+                                {% endif %}
 
                                 {% if notif.notif_type == 'land_delete_request' or notif.notif_type == 'plot_delete_request' %}
                                 {% if not notif.is_read %}
@@ -453,6 +468,10 @@
                                         Digitized</span>
                                     {% elif req.status == 'approved' %}
                                     <span class="badge bg-success-glow text-uppercase fs-9">Approved (Offline)</span>
+                                    {% elif req.status == 'awaiting_publish_approval' %}
+                                    <span class="badge bg-warning-glow text-uppercase fs-9"
+                                        style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24;">Publishing
+                                        Requested by Landowner</span>
                                     {% elif req.status == 'live' %}
                                     <span class="badge bg-success-glow text-uppercase fs-9"
                                         style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399;">Live</span>
@@ -629,6 +648,7 @@
                         <option value="all">All Statuses</option>
                         <option value="success">Success</option>
                         <option value="pending">Pending</option>
+                        <option value="cancelled">Cancelled</option>
                         <option value="failed">Failed</option>
                     </select>
                 </div>
@@ -683,6 +703,8 @@
                                 <span class="badge bg-success-glow fs-10 px-2 py-1">Success</span>
                                 {% elif txn.status == 'pending' %}
                                 <span class="badge bg-warning-glow fs-10 px-2 py-1">Pending</span>
+                                {% elif txn.status == 'cancelled' %}
+                                <span class="badge bg-secondary fs-10 px-2 py-1" style="background: rgba(148, 163, 184, 0.15) !important; color: #94a3b8;">Cancelled</span>
                                 {% else %}
                                 <span class="badge bg-danger-glow fs-10 px-2 py-1">Failed</span>
                                 {% endif %}

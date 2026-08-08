@@ -1856,6 +1856,8 @@ def admin_register_land_from_request(request, req_id):
             name=req.property_name,
             owner=req.owner,
             location=location,
+            city_village=req.city_village or '',
+            state=req.state or '',
             area=0.00,
             average_plot_price=req.average_plot_price,
             description=req.description,
@@ -2098,6 +2100,69 @@ def admin_finish_registration(request, req_id):
 
     messages.success(request, f"Registration layout for '{req.property_name}' finalized successfully.")
     return JsonResponse({'status': 'success', 'redirect_url': '/accounts/dashboard/'})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LANDOWNER PUBLISH REQUEST — landowner asks admin to publish; admin approves
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+@require_POST
+def landowner_request_publish(request, req_id):
+    """
+    Landowner requests publishing of their digitized (approved, offline) property.
+    Creates an admin notification and sets status to 'awaiting_publish_approval'.
+    Does NOT set land.is_live — only an admin can publish.
+    """
+    from apps.lands.models import LandRegistrationRequest
+    from apps.core.models import Notification
+    from apps.accounts.models import User
+
+    req = get_object_or_404(LandRegistrationRequest, pk=req_id)
+
+    # Only the owning landowner can request publish (admins/superusers may too for testing)
+    is_owner = request.user == req.owner
+    is_admin = request.user.role == 'ADMIN' or request.user.is_superuser
+    if not (is_owner or is_admin):
+        raise PermissionDenied
+
+    if not req.land:
+        return JsonResponse({'success': False, 'error': 'No land layout has been created for this request yet.'}, status=400)
+
+    if req.status == 'live':
+        return JsonResponse({'success': False, 'error': 'This property is already live.'}, status=400)
+
+    if req.status == 'awaiting_publish_approval':
+        return JsonResponse({'success': False, 'error': 'A publish request is already awaiting admin approval.'}, status=400)
+
+    if req.status != 'approved':
+        return JsonResponse({
+            'success': False,
+            'error': 'Publishing can only be requested once the layout has been fully digitized.'
+        }, status=400)
+
+    req.status = 'awaiting_publish_approval'
+    req.save(update_fields=['status'])
+
+    # Notify every admin
+    admins = User.objects.filter(role=User.ADMIN)
+    for admin in admins:
+        Notification.objects.create(
+            recipient=admin,
+            sender=request.user,
+            notif_type='publish_request',
+            title=f'📢 Publishing Request — {req.property_name}',
+            message=(
+                f'Landowner has requested to publish "{req.property_name}". '
+                f'Review and publish if everything is ready.'
+            ),
+            land_slug=req.land.slug,
+        )
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Publish request sent to admin. You will be notified once it is approved.',
+    })
 
 
 # ─────────────────────────────────────────────────────────────────────────────

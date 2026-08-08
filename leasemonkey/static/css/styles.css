@@ -2991,40 +2991,52 @@ footer {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PAGE LOADER OVERLAY
-   Full-screen spinner shown during page navigation transitions.
+   NAVBAR PROGRESS BAR (Browser-style)
+   Thin blue progress bar beneath the navbar. The page stays fully
+   visible; this indicator never blocks, darkens, or fades content.
    ═══════════════════════════════════════════════════════════════ */
 #pageLoader {
     position: fixed;
-    inset: 0;
+    top: 56px;
+    left: 0;
+    right: 0;
+    height: 3px;
     z-index: 99999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(10, 14, 26, 0.88);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    opacity: 1;
-    transition: opacity 0.35s ease;
-}
-
-#pageLoader.loader-hidden {
-    opacity: 0;
+    display: none;
+    overflow: visible;
     pointer-events: none;
 }
 
-/* Spinning ring */
-.page-loader-spinner {
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    border: 3px solid rgba(255, 255, 255, 0.08);
-    border-top-color: #0EA5E9;
-    border-right-color: #F97316;
-    animation: loaderSpin 0.75s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-    box-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
+.page-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #2563EB;
+    border-radius: 0 3px 3px 0;
+    box-shadow: 0 0 10px rgba(37, 99, 235, 0.55), 0 0 3px rgba(37, 99, 235, 0.4);
+    transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes loaderSpin {
-    to { transform: rotate(360deg); }
+#pageLoader.top-progress-fade {
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Success alerts auto-dismiss after ~5s with a smooth fade-out.
+   ═══════════════════════════════════════════════════════════════ */
+.alert-success {
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.alert-success.alert-fading {
+    opacity: 0;
+    transform: translateY(-6px);
+}
+
+/* Profile picture inside the circular sidebar avatar on dashboards */
+.profile-avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
 }
