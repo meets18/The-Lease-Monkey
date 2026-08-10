@@ -1,5 +1,6 @@
 import json
 import random
+import re
 from decimal import Decimal
 
 from django.shortcuts import render, redirect
@@ -19,6 +20,22 @@ from apps.accounts.utils import (
     parse_indian_number,
     format_indian_numeral
 )
+
+
+def _normalize_phone(phone):
+    """Digits-only form of a phone number; drops any leading country code."""
+    digits = re.sub(r'\D', '', phone or '')
+    return digits[-10:]
+
+
+def _phone_taken(phone, exclude_pk=None):
+    """True if the phone number (in any +CC/10-digit format) is already
+    registered to a user account, optionally ignoring a specific user."""
+    norm = _normalize_phone(phone)
+    if not norm:
+        return False
+    qs = User.objects.exclude(phone_number=None).exclude(pk=exclude_pk)
+    return any(_normalize_phone(p) == norm for p in qs.values_list('phone_number', flat=True))
 
 
 def _format_price_lakhs(value):
@@ -143,7 +160,7 @@ def landowner_login(request):
     """Handles authentication checks for the Land Owner Portal."""
     if request.user.is_authenticated:
         if request.user.role == User.LAND_OWNER:
-            return redirect('/')
+            return redirect('landowner_dashboard')
         logout(request)
 
     if request.method == 'POST':
@@ -160,7 +177,7 @@ def landowner_login(request):
             if user.role == User.LAND_OWNER:
                 if user.status == User.ACTIVE:
                     login(request, user)
-                    return redirect('/')
+                    return redirect('landowner_dashboard')
                 elif user.status == User.PENDING:
                     messages.error(request, 'Your landowner profile status is pending administrative approval.')
                 else:
@@ -207,8 +224,10 @@ def landowner_dashboard(request):
         if not request.user.is_superuser:
             raise PermissionDenied("You do not have access to this portal.")
 
-    # Redirect to onboarding if first login
-    if request.user.role == User.LAND_OWNER and request.user.is_first_login:
+    # Redirect to onboarding if first login (unless the user came to read
+    # notifications from the navbar bell — that must never bounce)
+    if request.user.role == User.LAND_OWNER and request.user.is_first_login \
+            and request.GET.get('tab') != 'notifs':
         return redirect('onboarding_landowner')
 
     from apps.lands.models import Land, OccupancyRecord, LandRegistrationRequest
@@ -397,7 +416,16 @@ def _process_profile_post(request, user, section):
     if action == 'update_profile':
         user.first_name = request.POST.get('first_name', '').strip()
         user.last_name = request.POST.get('last_name', '').strip()
-        user.phone_number = request.POST.get('phone_number', '').strip()
+        phone = request.POST.get('phone_number', '').strip()
+        if phone and _phone_taken(phone, exclude_pk=user.pk):
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse(
+                    {'status': 'error', 'message': 'This phone number is already registered to another account.'},
+                    status=400,
+                )
+            messages.error(request, 'This phone number is already registered to another account.')
+            return redirect(request.path + f'?section={section}')
+        user.phone_number = phone
         user.address = request.POST.get('address', '').strip() or None
         user.city = request.POST.get('city', '').strip() or None
         user.state = request.POST.get('state', '').strip() or None
@@ -543,6 +571,9 @@ def profile(request):
 def landowner_profile(request):
     user = request.user
     section = request.GET.get('section', 'personal')
+    if section not in ('personal', 'security'):
+        # Landowners have no preferences section; never honour it
+        section = 'personal'
     if request.method == 'POST':
         result = _process_profile_post(request, user, section)
         if result:
@@ -750,7 +781,7 @@ def buyer_register(request):
         # Phone uniqueness check
         full_phone = f"{phone_country_code}{phone_number}"
         full_phone = re.sub(r'[\s\-]', '', full_phone)
-        if phone_number and User.objects.filter(phone_number=full_phone).exists():
+        if phone_number and _phone_taken(full_phone):
             add_field_error('phone', "An account with this phone number already exists.")
 
         if field_errors:
@@ -1310,6 +1341,8 @@ def landowner_register_step1(request):
                     )
         if mobile_number and len(mobile_number) < 10:
             errors.append('Invalid mobile number.')
+        if mobile_number and _phone_taken(mobile_number):
+            errors.append('An account with this phone number already exists.')
 
         if errors:
             for e in errors:
@@ -1666,8 +1699,9 @@ def landowner_register_submit(request):
             message=f'{app.first_name} {app.last_name} ({app.email}) has submitted a landowner registration application.',
             landowner_application=app,
         )
-    # Also send email to all admin users
-    admin_emails = list(admin_users.values_list('email', flat=True))
+    # Also send email to the admin(s) — prefers settings.ADMIN_EMAIL,
+    # falls back to the admin user accounts' emails
+    admin_emails = [settings.ADMIN_EMAIL] if settings.ADMIN_EMAIL else list(admin_users.values_list('email', flat=True))
     if admin_emails:
         detail_url = request.build_absolute_uri(
             reverse('admin_landowner_application_detail', args=[app.pk])
@@ -1704,6 +1738,10 @@ def landowner_register_submit(request):
         recipient_list=[app.email],
         fail_silently=True,
     )
+
+    # Wizard is complete — drop the session so the flow cannot be resumed,
+    # edited, or cancelled after submission
+    request.session.pop('lo_reg_data', None)
 
     return redirect('landowner_register_success')
 
@@ -1809,6 +1847,15 @@ def admin_landowner_approve(request, app_id):
 
     remarks = request.POST.get('admin_remarks', '').strip()
     app.admin_remarks = remarks
+    if _phone_taken(app.mobile_number):
+        return JsonResponse({
+            'error': 'Cannot approve: this phone number is already registered to another account. '
+                     'Ask the applicant to re-register with a different number.'
+        }, status=400)
+    if User.objects.filter(email__iexact=app.email).exists():
+        return JsonResponse({
+            'error': 'Cannot approve: this email is already registered to another account.'
+        }, status=400)
     user, password = app.approve(admin_user=request.user)
 
     # Notify applicant

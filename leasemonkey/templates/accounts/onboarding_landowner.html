@@ -5,19 +5,28 @@
 
 {% block content %}
 <div class="container d-flex align-items-center justify-content-center min-vh-100 py-5" style="position: relative; z-index: 10; padding-top: 100px !important;">
-    <div class="login-card p-4 p-md-5 rounded-4 border border-secondary-glow bg-dark-glow shadow-lg max-w-600 w-100 mt-4">
-        
+    <div class="login-card p-4 p-md-5 rounded-4 border border-secondary-glow bg-dark-glow shadow-lg w-100 mt-4" style="max-width: 760px;">
+
         <!-- Brand Header -->
         <div class="text-center mb-4">
-            <i class="bi bi-gift-fill text-primary-glow fs-1 mb-2 d-inline-block"></i>
+            <div class="d-inline-flex align-items-center justify-content-center mb-3"
+                 style="width:64px; height:64px; border-radius:18px;
+                        background:linear-gradient(135deg,rgba(245,158,11,.18),rgba(217,119,6,.06));
+                        border:1px solid rgba(245,158,11,.35);">
+                <i class="bi bi-gift-fill fs-2" style="color:#F59E0B;"></i>
+            </div>
             <h2 class="font-ranade text-white fw-bold mb-1 fs-26">Welcome to Lease Monkey!</h2>
-            <p class="text-muted-glow fs-14">Your landowner account has been verified and is ready for use.</p>
-        </div>
-
-        <div class="border-top border-secondary-glow my-4 pt-3">
-            <p class="text-white-50 fs-14 text-center mb-0">
-                One last step before you begin managing your properties.
-            </p>
+            <p class="text-muted-glow fs-14 mb-0">Your landowner account has been verified and is ready for use.</p>
+            <div class="d-flex justify-content-center gap-2 mt-3">
+                <span class="d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fs-12 fw-bold"
+                      style="background:rgba(34,197,94,.12); color:#22C55E; border:1px solid rgba(34,197,94,.3);">
+                    <i class="bi bi-patch-check-fill"></i> Account Verified
+                </span>
+                <span class="d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fs-12 fw-bold"
+                      style="background:rgba(14,165,233,.12); color:#0EA5E9; border:1px solid rgba(14,165,233,.3);">
+                    <i class="bi bi-rocket-takeoff-fill"></i> Ready to List
+                </span>
+            </div>
         </div>
 
         <!-- Onboarding Messages -->
@@ -31,33 +40,68 @@
             </div>
         {% endif %}
 
-        <!-- Onboarding Get Started -->
-        <form method="POST" action="{% url 'onboarding_landowner' %}" class="font-opensans">
-            {% csrf_token %}
-            
-            <div class="p-3 bg-dark border border-secondary-glow rounded-3 text-center mb-3">
-                <p class="text-white fs-14 mb-0">
-                    To start leasing your plots, submit registration requests for each land property, including ownership documents and floor layouts.
-                </p>
-            </div>
-
-            <!-- Hosting Subscription Transparency Card -->
-            <div class="p-3.5 rounded-3 mb-4 border d-flex align-items-start gap-3"
-                 style="background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(217,119,6,0.04)); border-color: rgba(245,158,11,0.25) !important;">
-                <div style="width:38px; height:38px; border-radius:10px; background:rgba(245,158,11,0.18);"
-                     class="d-flex align-items-center justify-content-center text-amber-glow flex-shrink-0">
-                    <i class="bi bi-credit-card-2-front-fill fs-5" style="color:#F59E0B;"></i>
-                </div>
-                <div>
-                    <h6 class="font-ranade text-white fw-bold fs-14 mb-1">Hosting Subscription — ₹200/month per Live Land</h6>
-                    <p class="text-white-50 fs-12 mb-0" style="line-height: 1.5;">
-                        Once your property is verified and digitized, a flat hosting fee of <strong>₹200/month (+GST)</strong> via Cashfree Payments activates real-time public map directory listing, buyer proposals, and video meeting scheduling.
+        <!-- Get Started Steps -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="p-3 h-100 rounded-3 border d-flex flex-column align-items-center text-center"
+                     style="background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.08) !important;">
+                    <div class="d-flex align-items-center justify-content-center mb-2"
+                         style="width:40px; height:40px; border-radius:12px; background:rgba(245,158,11,.14); border:1px solid rgba(245,158,11,.28);">
+                        <i class="bi bi-house-add-fill fs-5" style="color:#F59E0B;"></i>
+                    </div>
+                    <h6 class="font-ranade text-white fw-bold fs-13 mb-1">1. Register Property</h6>
+                    <p class="text-white-50 fs-12 mb-0" style="line-height:1.55;">
+                        Submit a registration request for each land, with ownership documents and floor layouts.
                     </p>
                 </div>
             </div>
+            <div class="col-md-4">
+                <div class="p-3 h-100 rounded-3 border d-flex flex-column align-items-center text-center"
+                     style="background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.08) !important;">
+                    <div class="d-flex align-items-center justify-content-center mb-2"
+                         style="width:40px; height:40px; border-radius:12px; background:rgba(14,165,233,.14); border:1px solid rgba(14,165,233,.28);">
+                        <i class="bi bi-magic fs-5" style="color:#0EA5E9;"></i>
+                    </div>
+                    <h6 class="font-ranade text-white fw-bold fs-13 mb-1">2. Verification &amp; Digitization</h6>
+                    <p class="text-white-50 fs-12 mb-0" style="line-height:1.55;">
+                        We verify your documents, then digitize your land — boundaries, plots and pricing.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 h-100 rounded-3 border d-flex flex-column align-items-center text-center"
+                     style="background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.08) !important;">
+                    <div class="d-flex align-items-center justify-content-center mb-2"
+                         style="width:40px; height:40px; border-radius:12px; background:rgba(34,197,94,.14); border:1px solid rgba(34,197,94,.28);">
+                        <i class="bi bi-rocket-takeoff-fill fs-5" style="color:#22C55E;"></i>
+                    </div>
+                    <h6 class="font-ranade text-white fw-bold fs-13 mb-1">3. Go Live &amp; Earn</h6>
+                    <p class="text-white-50 fs-12 mb-0" style="line-height:1.55;">
+                        Your property hits the public map, where buyers send proposals and schedule meetings.
+                    </p>
+                </div>
+            </div>
+        </div>
 
+        <!-- Hosting Subscription Transparency Card -->
+        <div class="p-3.5 rounded-3 mb-4 border d-flex align-items-start gap-3"
+             style="background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(217,119,6,0.04)); border-color: rgba(245,158,11,0.25) !important;">
+            <div style="width:38px; height:38px; border-radius:10px; background:rgba(245,158,11,0.18);"
+                 class="d-flex align-items-center justify-content-center text-amber-glow flex-shrink-0">
+                <i class="bi bi-credit-card-2-front-fill fs-5" style="color:#F59E0B;"></i>
+            </div>
+            <div>
+                <h6 class="font-ranade text-white fw-bold fs-14 mb-1">Hosting Subscription — ₹200/month per Live Land</h6>
+                <p class="text-white-50 fs-12 mb-0" style="line-height: 1.5;">
+                    Once your property is verified and digitized, a flat hosting fee of <strong>₹200/month (+GST)</strong> via Cashfree Payments activates real-time public map directory listing, buyer proposals, and video meeting scheduling.
+                </p>
+            </div>
+        </div>
 
-            <div class="d-flex flex-column gap-2 mt-4">
+        <!-- Onboarding Get Started -->
+        <form method="POST" action="{% url 'onboarding_landowner' %}" class="font-opensans">
+            {% csrf_token %}
+            <div class="d-flex flex-column gap-2">
                 <button type="submit" class="btn btn-get-started w-100 text-uppercase fw-bold py-2.5 fs-13 tracking-wider">
                     Let's Get Started <i class="bi bi-arrow-right ms-1"></i>
                 </button>

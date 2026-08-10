@@ -597,7 +597,7 @@
                 {% csrf_token %}
             </form>
             <script>
-            (function () {
+(function () {
                 var resendBtn = document.getElementById('loResendOtpBtn');
                 var resendLabel = document.getElementById('loResendOtpLabel');
                 if (!resendBtn || !resendLabel) return;
@@ -800,6 +800,7 @@
 // Leaving the wizard (any link outside /accounts/register/landowner/) asks
 // for confirmation first; only "Leave & Discard" wipes the in-progress
 // registration data, same as the buyer flow.
+{% if step != 'done' %}
 (function () {
     var csrfToken = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
     var wiped = false;
@@ -860,5 +861,6 @@
         openDialog(href);
     }, true);
 })();
+{% endif %}
 </script>
 {% endblock %}

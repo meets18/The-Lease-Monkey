@@ -90,8 +90,10 @@
                 <!-- Auth items inside mobile drawer only -->
                 {% if user.is_authenticated %}
                 <li class="d-lg-none"><hr class="text-white-50 my-3"></li>
-                {% if user.role != 'ADMIN' and not user.is_superuser %}
+                {% if user.role == 'BUYER' %}
                 <li class="d-lg-none"><a href="{% url 'profile' %}" class="mobile-profile-item"><i class="bi bi-person"></i> My Profile</a></li>
+                {% elif user.role == 'LAND_OWNER' %}
+                <li class="d-lg-none"><a href="{% url 'landowner_profile' %}" class="mobile-profile-item"><i class="bi bi-person"></i> My Profile</a></li>
                 {% endif %}
                 <li class="d-lg-none"><a href="{% url 'logout' %}" class="mobile-profile-item"><i class="bi bi-box-arrow-right"></i> Log Out</a></li>
                 {% else %}
@@ -136,7 +138,7 @@
                         {% if user.role == 'BUYER' %}
                         <a href="{% url 'buyer_dashboard' %}#notifs" class="fs-13 text-decoration-none fw-semibold" style="color:#EA580C;">View all</a>
                         {% elif user.role == 'LAND_OWNER' %}
-                        <a href="{% url 'landowner_dashboard' %}#notifs" class="fs-13 text-decoration-none fw-semibold" style="color:#EA580C;">View all</a>
+                        <a href="{% url 'landowner_dashboard' %}?tab=notifs#notifs" class="fs-13 text-decoration-none fw-semibold" style="color:#EA580C;">View all</a>
                         {% elif user.is_staff or user.role == 'ADMIN' %}
                         <a href="{% url 'admin_dashboard' %}#notifs" class="fs-13 text-decoration-none fw-semibold" style="color:#EA580C;">View all</a>
                         {% endif %}
@@ -148,7 +150,7 @@
                         <div class="px-4 py-3.5 d-flex align-items-start gap-3"
                              style="cursor:pointer; transition:background .15s; {% if not n.is_read %}background:#FFF7ED; border-left:3px solid #EA580C;{% else %}background:#FFFFFF;{% endif %}
                                     border-bottom:1px solid #F1F5F9;"
-                             onclick="{% if user.role == 'BUYER' %}location.href='{% url 'buyer_dashboard' %}#notifs'{% elif user.role == 'LAND_OWNER' %}location.href='{% url 'landowner_dashboard' %}#notifs'{% else %}location.href='{% url 'admin_dashboard' %}#notifs'{% endif %};"
+                             onclick="{% if user.role == 'BUYER' %}location.href='{% url 'buyer_dashboard' %}#notifs'{% elif user.role == 'LAND_OWNER' %}location.href='{% url 'landowner_dashboard' %}?tab=notifs#notifs'{% else %}location.href='{% url 'admin_dashboard' %}#notifs'{% endif %};"
                              onmouseenter="this.style.background='#F1F5F9'" onmouseleave="this.style.background='{% if not n.is_read %}#FFF7ED{% else %}#FFFFFF{% endif %}'">
                             <!-- Icon dot -->
                             <div style="width:9px; height:9px; border-radius:50%; flex-shrink:0; margin-top:6px;
@@ -175,7 +177,7 @@
                            style="background:#FFF7ED; color:#EA580C; border:1px solid #FFEDD5; transition:.15s;"
                            onmouseenter="this.style.background='#EA580C'; this.style.color='#FFFFFF';" onmouseleave="this.style.background='#FFF7ED'; this.style.color='#EA580C';"><i class="bi bi-arrow-up-right-square me-1.5"></i> Open</a>
                         {% elif user.role == 'LAND_OWNER' %}
-                        <a href="{% url 'landowner_dashboard' %}#notifs" class="d-block text-center fs-13 fw-bold text-decoration-none rounded-3 py-2.5"
+                        <a href="{% url 'landowner_dashboard' %}?tab=notifs#notifs" class="d-block text-center fs-13 fw-bold text-decoration-none rounded-3 py-2.5"
                            style="background:#FFF7ED; color:#EA580C; border:1px solid #FFEDD5; transition:.15s;"
                            onmouseenter="this.style.background='#EA580C'; this.style.color='#FFFFFF';" onmouseleave="this.style.background='#FFF7ED'; this.style.color='#EA580C';"><i class="bi bi-arrow-up-right-square me-1.5"></i> Open</a>
                         {% else %}
@@ -200,8 +202,12 @@
                         {% endif %}
                     </button>
                     <div class="profile-dropdown-menu" id="profileDropdown">
-                        {% if user.role != 'ADMIN' and not user.is_superuser %}
+                        {% if user.role == 'BUYER' %}
                         <a href="{% url 'profile' %}" class="dropdown-item-profile">
+                            <i class="bi bi-person"></i> My Profile
+                        </a>
+                        {% elif user.role == 'LAND_OWNER' %}
+                        <a href="{% url 'landowner_profile' %}" class="dropdown-item-profile">
                             <i class="bi bi-person"></i> My Profile
                         </a>
                         {% endif %}

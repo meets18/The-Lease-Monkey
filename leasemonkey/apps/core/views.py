@@ -32,7 +32,7 @@ class LandingPageView(TemplateView):
     def get_buyer_context(self, user):
         active_requests = PurchaseRequest.objects.filter(buyer=user).select_related('land').order_by('-created_at')[:4]
         saved_plots = SavedPlot.objects.filter(user=user, land__is_live=True).select_related('land').order_by('-created_at')[:4]
-        recent_notifs = Notification.objects.filter(recipient=user).order_by('-created_at')[:5]
+        recent_notifs = Notification.objects.filter(recipient=user, is_read=False).order_by('-created_at')[:5]
         unread_notifs_count = Notification.objects.filter(recipient=user, is_read=False).count()
 
         # Preference-based land recommendations
@@ -83,23 +83,12 @@ class LandingPageView(TemplateView):
         my_lands = Land.objects.filter(owner=user).order_by('-created_at')
         my_requests = PurchaseRequest.objects.filter(land__owner=user).select_related('land')
         pending_requests = my_requests.filter(status__in=['pending', 'meeting_scheduled'])
-        scheduled_meetings = my_requests.filter(status='meeting_scheduled', meeting_datetime__isnull=False).order_by('meeting_datetime')[:4]
-        recent_notifs = Notification.objects.filter(recipient=user).order_by('-created_at')[:5]
-        unread_notifs_count = Notification.objects.filter(recipient=user, is_read=False).count()
-
-        total_plots_count = Plot.objects.filter(land__owner=user).count()
-        sold_plots_count = Plot.objects.filter(land__owner=user, status='sold').count()
 
         return {
             'my_lands': my_lands[:4],
             'total_lands_count': my_lands.count(),
-            'total_plots_count': total_plots_count,
-            'sold_plots_count': sold_plots_count,
             'pending_requests': pending_requests[:5],
             'pending_requests_count': pending_requests.count(),
-            'scheduled_meetings': scheduled_meetings,
-            'recent_notifs': recent_notifs,
-            'unread_notifs_count': unread_notifs_count,
         }
 
 
