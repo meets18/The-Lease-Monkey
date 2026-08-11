@@ -558,6 +558,13 @@ html, body { overflow: hidden; height: 100%; }
             <!-- Site Plan Overlay Section (Moved to scrollable area) -->
             <div class="pcreator-section">
                 <div class="pcreator-section-label" style="margin-bottom: 8px;"><i class="bi bi-image me-1"></i> Site Plan Overlay</div>
+                {% if land.registration_request and land.registration_request.floor_plan %}
+                <div class="mb-2">
+                    <button type="button" id="btnUseLandownerPlan" class="btn btn-sm w-100 font-opensans fw-bold fs-11 text-uppercase d-inline-flex align-items-center justify-content-center py-2" style="border-radius: 6px; cursor: pointer; border: 1.5px dashed #00b2ff; color: #00b2ff !important; background: rgba(0, 178, 255, 0.05); margin-bottom: 0;" onclick="useLandownerLayoutPlan();">
+                        <i class="bi bi-house-gear-fill me-2 fs-13"></i> Use Landowner's Layout Plan
+                    </button>
+                </div>
+                {% endif %}
                 <div class="mb-2">
                     <label for="sitePlanUpload" class="btn btn-sm btn-outline-warning w-100 font-opensans fw-bold fs-11 text-uppercase d-inline-flex align-items-center justify-content-center py-2" style="border-radius: 6px; cursor: pointer; border: 1.5px dashed var(--accent-orange, #F96D00); color: var(--accent-orange, #F96D00) !important; background: rgba(249, 109, 0, 0.05); margin-bottom: 0;">
                         <i class="bi bi-cloud-upload-fill me-2 fs-13"></i> Upload Layout Overlay
@@ -2966,6 +2973,42 @@ html, body { overflow: hidden; height: 100%; }
     }
 
     // ─── Site Plan Overlay Engine ───────────────────────────────────────────
+    function useLandownerLayoutPlan() {
+        {% if land.registration_request and land.registration_request.floor_plan %}
+            removeOverlay();
+            isCustomUpload = false;
+            resetOverlaySliders();
+
+            const floorPlanUrl = "{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan";
+            const isPdf = "{{ land.registration_request.floor_plan.name|lower }}".endsWith('.pdf');
+            const statusEl = document.getElementById('overlayLoaderStatus');
+            if (statusEl) {
+                statusEl.innerText = "Loading landowner layout plan as overlay...";
+                statusEl.style.display = 'block';
+            }
+
+            if (isPdf) {
+                fetch(floorPlanUrl)
+                    .then(res => {
+                        if (!res.ok) throw new Error("File not found");
+                        return res.blob();
+                    })
+                    .then(blob => {
+                        const file = new File([blob], "floor_plan.pdf", { type: "application/pdf" });
+                        loadPdfOverlay(file, false);
+                        if (statusEl) statusEl.innerText = "Landowner layout plan loaded. Drag to align.";
+                    })
+                    .catch(err => {
+                        if (statusEl) statusEl.innerText = "Failed to load landowner layout plan.";
+                        console.error("Landowner plan load error:", err);
+                    });
+            } else {
+                createOverlay(floorPlanUrl, false);
+                if (statusEl) statusEl.innerText = "Landowner layout plan loaded. Drag to align.";
+            }
+        {% endif %}
+    }
+
     document.getElementById('sitePlanUpload').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -3360,14 +3403,14 @@ html, body { overflow: hidden; height: 100%; }
                     <div class="mb-0">
                         <label class="form-label fs-13 fw-bold text-dark mb-2 d-block">Make Property Live?</label>
                         <div class="form-check mb-2 p-3 border rounded-3" style="border-color: #E5E7EB !important; background-color: #F9FAFB;">
-                            <input class="form-check-input" type="radio" name="make_live" id="makeLiveYes" value="true" checked>
+                            <input class="form-check-input" type="radio" name="make_live" id="makeLiveYes" value="true">
                             <label class="form-check-label fs-13 text-dark" for="makeLiveYes">
                                 <strong>Yes, Make Live</strong>
                                 <div class="fs-12 text-muted mt-0.5">Visible to buyers immediately.</div>
                             </label>
                         </div>
                         <div class="form-check p-3 border rounded-3" style="border-color: #E5E7EB !important; background-color: #F9FAFB;">
-                            <input class="form-check-input" type="radio" name="make_live" id="makeLiveNo" value="false">
+                            <input class="form-check-input" type="radio" name="make_live" id="makeLiveNo" value="false" checked>
                             <label class="form-check-label fs-13 text-dark" for="makeLiveNo">
                                 <strong>No, Keep Offline</strong>
                                 <div class="fs-12 text-muted mt-0.5">Saved as an approved property but hidden from buyers.</div>

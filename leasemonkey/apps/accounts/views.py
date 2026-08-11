@@ -232,8 +232,14 @@ def landowner_dashboard(request):
 
     from apps.lands.models import Land, OccupancyRecord, LandRegistrationRequest
     from apps.core.models import Notification, PurchaseRequest, Ticket
+    from django.db.models import Count
 
-    lands = list(Land.objects.filter(owner=request.user).prefetch_related('plots', 'images'))
+    lands = list(
+        Land.objects.filter(owner=request.user, is_live=True)
+        .annotate(plot_count=Count('plots'))
+        .filter(plot_count__gt=0)
+        .prefetch_related('plots', 'images')
+    )
     for land in lands:
         land.display_location = land.location or '-'
         land.display_plot_price_lakhs = _format_price_lakhs(land.average_plot_price)
@@ -317,6 +323,11 @@ def landowner_dashboard(request):
         end_date__lte=now + datetime.timedelta(days=5)
     )
 
+    # Approved signup application — used to offer auto-filled Register Land wizard
+    signup_application = getattr(request.user, 'landowner_application', None)
+    if signup_application is not None and signup_application.status != 'APPROVED':
+        signup_application = None
+
     context = {
         'lands': lands,
         'notifications': notifications,
@@ -333,6 +344,7 @@ def landowner_dashboard(request):
         'pending_payment_requests': pending_payment_requests,
         'expiring_soon': expiring_soon,
         'faqs': faqs,
+        'signup_application': signup_application,
     }
     return render(request, 'accounts/landowner_dashboard.html', context)
 

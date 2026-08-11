@@ -250,11 +250,10 @@ def get_pricing_csv_path(instance, filename):
 
 class LandRegistrationRequest(models.Model):
     STATUS_CHOICES = [
-        ('pending', 'Pending Review'),
-        ('under_review', 'Under Review'),
+        ('pending', 'Pending'),
         ('payment_pending', 'Payment Pending (24h)'),
-        ('payment_completed', 'Payment Received — Awaiting Build'),
-        ('being_added', 'Being Digitized'),
+        ('payment_completed', 'Payment Received'),
+        ('being_added', 'Being Added'),
         ('approved', 'Approved'),
         ('awaiting_publish_approval', 'Awaiting Publish Approval'),
         ('live', 'Live'),

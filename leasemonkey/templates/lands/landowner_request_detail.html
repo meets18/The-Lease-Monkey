@@ -131,11 +131,13 @@
             </div>
             <div>
                 {% if req.status == 'pending' %}
-                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#FEF3C7;color:#92400E;">Pending Review</span>
-                {% elif req.status == 'under_review' %}
-                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#DBEAFE;color:#1D4ED8;">Under Review</span>
+                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#FEF3C7;color:#92400E;">Pending</span>
+                {% elif req.status == 'payment_pending' %}
+                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#FFFBEB;color:#B45309;">Payment Pending</span>
+                {% elif req.status == 'payment_completed' %}
+                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#DBEAFE;color:#1D4ED8;">Payment Received</span>
                 {% elif req.status == 'being_added' %}
-                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#DBEAFE;color:#1D4ED8;">Being Digitized</span>
+                    <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#DBEAFE;color:#1D4ED8;">Being Added</span>
                 {% elif req.status == 'approved' %}
                     <span class="badge fs-11 px-3 py-1.5 text-uppercase" style="background:#DCFCE7;color:#166534;">Waiting to Go Live</span>
                 {% elif req.status == 'awaiting_publish_approval' %}
@@ -182,30 +184,30 @@
                     <div class="timeline-label">Submitted</div>
                 </div>
 
-                {% if req.status == 'live' or req.status == 'approved' or req.status == 'awaiting_publish_approval' or req.status == 'being_added' or req.status == 'under_review' or req.status == 'pending' %}
+                {% if req.status == 'live' or req.status == 'approved' or req.status == 'awaiting_publish_approval' or req.status == 'being_added' or req.status == 'payment_completed' or req.status == 'payment_pending' or req.status == 'pending' %}
                 <div class="timeline-connector completed"></div>
                 {% else %}
                 <div class="timeline-connector future"></div>
                 {% endif %}
 
-                {% if req.status == 'live' or req.status == 'approved' or req.status == 'awaiting_publish_approval' or req.status == 'being_added' %}
+                {% if req.status == 'live' or req.status == 'approved' or req.status == 'awaiting_publish_approval' or req.status == 'being_added' or req.status == 'payment_completed' %}
                 <div class="timeline-step completed">
                     <div class="timeline-circle"><i class="bi bi-check-lg"></i></div>
-                    <div class="timeline-label">Pending Review</div>
+                    <div class="timeline-label">Pending</div>
                 </div>
-                {% elif req.status == 'under_review' or req.status == 'pending' %}
+                {% elif req.status == 'pending' or req.status == 'payment_pending' %}
                 <div class="timeline-step current">
                     <div class="timeline-circle"><i class="bi bi-hourglass-split"></i></div>
-                    <div class="timeline-label">{% if req.status == 'under_review' %}Under Review{% else %}Pending Review{% endif %}</div>
+                    <div class="timeline-label">Pending</div>
                 </div>
                 {% else %}
                 <div class="timeline-step future">
                     <div class="timeline-circle"><i class="bi bi-dot"></i></div>
-                    <div class="timeline-label">Pending Review</div>
+                    <div class="timeline-label">Pending</div>
                 </div>
                 {% endif %}
 
-                {% if req.status == 'live' or req.status == 'approved' or req.status == 'awaiting_publish_approval' or req.status == 'being_added' %}
+                {% if req.status == 'live' or req.status == 'approved' or req.status == 'awaiting_publish_approval' or req.status == 'being_added' or req.status == 'payment_completed' %}
                 <div class="timeline-connector completed"></div>
                 {% else %}
                 <div class="timeline-connector future"></div>
@@ -214,12 +216,12 @@
                 {% if req.status == 'live' or req.status == 'approved' or req.status == 'awaiting_publish_approval' %}
                 <div class="timeline-step completed">
                     <div class="timeline-circle"><i class="bi bi-check-lg"></i></div>
-                    <div class="timeline-label">Being Digitized</div>
+                    <div class="timeline-label">Being Added</div>
                 </div>
                 {% elif req.status == 'being_added' %}
                 <div class="timeline-step current">
                     <div class="timeline-circle"><i class="bi bi-gear"></i></div>
-                    <div class="timeline-label">Being Digitized</div>
+                    <div class="timeline-label">Being Added</div>
                 </div>
                 {% else %}
                 <div class="timeline-step future">
@@ -278,7 +280,42 @@
         </div>
 
         {% comment %} ── STATUS-SPECIFIC ALERT ── {% endcomment %}
-        {% if req.status == 'pending' or req.status == 'under_review' %}
+{% if req.status == 'payment_pending' %}
+        <div class="alert border-0 shadow-sm rounded-3 p-3 mb-4 fs-14" style="background-color: #FFFBEB; border-left: 4px solid #D97706 !important; color: #92400E;">
+            <div class="d-flex align-items-start gap-2">
+                <div style="font-size: 16px; flex-shrink: 0; margin-top: 1px;">
+                    <i class="bi bi-credit-card-2-front" style="color: #D97706;"></i>
+                </div>
+                <div>
+                    <strong class="fw-bold d-block mb-0.5" style="color: #B45309;">Payment Required — Complete Within 24 Hours</strong>
+                    <span>Your registration request has been approved! Please complete the <strong>₹200/month hosting fee (+ GST = ₹236)</strong> to get your property digitized and published live.</span>
+                    {% if req.payment_deadline %}
+                    <div class="mt-1 fs-12" style="color: #B45309;">Payment deadline: <strong>{{ req.payment_deadline|date:"d M Y at h:i A" }}</strong></div>
+                    {% endif %}
+                    {% if req.land %}
+                    <button type="button" id="btnPayRequest-{{ req.id }}"
+                        class="btn mt-3 py-2 px-4 fs-13 fw-bold text-uppercase text-white border-0"
+                        style="background-color: #F96D00; border-radius: 8px;"
+                        onclick="openPaymentModal('{{ req.property_name|escapejs }}', '{{ req.land.slug }}');">
+                        <i class="bi bi-credit-card me-1"></i> Make Payment ₹236
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% elif req.status == 'payment_completed' %}
+        <div class="alert border-0 shadow-sm rounded-3 p-3 mb-4 fs-14" style="background-color: #EFF6FF; border-left: 4px solid #2563EB !important; color: #1E3A5F;">
+            <div class="d-flex align-items-start gap-2">
+                <div style="font-size: 16px; flex-shrink: 0; margin-top: 1px;">
+                    <i class="bi bi-check-circle" style="color: #2563EB;"></i>
+                </div>
+                <div>
+                    <strong class="fw-bold d-block mb-0.5" style="color: #1D4ED8;">Payment Received</strong>
+                    <span>Your hosting fee payment has been received. The administrator will now digitize your plot layout. You will be notified once it goes live.</span>
+                </div>
+            </div>
+        </div>
+        {% elif req.status == 'pending' %}
         <div class="alert border-0 shadow-sm rounded-3 p-3 mb-4 fs-14" style="background-color: #FFF2E6; border-left: 4px solid #F96D00 !important; color: #92400E;">
             <div class="d-flex align-items-start gap-2">
                 <div style="font-size: 16px; flex-shrink: 0; margin-top: 1px;">
@@ -286,7 +323,7 @@
                 </div>
                 <div>
                     <strong class="fw-bold d-block mb-0.5" style="color: #C24100;">Awaiting Admin Review</strong>
-                    <span style="color: #92400E;">Your registration request is currently awaiting review by an administrator. You will be notified once the status changes.</span>
+                    <span>Your registration request is currently awaiting review by an administrator. You will be notified once the status changes.</span>
                 </div>
             </div>
         </div>
@@ -297,7 +334,7 @@
                     <i class="bi bi-gear-wide-connected" style="color: #2563EB;"></i>
                 </div>
                 <div>
-                    <strong class="fw-bold d-block mb-0.5" style="color: #1D4ED8;">Being Digitized</strong>
+                    <strong class="fw-bold d-block mb-0.5" style="color: #1D4ED8;">Being Added</strong>
                     <span>Your property is currently being digitized. Plot boundaries are being mapped onto the platform.</span>
                     {% if req.reviewed_at %}
                     <div class="mt-1 fs-12" style="color: #6B7280;">Digitization started: {{ req.reviewed_at|date:"d M Y" }}</div>

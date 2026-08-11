@@ -29,15 +29,13 @@
             </div>
             <div>
                 {% if req.status == 'pending' %}
-                    <span class="badge bg-warning text-dark fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Pending Review</span>
-                {% elif req.status == 'under_review' %}
-                    <span class="badge bg-info text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Under Review</span>
+                    <span class="badge bg-warning text-dark fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Pending</span>
                 {% elif req.status == 'payment_pending' %}
-                    <span class="badge text-white fs-12 px-3 py-1.5 text-uppercase" style="background-color:#F59E0B; border-radius: var(--radius-badge);">⏳ Awaiting Payment (24h)</span>
+                    <span class="badge text-white fs-12 px-3 py-1.5 text-uppercase" style="background-color:#F59E0B; border-radius: var(--radius-badge);">⏳ Payment Pending (24h)</span>
                 {% elif req.status == 'payment_completed' %}
-                    <span class="badge text-white fs-12 px-3 py-1.5 text-uppercase" style="background-color:#8B5CF6; border-radius: var(--radius-badge);">💳 Payment Received — Build Required</span>
+                    <span class="badge text-white fs-12 px-3 py-1.5 text-uppercase" style="background-color:#8B5CF6; border-radius: var(--radius-badge);">💳 Payment Received</span>
                 {% elif req.status == 'being_added' %}
-                    <span class="badge bg-primary text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge); background-color: #0284c7 !important;">Being Digitized</span>
+                    <span class="badge bg-primary text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge); background-color: #0284c7 !important;">Being Added</span>
                 {% elif req.status == 'approved' %}
                     <span class="badge bg-success text-white fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Approved (Offline)</span>
                 {% elif req.status == 'awaiting_publish_approval' %}
@@ -234,16 +232,6 @@
             
             <div class="d-flex flex-wrap gap-3">
                 {% if req.status == 'pending' %}
-                    <form method="POST" action="{% url 'lands:admin_set_request_review' req.id %}" style="margin: 0;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2.5 px-4" style="background-color: var(--color-warning); border-radius: var(--radius-btn); border: none;">
-                            Set Under Review
-                        </button>
-                    </form>
-                    <button class="btn btn-outline-danger fs-12 fw-bold text-uppercase py-2.5 px-4" style="border-radius: var(--radius-btn);" onclick="openRejectModal();">
-                        Reject Request
-                    </button>
-                {% elif req.status == 'under_review' %}
                     <form method="POST" action="{% url 'lands:admin_register_land' req.id %}" style="margin: 0;">
                         {% csrf_token %}
                         <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2.5 px-4" style="background-color: var(--color-success); border-radius: var(--radius-btn); border: none;">

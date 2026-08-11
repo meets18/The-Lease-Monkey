@@ -1577,6 +1577,15 @@ def submit_land_request(request):
         raise PermissionDenied("Only landowners can submit land registration requests.")
 
     if request.method == 'POST':
+        # If the landowner chose to reuse their signup application details,
+        # any field they left blank falls back to the approved application.
+        use_application = request.POST.get('use_application') == '1'
+        signup_app = None
+        if use_application:
+            signup_app = getattr(request.user, 'landowner_application', None)
+            if not (signup_app and signup_app.status == 'APPROVED'):
+                signup_app = None
+
         property_name = request.POST.get('property_name', '').strip()
         
         # Location Details
@@ -1590,6 +1599,15 @@ def submit_land_request(request):
         description = request.POST.get('description', '').strip()
         avg_price_str = request.POST.get('average_plot_price', '').strip()
         notes = request.POST.get('notes', '').strip()
+
+        if signup_app:
+            property_name = property_name or signup_app.land_name
+            state = state or signup_app.state
+            district = district or signup_app.district
+            complete_address = complete_address or signup_app.land_address
+            pin_code = pin_code or signup_app.pincode
+            if not description and signup_app.total_area:
+                description = f"Registered from signup application. Total area: {signup_app.total_area} acres."
         
         # Files
         ownership_proof = request.FILES.get('ownership_proof')
@@ -1597,6 +1615,12 @@ def submit_land_request(request):
         supporting_documents = request.FILES.get('supporting_documents')
         floor_plan = request.FILES.get('floor_plan')
         plot_pricing_csv = request.FILES.get('plot_pricing_csv')
+
+        # When reusing the signup application, its ownership document already
+        # covers the ownership proof requirement (only override if the user
+        # uploaded a fresh one).
+        if not ownership_proof and not registry_sale_deed and signup_app and signup_app.ownership_document:
+            ownership_proof = signup_app.ownership_document
 
         errors = []
         if not property_name:
@@ -1781,22 +1805,6 @@ def admin_land_request_detail(request, req_id):
         return redirect('lands:admin_land_request_detail', req_id=req_id)
 
     return render(request, 'lands/admin_land_request_detail.html', {'req': req})
-
-
-@login_required
-def admin_set_request_review(request, req_id):
-    """Sets a land registration request status to under_review."""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'POST required'}, status=400)
-    if request.user.role != 'ADMIN' and not request.user.is_superuser:
-        raise PermissionDenied
-
-    from apps.lands.models import LandRegistrationRequest
-    req = get_object_or_404(LandRegistrationRequest, pk=req_id)
-    req.status = 'under_review'
-    req.save(update_fields=['status'])
-    messages.info(request, f"'{req.property_name}' marked as Under Review.")
-    return redirect('lands:admin_land_request_detail', req_id=req_id)
 
 
 @login_required

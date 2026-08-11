@@ -51,7 +51,6 @@ urlpatterns = [
     # ── Admin: Land Registration Request Queue ──────────────────────────────────
     path('admin/land-requests/', views.admin_land_requests, name='admin_land_requests'),
     path('admin/land-requests/<int:req_id>/', views.admin_land_request_detail, name='admin_land_request_detail'),
-    path('admin/land-requests/<int:req_id>/review/', views.admin_set_request_review, name='admin_set_request_review'),
     path('admin/land-requests/<int:req_id>/register/', views.admin_register_land_from_request, name='admin_register_land'),
     path('admin/land-requests/<int:req_id>/reject/', views.admin_reject_land_request, name='admin_reject_land_request'),
     path('admin/land-requests/<int:req_id>/message/', views.admin_update_request_message, name='admin_update_request_message'),

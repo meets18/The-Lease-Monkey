@@ -180,7 +180,7 @@
                     <p class="text-muted-glow fs-14 mb-0">Submit new properties and track digitizing requests.</p>
                 </div>
                 <button type="button" class="btn btn-get-started text-uppercase fw-bold py-2 px-3 fs-13 tracking-wider"
-                    onclick="openRegisterLandModal();">
+                    onclick="handleRegisterLandClick();">
                     <i class="bi bi-plus-circle-fill me-1"></i> Register New Land
                 </button>
             </div>
@@ -224,14 +224,17 @@
                                         <td class="py-3 text-muted-glow">{{ req.submitted_at|date:"d M Y" }}</td>
                                         <td class="py-3">
                                             {% if req.status == 'pending' %}
-                                            <span class="badge bg-warning-glow text-uppercase fs-9">Pending
-                                                Review</span>
-                                            {% elif req.status == 'under_review' %}
-                                            <span class="badge bg-info-glow text-uppercase fs-9">Under Review</span>
+                                            <span class="badge bg-warning-glow text-uppercase fs-9">Pending</span>
+                                            {% elif req.status == 'payment_pending' %}
+                                            <span class="badge text-uppercase fs-9"
+                                                style="background: rgba(217, 119, 6, 0.15); border: 1px solid rgba(217, 119, 6, 0.4); color: #f59e0b;">Payment Pending</span>
+                                            {% elif req.status == 'payment_completed' %}
+                                            <span class="badge text-uppercase fs-9"
+                                                style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.4); color: #38bdf8;">Payment Received</span>
                                             {% elif req.status == 'being_added' %}
                                             <span class="badge bg-primary-glow text-uppercase fs-9"
                                                 style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.4); color: #38bdf8;">Being
-                                                Digitized</span>
+                                                Added</span>
                                             {% elif req.status == 'approved' %}
                                             <span class="badge bg-success-glow text-uppercase fs-9">Waiting to Go
                                                 Live</span>
@@ -248,7 +251,18 @@
                                             {% endif %}
                                         </td>
                                         <td class="py-3 text-end px-3">
-                                            {% if req.status == 'being_added' %}
+                                            {% if req.status == 'payment_pending' %}
+                                            {% if req.land %}
+                                            <button type="button" id="btnPayRequest-{{ req.id }}"
+                                                class="btn btn-get-started py-1 px-2.5 fs-11 fw-bold text-uppercase"
+                                                onclick="event.stopPropagation(); openPaymentModal('{{ req.property_name|escapejs }}', '{{ req.land.slug }}');">
+                                                Make Payment <i class="bi bi-credit-card ms-0.5"></i>
+                                            </button>
+                                            {% else %}
+                                            <span class="text-warning-glow fs-11 fw-bold text-uppercase"
+                                                style="color:#f59e0b;">Awaiting Payment</span>
+                                            {% endif %}
+                                            {% elif req.status == 'being_added' %}
                                             <button type="button"
                                                 class="btn btn-outline-info py-1 px-2.5 fs-11 fw-bold text-uppercase"
                                                 onclick="event.stopPropagation(); showDigitizingProgress('{{ req.property_name }}');">
@@ -1114,6 +1128,7 @@
             <form id="registerLandForm" method="POST" action="{% url 'lands:submit_land_request' %}"
                 enctype="multipart/form-data">
                 {% csrf_token %}
+                <input type="hidden" id="useApplicationInput" name="use_application" value="0">
                 <div class="modal-body py-3" style="min-height: 360px; max-height: 60vh; overflow-y: auto;">
 
                     <!-- STEP 1: Property Information -->
@@ -1150,15 +1165,8 @@
                                     class="form-control bg-dark border border-secondary-glow text-white fs-14 py-2"
                                     id="formAvgPrice" name="average_plot_price" required placeholder="e.g. 1200000">
                             </div>
-                            <div class="col-md-6">
-                                <label for="formState"
-                                    class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">State
-                                    *</label>
-                                <input type="text"
-                                    class="form-control bg-dark border border-secondary-glow text-white fs-14 py-2"
-                                    id="formState" name="state" required placeholder="e.g. Rajasthan">
-                            </div>
-                            <div class="col-md-6">
+                            {% include "accounts/_india_address_fields.html" with state_name="state" city_name="district" city_label="District" current_state="" current_city="" select_class="form-control bg-dark border border-secondary-glow text-white fs-14 py-2" label_class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50" col_class="col-md-4" %}
+                            <div class="col-md-4">
                                 <label for="formCity"
                                     class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">City /
                                     Village *</label>
@@ -1207,6 +1215,13 @@
                     <!-- STEP 2: Ownership Documents -->
                     <div class="step-content d-none" id="stepContent2">
                         <div class="row g-3">
+                            <div class="col-12 d-none" id="fileNoteApp">
+                                <div class="alert alert-success bg-opacity-10 border border-success border-opacity-25 text-success fs-12 py-2 px-3 mb-0 rounded-2">
+                                    <i class="bi bi-check-circle-fill me-1"></i> The ownership document from your
+                                    signup application is being reused as your proof of ownership. You may upload a
+                                    different one here to replace it.
+                                </div>
+                            </div>
                             <div class="col-md-6">
                                 <label
                                     class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Ownership
@@ -1358,6 +1373,69 @@
                             class="bi bi-check-circle ms-1"></i></button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Registration Source Dialog -->
+<div class="modal fade" id="registrationSourceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
+        <div class="modal-content glass-panel border border-secondary-glow shadow-2xl p-2 text-white">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title font-ranade fw-bold text-white fs-18">
+                    <i class="bi bi-question-circle-fill text-amber-glow me-1"></i> How would you like to register?
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-3">
+                <p class="text-white-50 fs-13 mb-3">Choose where the property details come from — you can edit
+                    everything afterwards.</p>
+                <div class="d-flex flex-column gap-3">
+                    <label class="source-radio-card d-flex align-items-start gap-3 p-3 rounded-3 border" for="srcApp">
+                        <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="regSource"
+                            id="srcApp" value="app"
+                            style="accent-color:#F96D00; width:18px; height:18px;">
+                        <span class="d-flex gap-3 align-items-start w-100">
+                            <span class="d-flex align-items-center justify-content-center flex-shrink-0"
+                                style="width:38px; height:38px; border-radius:11px; background:rgba(245,158,11,.14); border:1px solid rgba(245,158,11,.3);">
+                                <i class="bi bi-house-check-fill fs-5" style="color:#F59E0B;"></i>
+                            </span>
+                            <span class="w-100">
+                                <span class="d-block fs-14 fw-bold text-white">My signup property</span>
+                                <span class="d-block fs-12 text-white-50 mb-1">Auto-fill from my registration form
+                                    details</span>
+                                <span class="d-block fs-11 rounded-2 border px-2 py-1"
+                                    style="border-color:rgba(255,255,255,.08) !important; background:rgba(0,0,0,.18); color:#94A3B8;">
+                                    {{ signup_application.land_name }} — {{ signup_application.district }}, {{ signup_application.state }} ({{ signup_application.pincode }})
+                                </span>
+                            </span>
+                        </span>
+                    </label>
+                    <label class="source-radio-card d-flex align-items-start gap-3 p-3 rounded-3 border" for="srcManual">
+                        <input class="form-check-input mt-1 flex-shrink-0" type="radio" name="regSource"
+                            id="srcManual" value="new"
+                            style="accent-color:#0EA5E9; width:18px; height:18px;">
+                        <span class="d-flex gap-3 align-items-start w-100">
+                            <span class="d-flex align-items-center justify-content-center flex-shrink-0"
+                                style="width:38px; height:38px; border-radius:11px; background:rgba(14,165,233,.14); border:1px solid rgba(14,165,233,.3);">
+                                <i class="bi bi-pencil-square fs-5" style="color:#0EA5E9;"></i>
+                            </span>
+                            <span class="w-100">
+                                <span class="d-block fs-14 fw-bold text-white">An entirely new property</span>
+                                <span class="d-block fs-12 text-white-50">Fill in the details and submit proof of
+                                    ownership yourself.</span>
+                            </span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-1 pb-3">
+                <button type="button"
+                    class="btn btn-get-started py-2 px-5 fs-13 fw-bold text-uppercase"
+                    id="sourceDialogContinue" disabled onclick="continueFromSourceDialog();">
+                    Continue <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -1596,9 +1674,116 @@
     let submittedReqId = null;
     let otpCooldown = false;
 
+    {% if signup_application %}
+    const APPLICATION_DATA = {
+        has: true,
+        land_name: '{{ signup_application.land_name|escapejs }}',
+        land_address: '{{ signup_application.land_address|escapejs }}',
+        state: '{{ signup_application.state|escapejs }}',
+        district: '{{ signup_application.district|escapejs }}',
+        pincode: '{{ signup_application.pincode|escapejs }}',
+        total_area: '{{ signup_application.total_area|escapejs }}'
+    };
+    {% else %}
+    const APPLICATION_DATA = { has: false };
+    {% endif %}
+
+    // ── Registration Source Dialog (radio choice) ──────────────────────────
+    function handleRegisterLandClick() {
+        // Offer the source dialog only when the signup application exists and
+        // no draft is being restored; otherwise go straight to the wizard.
+        if (APPLICATION_DATA.has && !loadFormDraft()) {
+            document.querySelectorAll('input[name="regSource"]').forEach(r => { r.checked = false; });
+            document.getElementById('sourceDialogContinue').disabled = true;
+            const dialog = new bootstrap.Modal(document.getElementById('registrationSourceModal'));
+            dialog.show();
+        } else {
+            openRegisterLandModal();
+        }
+    }
+
+    function setIndiaStateValue(value) {
+        const sel = document.getElementById('indiaState');
+        if (!sel || !value) return;
+        if (![...sel.options].some(o => o.value === value)) {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = value;
+            sel.appendChild(opt);
+        }
+        sel.value = value;
+        if (window.refreshIndiaCitySelect) window.refreshIndiaCitySelect();
+    }
+
+    function setIndiaCityValue(value) {
+        const sel = document.getElementById('indiaCity');
+        if (!sel || !value) return;
+        if (![...sel.options].some(o => o.value === value)) {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = value;
+            sel.appendChild(opt);
+        }
+        sel.value = value;
+    }
+
+    function applyApplicationData() {
+        document.getElementById('useApplicationInput').value = '1';
+        document.getElementById('formPropertyName').value = APPLICATION_DATA.land_name;
+        setIndiaStateValue(APPLICATION_DATA.state);
+        setIndiaCityValue(APPLICATION_DATA.district);
+        document.getElementById('formAddress').value = APPLICATION_DATA.land_address;
+        document.getElementById('formPin').value = APPLICATION_DATA.pincode;
+        document.getElementById('formCity').value = '';
+        document.getElementById('ownershipFileLabel').innerText = 'Using document from my application ✓';
+        document.getElementById('ownershipFileLabel').style.color = '#22C55E';
+        document.getElementById('fileNoteApp').classList.remove('d-none');
+    }
+
+    function clearApplicationData() {
+        document.getElementById('useApplicationInput').value = '0';
+        ['formPropertyName', 'indiaState', 'indiaCity', 'formCity', 'formAddress', 'formPin'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        document.getElementById('ownershipFileLabel').innerText = 'Choose Document';
+        document.getElementById('ownershipFileLabel').style.color = '#FFFFFF';
+        document.getElementById('fileNoteApp').classList.add('d-none');
+    }
+
+    function continueFromSourceDialog() {
+        const selected = document.querySelector('input[name="regSource"]:checked');
+        if (!selected) return;
+        const dialog = bootstrap.Modal.getInstance(document.getElementById('registrationSourceModal'));
+        if (dialog) dialog.hide();
+        openRegisterLandModal();
+        // Fill AFTER the wizard opens — openRegisterLandModal() resets the form,
+        // which would wipe any pre-fill applied beforehand.
+        if (selected.value === 'app') {
+            applyApplicationData();
+        } else {
+            clearApplicationData();
+        }
+    }
+
+    // Radio selection: enable Continue and highlight the chosen card
+    document.querySelectorAll('input[name="regSource"]').forEach(radio => {
+        radio.addEventListener('change', function () {
+            document.getElementById('sourceDialogContinue').disabled = false;
+            document.querySelectorAll('.source-radio-card').forEach(card => {
+                card.classList.remove('source-radio-selected');
+            });
+            this.closest('.source-radio-card').classList.add('source-radio-selected');
+        });
+    });
+
+    // State dropdown is mandatory in the wizard (the partial doesn't add `required`)
+    const indiaStateSel = document.getElementById('indiaState');
+    if (indiaStateSel) indiaStateSel.required = true;
+
     // ── Draft Preservation ─────────────────────────────────────────────────
     function saveFormDraft() {
-        const fields = ['formPropertyName', 'formAvgPrice', 'formState', 'formCity', 'formAddress', 'formPin', 'formMaps', 'formDesc', 'formNotes'];
+        const fields = ['formPropertyName', 'formAvgPrice', 'indiaState', 'formCity', 'formAddress', 'formPin', 'formMaps', 'formDesc', 'formNotes'];
         const draft = {};
         fields.forEach(id => {
             const el = document.getElementById(id);
@@ -1617,11 +1802,15 @@
         if (!raw) return false;
         try {
             const draft = JSON.parse(raw);
-            const fields = ['formPropertyName', 'formAvgPrice', 'formState', 'formCity', 'formAddress', 'formPin', 'formMaps', 'formDesc', 'formNotes'];
+            const fields = ['formPropertyName', 'formAvgPrice', 'indiaState', 'formCity', 'formAddress', 'formPin', 'formMaps', 'formDesc', 'formNotes'];
             fields.forEach(id => {
                 const el = document.getElementById(id);
                 if (el && draft[id]) el.value = draft[id];
             });
+            // Re-populate the district dropdown once the saved state is restored
+            if (draft['indiaState']) {
+                setIndiaStateValue(draft['indiaState']);
+            }
             if (draft['_has_ownership']) {
                 document.getElementById('ownershipFileLabel').innerText = 'Previously uploaded file retained';
             }
@@ -1729,6 +1918,9 @@
         document.getElementById('registryFileLabel').style.color = '#FFFFFF';
         document.getElementById('supportingFileLabel').innerText = 'Upload extra certificates or layouts (Optional)';
         document.getElementById('floorPlanFileLabel').innerText = 'Upload Site Layout Plan';
+        if (document.getElementById('fileNoteApp')) {
+            document.getElementById('fileNoteApp').classList.add('d-none');
+        }
 
         document.getElementById('formOwnershipProof').required = false;
         document.getElementById('formRegistryDeed').required = false;
@@ -1745,7 +1937,10 @@
         });
 
         // Restore draft if exists
-        const hasDraft = loadFormDraft();
+        loadFormDraft();
+
+        // Reset the hidden source flag
+        document.getElementById('useApplicationInput').value = '0';
 
         // Reset stepper to step 1
         updateStepper(1);
@@ -1856,8 +2051,9 @@
                 if (!isValid) return;
             }
 
-            // Step 2: at least one ownership doc
-            if (currentStep === 2) {
+            // Step 2: at least one ownership doc (skipped when reusing the
+            // signup application, whose ownership document is already attached)
+            if (currentStep === 2 && document.getElementById('useApplicationInput').value !== '1') {
                 const ownershipFile = document.getElementById('formOwnershipProof');
                 const registryFile = document.getElementById('formRegistryDeed');
                 const hasOwnership = ownershipFile && ownershipFile.files && ownershipFile.files.length > 0;
@@ -2145,7 +2341,7 @@
 
             document.getElementById('formPropertyName').value = resubmitRequestData.propertyName;
             document.getElementById('formAvgPrice').value = resubmitRequestData.price;
-            document.getElementById('formState').value = resubmitRequestData.state;
+            setIndiaStateValue(resubmitRequestData.state);
             document.getElementById('formCity').value = resubmitRequestData.city;
             document.getElementById('formAddress').value = resubmitRequestData.address;
             document.getElementById('formPin').value = resubmitRequestData.pin;
@@ -3259,6 +3455,33 @@
         color: #FFFFFF !important;
         box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25) !important;
     }
+
+    /* Registration source dialog radio cards */
+    .source-radio-card {
+        cursor: pointer;
+        border-color: rgba(255, 255, 255, 0.09) !important;
+        background: rgba(255, 255, 255, 0.03);
+        transition: all 0.2s ease;
+    }
+    .source-radio-card:hover {
+        border-color: rgba(249, 109, 0, 0.45) !important;
+        background: rgba(249, 109, 0, 0.05);
+    }
+    .source-radio-selected,
+    .source-radio-selected:hover {
+        border-color: rgba(249, 109, 0, 0.8) !important;
+        background: rgba(249, 109, 0, 0.08);
+        box-shadow: 0 0 0 1px rgba(249, 109, 0, 0.5);
+    }
+    [data-theme="light"] .source-radio-card {
+        border-color: rgba(0, 0, 0, 0.12) !important;
+        background: rgba(0, 0, 0, 0.02);
+    }
+    [data-theme="light"] .source-radio-selected,
+    [data-theme="light"] .source-radio-selected:hover {
+        border-color: #F96D00 !important;
+        background: rgba(249, 109, 0, 0.07);
+    }
 </style>
 
 <script>
@@ -3277,7 +3500,7 @@
 
                     document.getElementById('formPropertyName').value = data.property_name;
                     document.getElementById('formAvgPrice').value = data.price;
-                    document.getElementById('formState').value = data.state;
+                    setIndiaStateValue(data.state);
                     document.getElementById('formCity').value = data.city;
                     document.getElementById('formAddress').value = data.address;
                     document.getElementById('formPin').value = data.pin;

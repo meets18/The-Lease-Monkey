@@ -125,6 +125,13 @@
         <!-- Site Plan Overlay -->
         <div class="creator-section">
             <div class="creator-section-label">Site Plan Overlay</div>
+            {% if land.registration_request and land.registration_request.floor_plan %}
+            <div class="mb-2">
+                <button type="button" id="btnUseLandownerPlan" class="btn btn-sm w-100 font-opensans fw-bold fs-11 text-uppercase d-inline-flex align-items-center justify-content-center py-2" style="border-radius: 6px; cursor: pointer; border: 1.5px dashed #00b2ff; color: #00b2ff !important; background: rgba(0, 178, 255, 0.05); margin-bottom: 0;" onclick="useLandownerLayoutPlan();">
+                    <i class="bi bi-house-gear-fill me-2 fs-13"></i> Use Landowner's Layout Plan
+                </button>
+            </div>
+            {% endif %}
             <div class="mb-2">
                 <input type="file" id="sitePlanUpload" accept="image/*,application/pdf" class="form-control form-control-sm bg-dark text-white border-secondary" style="font-size: 11px; cursor: pointer;" />
             </div>
@@ -725,6 +732,32 @@
     }
 
     // ─── Site Plan Overlay Engine ───────────────────────────────────────────
+    function useLandownerLayoutPlan() {
+        {% if land.registration_request and land.registration_request.floor_plan %}
+            removeOverlay();
+
+            const floorPlanUrl = "{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=floor_plan";
+            const isPdf = "{{ land.registration_request.floor_plan.name|lower }}".endsWith('.pdf');
+
+            if (isPdf) {
+                fetch(floorPlanUrl)
+                    .then(res => {
+                        if (!res.ok) throw new Error("File not found");
+                        return res.blob();
+                    })
+                    .then(blob => {
+                        const file = new File([blob], "floor_plan.pdf", { type: "application/pdf" });
+                        loadPdfOverlay(file);
+                    })
+                    .catch(err => {
+                        console.error("Landowner plan load error:", err);
+                    });
+            } else {
+                createOverlay(floorPlanUrl);
+            }
+        {% endif %}
+    }
+
     document.getElementById('sitePlanUpload').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;

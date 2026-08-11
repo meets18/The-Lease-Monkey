@@ -459,13 +459,11 @@
                                 <td class="py-3 text-muted-glow">{{ req.submitted_at|date:"d M Y" }}</td>
                                 <td class="py-3">
                                     {% if req.status == 'pending' %}
-                                    <span class="badge bg-warning-glow text-uppercase fs-9">Pending Review</span>
-                                    {% elif req.status == 'under_review' %}
-                                    <span class="badge bg-info-glow text-uppercase fs-9">Under Review</span>
+                                    <span class="badge bg-warning-glow text-uppercase fs-9">Pending</span>
                                     {% elif req.status == 'being_added' %}
                                     <span class="badge bg-primary-glow text-uppercase fs-9"
                                         style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.4); color: #38bdf8;">Being
-                                        Digitized</span>
+                                        Added</span>
                                     {% elif req.status == 'approved' %}
                                     <span class="badge bg-success-glow text-uppercase fs-9">Approved (Offline)</span>
                                     {% elif req.status == 'awaiting_publish_approval' %}
