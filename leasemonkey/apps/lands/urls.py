@@ -37,6 +37,7 @@ urlpatterns = [
     path('purchase-request/send-otp/', views.send_otp, name='send_otp'),
     path('purchase-request/verify-otp/', views.verify_otp, name='verify_otp'),
     path('purchase-request/<int:request_id>/action/', views.purchase_request_action, name='purchase_request_action'),
+    path('purchase-request/<int:request_id>/cancel/', views.cancel_purchase_request, name='purchase_request_cancel'),
     path('plots/<slug:slug>/toggle-save/<str:plot_number>/', views.toggle_saved_plot, name='toggle_saved_plot'),
 
     # ── Occupancy Registry ─────────────────────────────────────────────────────
@@ -47,6 +48,7 @@ urlpatterns = [
     path('register-land/<int:req_id>/', views.landowner_request_detail, name='landowner_request_detail'),
     path('register-land/<int:req_id>/data/', views.landowner_request_data, name='landowner_request_data'),
     path('register-land/<int:req_id>/request-publish/', views.landowner_request_publish, name='landowner_request_publish'),
+    path('register-land/<int:req_id>/reupload/', views.landowner_reupload_document, name='landowner_reupload_document'),
 
     # ── Admin: Land Registration Request Queue ──────────────────────────────────
     path('admin/land-requests/', views.admin_land_requests, name='admin_land_requests'),
@@ -54,6 +56,8 @@ urlpatterns = [
     path('admin/land-requests/<int:req_id>/register/', views.admin_register_land_from_request, name='admin_register_land'),
     path('admin/land-requests/<int:req_id>/reject/', views.admin_reject_land_request, name='admin_reject_land_request'),
     path('admin/land-requests/<int:req_id>/message/', views.admin_update_request_message, name='admin_update_request_message'),
+    path('admin/land-requests/<int:req_id>/reupload/', views.admin_request_reupload, name='admin_request_reupload'),
+    path('admin/land-requests/<int:req_id>/reupload-disable/', views.admin_disable_reupload, name='admin_disable_reupload'),
     path('admin/land-requests/<int:req_id>/finish/', views.admin_finish_registration, name='admin_finish_registration'),
 
     # ── Admin: Live / Draft Toggle ──────────────────────────────────────────────

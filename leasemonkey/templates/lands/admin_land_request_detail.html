@@ -191,6 +191,22 @@
         </div>
         {% endif %}
 
+        {% if req.gallery_images.all %}
+        <div class="mb-4 p-3 border border-light-glow rounded-3" style="background-color: #f9fafb;">
+            <h5 class="fs-11 text-uppercase tracking-wider fw-bold text-muted mb-3"><i class="bi bi-images me-1.5"></i> Gallery Images ({{ req.gallery_images.count }})</h5>
+            <div class="d-flex flex-wrap gap-3">
+                {% for g_img in req.gallery_images.all %}
+                <div style="width:150px; height:150px; border-radius:12px; overflow:hidden; border:1px solid #E5E7EB; background:#fff; position:relative;">
+                    <img src="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=gallery&i={{ forloop.counter0 }}" alt="Gallery image" class="w-100 h-100" style="object-fit: cover; cursor: zoom-in;" onclick="window.open(this.src, '_blank');">
+                    {% if g_img.caption %}
+                    <div style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.55); color:#fff; font-size:11px; padding:4px 8px;">{{ g_img.caption }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         {% if req.notes %}
         <div class="mb-4 p-3 border border-light-glow rounded-3" style="background-color: #f9fafb;">
             <h5 class="fs-11 text-uppercase tracking-wider fw-bold text-muted mb-2">Landowner's Notes</h5>
@@ -225,6 +241,63 @@
                 </button>
             </form>
         </div>
+
+        <!-- Admin-Requested Document Re-upload -->
+        {% if req.status != 'live' and req.status != 'rejected' and req.status != 'deleted' %}
+        <div class="mb-4 p-4 border border-light-glow rounded-3 bg-white">
+            <h5 class="font-ranade fw-bold mb-3 text-dark"><i class="bi bi-arrow-repeat text-warning me-2"></i> Request Document Re-upload</h5>
+
+            {% if req.reupload_requested %}
+                {% if req.reupload_submitted_at %}
+                <div class="p-3 mb-3 border rounded-2 d-flex justify-content-between align-items-center flex-wrap gap-2" style="background-color: #ecfdf5; border-color: #a7f3d0;">
+                    <div>
+                        <p class="fs-13 fw-bold mb-0" style="color:#065F46;"><i class="bi bi-check-circle-fill me-1"></i> New {{ req.get_reupload_document_display }} received</p>
+                        <p class="fs-12 text-muted mb-0">Submitted on {{ req.reupload_submitted_at|date:"d M Y, h:i A" }} — review the corrected document, then close the re-upload.</p>
+                    </div>
+                    <form method="POST" action="{% url 'lands:admin_disable_reupload' req.id %}" style="margin: 0;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2 px-3" style="background-color: var(--color-success); border: none; border-radius: var(--radius-btn);">
+                            <i class="bi bi-check-lg me-1"></i> Close Re-upload
+                        </button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="p-3 mb-3 border rounded-2" style="background-color: #fffbeb; border-color: #fde68a;">
+                    <p class="fs-13 fw-bold mb-0" style="color:#92400E;"><i class="bi bi-hourglass-split me-1"></i> Awaiting re-upload of {{ req.get_reupload_document_display }}</p>
+                    <p class="fs-12 text-muted mb-0">Requested on {{ req.reupload_requested_at|date:"d M Y, h:i A" }}. Landowner has been notified and emailed.</p>
+                    {% if req.reupload_note %}<p class="fs-12 text-muted mb-0 mt-1" style="white-space: pre-wrap;">Note: {{ req.reupload_note }}</p>{% endif %}
+                </div>
+                {% endif %}
+
+                <form method="POST" action="{% url 'lands:admin_disable_reupload' req.id %}" style="margin: 0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger fs-12 fw-bold text-uppercase py-2 px-3" style="border-radius: var(--radius-btn);">
+                        <i class="bi bi-x-lg me-1"></i> Cancel / Disable Re-upload
+                    </button>
+                </form>
+            {% else %}
+            <form method="POST" action="{% url 'lands:admin_request_reupload' req.id %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="reuploadDoc" class="form-label fs-12 fw-bold text-muted text-uppercase tracking-wider">Document to re-upload</label>
+                    <select class="form-select bg-white text-dark fs-14 border border-light-glow" id="reuploadDoc" name="reupload_document" required>
+                        <option value="">— Select a document —</option>
+                        {% for value, label in req.REUPLOAD_DOCUMENT_CHOICES %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="reuploadNote" class="form-label fs-12 fw-bold text-muted text-uppercase tracking-wider">Note to landowner (optional)</label>
+                    <textarea class="form-control bg-white text-dark fs-14 border border-light-glow" id="reuploadNote" name="reupload_note" rows="2" placeholder="e.g. The registry deed is blurry — please upload a clear scan."></textarea>
+                </div>
+                <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2 px-3" style="background-color: #F59E0B; border: none; border-radius: var(--radius-btn);">
+                    Request Re-upload <i class="bi bi-arrow-repeat ms-1"></i>
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <!-- Actions Panel -->
         <div class="border-top border-light-glow pt-4">

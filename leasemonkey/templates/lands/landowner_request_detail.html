@@ -409,6 +409,45 @@
         </div>
         {% endif %}
 
+        {% if req.reupload_requested %}
+        <div class="alert border-0 shadow-sm rounded-3 p-3 mb-4 fs-14" style="background-color: #FFFBEB; border-left: 4px solid #F59E0B !important; color: #92400E;">
+            <div class="d-flex align-items-start gap-2">
+                <div style="font-size: 16px; flex-shrink: 0; margin-top: 1px;">
+                    <i class="bi bi-arrow-repeat" style="color: #D97706;"></i>
+                </div>
+                <div class="w-100">
+                    <strong class="fw-bold d-block mb-1" style="color: #92400E;">Document Re-upload Requested</strong>
+                    <p class="mb-1">The administrator has asked you to re-upload the
+                        <strong>{{ req.get_reupload_document_display }}</strong> for this property.
+                        {% if req.reupload_requested_at %}
+                        <span class="text-muted">(requested on {{ req.reupload_requested_at|date:"d M Y at h:i A" }})</span>
+                        {% endif %}
+                    </p>
+                    {% if req.reupload_note %}
+                    <div class="p-2 mb-2 rounded-2 fs-13" style="background-color: #FEF3C7; color: #92400E; white-space: pre-wrap;">{{ req.reupload_note }}</div>
+                    {% endif %}
+
+                    {% if req.reupload_submitted_at %}
+                    <div class="d-flex align-items-center gap-2 text-success">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span class="fw-semibold">New {{ req.get_reupload_document_display }} submitted on {{ req.reupload_submitted_at|date:"d M Y at h:i A" }}. The administrator will review it shortly.</span>
+                    </div>
+                    {% else %}
+                    <form method="POST" action="{% url 'lands:landowner_reupload_document' req.id %}" enctype="multipart/form-data" class="mt-2">
+                        {% csrf_token %}
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <input type="file" name="reupload_file" accept=".pdf,.jpg,.jpeg,.png" class="form-control form-control-sm" style="max-width: 320px;" required>
+                            <button type="submit" class="btn btn-warning text-white fw-bold fs-12 text-uppercase px-3 py-2" style="border: none; border-radius: 8px;">
+                                <i class="bi bi-upload me-1"></i> Submit Re-upload
+                            </button>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         {% comment %} ── 2-COLUMN: Property Info + Ownership Docs ── {% endcomment %}
         <div class="row g-4 mb-4">
             <div class="col-md-6">
@@ -594,6 +633,23 @@
         <div class="p-4 border border-light-glow rounded-3 mb-4" style="background-color: #F9FAFB;">
             <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-2" style="color: #6B7280;"><i class="bi bi-card-text me-1.5"></i> Description</h5>
             <p class="text-dark fs-14 mb-0" style="white-space: pre-wrap;">{{ req.description }}</p>
+        </div>
+        {% endif %}
+
+        {% comment %} ── GALLERY IMAGES ── {% endcomment %}
+        {% if req.gallery_images.all %}
+        <div class="p-4 border border-light-glow rounded-3 mb-4" style="background-color: #F9FAFB;">
+            <h5 class="fs-11 text-uppercase tracking-wider fw-bold mb-3" style="color: #6B7280;"><i class="bi bi-images me-1.5"></i> Gallery Images ({{ req.gallery_images.count }})</h5>
+            <div class="d-flex flex-wrap gap-3">
+                {% for g_img in req.gallery_images.all %}
+                <div style="width:140px; height:140px; border-radius:12px; overflow:hidden; border:1px solid #E5E7EB; background:#fff; position:relative;">
+                    <img src="{% url 'core:serve_protected_file' 'land_request' req.id %}?doc=gallery&i={{ forloop.counter0 }}" alt="Gallery image" class="w-100 h-100" style="object-fit: cover; cursor: zoom-in;" onclick="window.open(this.src, '_blank');">
+                    {% if g_img.caption %}
+                    <div style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.55); color:#fff; font-size:11px; padding:4px 8px;">{{ g_img.caption }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
         </div>
         {% endif %}
         {% comment %} ── FOOTER BACK LINK ── {% endcomment %}

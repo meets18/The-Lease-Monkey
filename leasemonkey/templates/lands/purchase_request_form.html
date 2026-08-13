@@ -598,6 +598,31 @@
                             </div>
                         </div>
 
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <label class="form-label">Aadhaar Document (Optional — for verification)</label>
+                                <div class="file-upload-wrapper text-center border-dashed rounded p-3 position-relative"
+                                    style="border: 2px dashed rgba(255,255,255,0.15); background: rgba(0,0,0,0.2); cursor: pointer;"
+                                    onclick="document.getElementById('aadhaarFileUpload').click();">
+                                    <i class="bi bi-person-vcard fs-3 text-cyan-glow mb-1 d-block"></i>
+                                    <span class="fs-12 fw-bold text-white d-block mb-1" id="aadhaarUploadLabel">Upload Aadhaar</span>
+                                    <span class="fs-10 text-white-50 d-block">PDF, JPG, PNG (Max 10MB)</span>
+                                    <input type="file" id="aadhaarFileUpload" accept=".pdf, .jpg, .jpeg, .png" class="d-none" onchange="updatePurchaseFileLabel(this, 'aadhaarUploadLabel');">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">PAN Document (Optional — for verification)</label>
+                                <div class="file-upload-wrapper text-center border-dashed rounded p-3 position-relative"
+                                    style="border: 2px dashed rgba(255,255,255,0.15); background: rgba(0,0,0,0.2); cursor: pointer;"
+                                    onclick="document.getElementById('panFileUpload').click();">
+                                    <i class="bi bi-credit-card-2-front-fill fs-3 text-amber-glow mb-1 d-block"></i>
+                                    <span class="fs-12 fw-bold text-white d-block mb-1" id="panUploadLabel">Upload PAN</span>
+                                    <span class="fs-10 text-white-50 d-block">PDF, JPG, PNG (Max 10MB)</span>
+                                    <input type="file" id="panFileUpload" accept=".pdf, .jpg, .jpeg, .png" class="d-none" onchange="updatePurchaseFileLabel(this, 'panUploadLabel');">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="d-flex justify-content-center mt-4 pt-2">
                             <button type="button" class="btn btn-primary px-5" id="btnNext1" onclick="nextStep(1)">Next <i class="bi bi-arrow-right ms-1"></i></button>
                         </div>
@@ -686,7 +711,7 @@
                                         <i class="bi bi-arrow-clockwise me-1"></i> Resend
                                     </button>
                                 </div>
-                                <div id="otpVerifiedBadge" class="alert alert-success p-2.5 mt-2.5 rounded-3 align-items-center" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10B981;">
+                                <div id="otpVerifiedBadge" class="alert alert-success p-2.5 mt-2.5 rounded-3 align-items-center" data-persist-alert style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10B981;">
                                     <i class="bi bi-check-circle-fill me-2 fs-5"></i>
                                     <span class="fw-semibold fs-13">Email OTP Verified Successfully!</span>
                                 </div>
@@ -728,6 +753,17 @@
             window.location.href = "{% url 'lands:plot_viewer' slug=land_slug %}";
         }
     }
+
+    // Warning when leaving the purchase request form
+    let purchaseFormDirty = true;
+    window.addEventListener('beforeunload', function (event) {
+        if (!purchaseFormDirty) return;
+        event.preventDefault();
+        event.returnValue = "Are you sure you want to leave the purchase request form? Your information will not be saved.";
+        return "Are you sure you want to leave the purchase request form? Your information will not be saved.";
+    });
+    document.addEventListener('submit', function () { purchaseFormDirty = false; }, true);
+    window.addEventListener('pagehide', function () { purchaseFormDirty = false; });
 
     function showAlert(msg, isError = true) {
         const box = document.getElementById('alertBox');
@@ -788,7 +824,8 @@
                 otpInput.readOnly = true;
                 otpErrorMsg.classList.add('d-none');
                 
-                document.getElementById('otpVerifiedBadge').style.display = 'flex';
+                const verifiedBadge = document.getElementById('otpVerifiedBadge');
+                if (verifiedBadge) verifiedBadge.style.display = 'flex';
                 btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Verified';
                 btn.disabled = true;
                 
@@ -802,12 +839,27 @@
         });
     }
 
+    // Update the upload box label once a file is chosen (matches landowner dashboard flow)
+    function updatePurchaseFileLabel(input, labelId) {
+        const label = document.getElementById(labelId);
+        if (!label) return;
+        if (input.files && input.files.length > 0) {
+            label.innerText = input.files[0].name;
+            label.style.color = '#38BDF8';
+        } else {
+            label.innerText = labelId === 'aadhaarUploadLabel' ? 'Upload Aadhaar' : 'Upload PAN';
+            label.style.color = '#FFFFFF';
+        }
+    }
+
     function validateStep1() {
         let isValid = true;
         const fullName = document.getElementById('fullName');
         const phone = document.getElementById('phoneNumber');
-        const aadhaar = document.getElementById('aadhaarNumber');
-        const pan = document.getElementById('panNumber');
+        const aadhaarNumber = document.getElementById('aadhaarNumber');
+        const panNumber = document.getElementById('panNumber');
+        const aadhaarFile = document.getElementById('aadhaarFileUpload');
+        const panFile = document.getElementById('panFileUpload');
 
         if (!fullName.value.trim()) {
             fullName.classList.add('is-invalid');
@@ -823,19 +875,32 @@
             phone.classList.remove('is-invalid');
         }
 
-        if (!/^\d{12}$/.test(aadhaar.value.trim())) {
-            aadhaar.classList.add('is-invalid');
+        if (!/^\d{12}$/.test(aadhaarNumber.value.trim())) {
+            aadhaarNumber.classList.add('is-invalid');
             isValid = false;
         } else {
-            aadhaar.classList.remove('is-invalid');
+            aadhaarNumber.classList.remove('is-invalid');
         }
 
-        if (!/^[A-Z0-9]{10}$/i.test(pan.value.trim())) {
-            pan.classList.add('is-invalid');
+        if (!/^[A-Z0-9]{10}$/i.test(panNumber.value.trim())) {
+            panNumber.classList.add('is-invalid');
             isValid = false;
         } else {
-            pan.classList.remove('is-invalid');
+            panNumber.classList.remove('is-invalid');
         }
+
+        // Optionally validate uploaded files (PDF / JPG / PNG) if present
+        [aadhaarFile, panFile].forEach(function (input) {
+            if (input && input.files && input.files.length > 0) {
+                const ext = input.files[0].name.substring(input.files[0].name.lastIndexOf('.')).toLowerCase();
+                if (['.pdf', '.jpg', '.jpeg', '.png'].indexOf(ext) === -1) {
+                    input.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    input.classList.remove('is-invalid');
+                }
+            }
+        });
 
         return isValid;
     }
@@ -942,9 +1007,11 @@
         if (!document.getElementById('termsCheck').checked) {
             return;
         }
-        
+
         const proposedAmount = document.getElementById('proposedAmount');
         const otpCode = document.getElementById('otpCode');
+        const aadhaarFile = document.getElementById('aadhaarFileUpload');
+        const panFile = document.getElementById('panFileUpload');
 
         if (!proposedAmount.value) {
             proposedAmount.classList.add('is-invalid');
@@ -953,6 +1020,16 @@
         if (!otpCode.value.trim()) {
             otpCode.classList.add('is-invalid');
             return;
+        }
+
+        // Files are optional; when present, attach their names for reference.
+        let aadhaarFileName = '';
+        let panFileName = '';
+        if (aadhaarFile && aadhaarFile.files && aadhaarFile.files.length > 0) {
+            aadhaarFileName = aadhaarFile.files[0].name;
+        }
+        if (panFile && panFile.files && panFile.files.length > 0) {
+            panFileName = panFile.files[0].name;
         }
 
         const data = {
@@ -964,6 +1041,8 @@
             proposed_amount: proposedAmount.value,
             otp_code: otpCode.value.trim(),
             buyer_message: document.getElementById('buyerMessage').value.trim(),
+            aadhaar_file_name: aadhaarFileName,
+            pan_file_name: panFileName,
         };
 
         const btn = document.getElementById('btnSubmit');
@@ -985,6 +1064,7 @@
                 btn.innerText = "Submit Request";
                 btn.disabled = false;
             } else {
+                purchaseFormDirty = false;
                 window.location.href = "{% url 'buyer_dashboard' %}#requests";
             }
         })

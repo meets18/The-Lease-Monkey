@@ -22,6 +22,10 @@ class Notification(models.Model):
         ('support_ticket_replied',   'Support Ticket Reply'),
         ('support_ticket_status_changed', 'Support Ticket Status Changed'),
         ('purchase_request_cancelled', 'Purchase Request Cancelled'),
+        ('doc_reupload_requested', 'Document Re-upload Requested'),
+        ('doc_reupload_submitted', 'Document Re-uploaded'),
+        ('doc_reupload_disabled', 'Document Re-upload Closed'),
+    ('purchase_request_ocr', 'Purchase Request OCR Verified'),
     ]
 
     ticket_id = models.CharField(max_length=20, null=True, blank=True)

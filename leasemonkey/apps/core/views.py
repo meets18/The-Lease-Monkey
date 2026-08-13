@@ -415,8 +415,17 @@ def serve_protected_file(request, model_name, pk):
         elif doc_field == 'pricing_csv':
             file_path = obj.plot_pricing_csv.path if obj.plot_pricing_csv else None
             original_name = f'pricing_csv_{obj.property_name}{os.path.splitext(obj.plot_pricing_csv.name)[1] if obj.plot_pricing_csv else ""}'
+        elif doc_field == 'gallery':
+            from apps.lands.models import LandRegistrationGalleryImage
+            idx = request.GET.get('i', '0')
+            try:
+                gallery_img = obj.gallery_images.all()[int(idx)]
+            except (IndexError, ValueError, TypeError):
+                raise Http404('Gallery image not found.')
+            file_path = gallery_img.image.path
+            original_name = f'gallery_{obj.property_name}_{idx}{os.path.splitext(gallery_img.image.name)[1]}'
         else:
-            return JsonResponse({'error': 'Invalid document field. Use ?doc=ownership|floor_plan|registry_sale_deed|supporting_docs|pricing_csv'}, status=400)
+            return JsonResponse({'error': 'Invalid document field. Use ?doc=ownership|floor_plan|registry_sale_deed|supporting_docs|pricing_csv|gallery'}, status=400)
 
     else:
         raise Http404('Invalid file type.')

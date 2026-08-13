@@ -66,7 +66,8 @@ class PurchaseRequestFormTests(TestCase):
             'full_name': 'PR Buyer',
             'aadhaar_number': '123456789012',
             'pan_number': 'ABCDE1234F',
-            'proposed_amount': 1450000
+            'proposed_amount': 1450000,
+            'otp_code': '123456'
         }
         url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
         response = self.client.post(url, json.dumps(payload), content_type='application/json')
@@ -77,6 +78,73 @@ class PurchaseRequestFormTests(TestCase):
         self.assertEqual(pr.email, 'pr_buyer@test.com')
         self.assertEqual(pr.phone_number, '+919876543210')
         self.assertEqual(pr.proposed_amount, 1450000)
+
+    def test_submit_purchase_request_with_wrong_otp(self):
+        self.client.login(username='pr_buyer', password='Password123!')
+
+        # A used OTP exists, but the buyer submits a non-matching code
+        EmailOTP.objects.create(email='pr_buyer@test.com', otp_code='123456', is_used=True)
+
+        payload = {
+            'full_name': 'PR Buyer',
+            'aadhaar_number': '123456789012',
+            'pan_number': 'ABCDE1234F',
+            'proposed_amount': 1450000,
+            'otp_code': '999999'
+        }
+        url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
+        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('OTP', response.json()['error'])
+
+    def test_cancel_purchase_request(self):
+        self.client.login(username='pr_buyer', password='Password123!')
+
+        pr = PurchaseRequest.objects.create(
+            buyer=self.buyer,
+            land=self.land,
+            plot_number="Plot101",
+            full_name='PR Buyer',
+            aadhaar_number='123456789012',
+            pan_number='ABCDE1234F',
+            email='pr_buyer@test.com',
+            phone_number='+919876543210',
+            proposed_amount=1450000,
+            status='pending'
+        )
+        url = reverse('lands:purchase_request_cancel', kwargs={'request_id': pr.id})
+        response = self.client.post(url, content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'ok')
+
+        pr.refresh_from_db()
+        self.assertEqual(pr.status, 'cancelled')
+
+    def test_cancel_purchase_request_not_owner(self):
+        other_buyer = User.objects.create_user(
+            username='pr_other_buyer',
+            email='pr_other@test.com',
+            password='Password123!',
+            role='BUYER',
+            is_verified=True
+        )
+        pr = PurchaseRequest.objects.create(
+            buyer=other_buyer,
+            land=self.land,
+            plot_number="Plot101",
+            full_name='Other Buyer',
+            aadhaar_number='123456789012',
+            pan_number='ABCDE1234F',
+            email='pr_other@test.com',
+            phone_number='+919876543210',
+            proposed_amount=1450000,
+            status='pending'
+        )
+        self.client.login(username='pr_buyer', password='Password123!')
+        url = reverse('lands:purchase_request_cancel', kwargs={'request_id': pr.id})
+        response = self.client.post(url, content_type='application/json')
+        # get_object_or_404 scoped to buyer hides other users' requests (404, not 403)
+        self.assertEqual(response.status_code, 404)
 
     def test_fix_meeting_success(self):
         # Create a pending purchase request
@@ -208,4 +276,164 @@ class SecurityAndChatTests(TestCase):
         self.client.login(username='admin_test', password='Password123!')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
+
+
+class DocumentReuploadTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.landowner = User.objects.create_user(
+            username='reupload_owner',
+            email='reupload_owner@test.com',
+            password='Password123!',
+            role='LAND_OWNER',
+            is_verified=True
+        )
+        self.admin = User.objects.create_user(
+            username='reupload_admin',
+            email='reupload_admin@test.com',
+            password='Password123!',
+            role='ADMIN',
+            is_superuser=True,
+            is_verified=True
+        )
+        self.buyer = User.objects.create_user(
+            username='reupload_buyer',
+            email='reupload_buyer@test.com',
+            password='Password123!',
+            role='BUYER',
+            is_verified=True
+        )
+        self.req = LandRegistrationRequest.objects.create(
+            owner=self.landowner,
+            property_name='Reupload Estates',
+            state='Rajasthan',
+            district='Jaipur',
+            city_village='Jaipur',
+            pin_code='302001',
+            location='26.9, 75.8',
+            average_plot_price=2000000,
+            status='pending'
+        )
+        self.reupload_url = reverse('lands:landowner_reupload_document', kwargs={'req_id': self.req.id})
+        self.admin_reupload_url = reverse('lands:admin_request_reupload', kwargs={'req_id': self.req.id})
+        self.admin_disable_url = reverse('lands:admin_disable_reupload', kwargs={'req_id': self.req.id})
+
+    def _upload_file(self, name='registry.pdf', content=b'%PDF-1.4 reupload'):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return SimpleUploadedFile(name, content, content_type='application/pdf')
+
+    def test_admin_requests_reupload(self):
+        self.client.login(username='reupload_admin', password='Password123!')
+        response = self.client.post(self.admin_reupload_url, {
+            'reupload_document': 'registry_sale_deed',
+            'reupload_note': 'Blurry scan, please re-upload.'
+        })
+        self.assertEqual(response.status_code, 302)
+        self.req.refresh_from_db()
+        self.assertTrue(self.req.reupload_requested)
+        self.assertEqual(self.req.reupload_document, 'registry_sale_deed')
+        self.assertEqual(self.req.reupload_note, 'Blurry scan, please re-upload.')
+        self.assertIsNone(self.req.reupload_submitted_at)
+
+    def test_admin_cannot_request_reupload_for_live_request(self):
+        self.req.status = 'live'
+        self.req.save()
+        self.client.login(username='reupload_admin', password='Password123!')
+        response = self.client.post(self.admin_reupload_url, {
+            'reupload_document': 'registry_sale_deed',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.req.refresh_from_db()
+        self.assertFalse(self.req.reupload_requested)
+
+    def test_non_admin_cannot_request_reupload(self):
+        self.client.login(username='reupload_owner', password='Password123!')
+        try:
+            response = self.client.post(self.admin_reupload_url, {
+                'reupload_document': 'registry_sale_deed',
+            })
+            self.assertIn(response.status_code, (403, 404))
+        except PermissionDenied:
+            pass
+        self.req.refresh_from_db()
+        self.assertFalse(self.req.reupload_requested)
+
+    def test_landowner_reuploads_document(self):
+        self.req.reupload_requested = True
+        self.req.reupload_document = 'registry_sale_deed'
+        self.req.save()
+
+        self.client.login(username='reupload_owner', password='Password123!')
+        response = self.client.post(self.reupload_url, {
+            'reupload_file': self._upload_file(),
+        })
+        self.assertEqual(response.status_code, 302)
+        self.req.refresh_from_db()
+        self.assertTrue(self.req.registry_sale_deed)
+        self.assertIn('land_requests/reupload_owner/registry_', self.req.registry_sale_deed.name)
+        self.assertIsNotNone(self.req.reupload_submitted_at)
+
+    def test_landowner_cannot_reupload_when_not_requested(self):
+        self.client.login(username='reupload_owner', password='Password123!')
+        response = self.client.post(self.reupload_url, {
+            'reupload_file': self._upload_file(),
+        })
+        self.assertEqual(response.status_code, 302)
+        self.req.refresh_from_db()
+        self.assertFalse(self.req.registry_sale_deed)
+
+    def test_landowner_cannot_reupload_when_live(self):
+        self.req.reupload_requested = True
+        self.req.reupload_document = 'registry_sale_deed'
+        self.req.status = 'live'
+        self.req.save()
+
+        self.client.login(username='reupload_owner', password='Password123!')
+        response = self.client.post(self.reupload_url, {
+            'reupload_file': self._upload_file(),
+        })
+        self.assertEqual(response.status_code, 302)
+        self.req.refresh_from_db()
+        self.assertFalse(self.req.registry_sale_deed)
+
+    def test_reupload_rejects_wrong_extension(self):
+        self.req.reupload_requested = True
+        self.req.reupload_document = 'registry_sale_deed'
+        self.req.save()
+
+        self.client.login(username='reupload_owner', password='Password123!')
+        response = self.client.post(self.reupload_url, {
+            'reupload_file': self._upload_file(name='registry.exe'),
+        })
+        self.assertEqual(response.status_code, 302)
+        self.req.refresh_from_db()
+        self.assertFalse(self.req.registry_sale_deed)
+
+    def test_other_user_cannot_reupload(self):
+        self.req.reupload_requested = True
+        self.req.reupload_document = 'registry_sale_deed'
+        self.req.save()
+
+        self.client.login(username='reupload_buyer', password='Password123!')
+        response = self.client.post(self.reupload_url, {
+            'reupload_file': self._upload_file(),
+        })
+        self.assertEqual(response.status_code, 404)
+        self.req.refresh_from_db()
+        self.assertFalse(self.req.registry_sale_deed)
+
+    def test_admin_disable_reupload(self):
+        self.req.reupload_requested = True
+        self.req.reupload_document = 'registry_sale_deed'
+        self.req.reupload_submitted_at = timezone.now()
+        self.req.save()
+
+        self.client.login(username='reupload_admin', password='Password123!')
+        response = self.client.post(self.admin_disable_url)
+        self.assertEqual(response.status_code, 302)
+        self.req.refresh_from_db()
+        self.assertFalse(self.req.reupload_requested)
+        self.assertEqual(self.req.reupload_document, '')
+        self.assertIsNone(self.req.reupload_submitted_at)
+
 

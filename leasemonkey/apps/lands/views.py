@@ -1172,20 +1172,19 @@ def submit_purchase_request(request, slug, plot_number):
         if not (full_name and aadhaar_number and pan_number and email and phone_number and proposed_amount):
             return JsonResponse({'error': 'All fields are required.'}, status=400)
             
-        # Verify OTP was used or verify provided OTP code
-        if otp_code:
-            otp_record = EmailOTP.objects.filter(email=email, otp_code=otp_code, is_used=False).first()
-            if otp_record and not otp_record.is_expired():
-                otp_record.is_used = True
-                otp_record.save()
-            else:
-                recent_otp = EmailOTP.objects.filter(email=email, is_used=True).order_by('-created_at').first()
-                if not recent_otp or (timezone.now() - recent_otp.created_at).total_seconds() > 1800:
-                    return JsonResponse({'error': 'Invalid or expired OTP code.'}, status=400)
+        # Verify OTP was used or verify provided OTP code.
+        # A submission MUST be backed by a valid, recently-verified OTP for this
+        # email. Either the submitted code is a fresh unused OTP (consumed here),
+        # or it must exactly match the most recently verified OTP.
+        otp_record = EmailOTP.objects.filter(email=email, otp_code=otp_code, is_used=False).first()
+        if otp_record and not otp_record.is_expired():
+            otp_record.is_used = True
+            otp_record.save()
         else:
-            recent_otp = EmailOTP.objects.filter(email=email, is_used=True).order_by('-created_at').first()
-            if not recent_otp or (timezone.now() - recent_otp.created_at).total_seconds() > 1800:
-                return JsonResponse({'error': 'Email verification OTP is required.'}, status=400)
+            recent_verified = EmailOTP.objects.filter(email=email, is_used=True).order_by('-created_at').first()
+            recently_verified = recent_verified and (timezone.now() - recent_verified.created_at).total_seconds() <= 900
+            if not otp_code or not recent_verified or not recently_verified or otp_code != recent_verified.otp_code:
+                return JsonResponse({'error': 'Email verification OTP is required or invalid.'}, status=400)
             
         from django.db import transaction
 
@@ -1267,6 +1266,72 @@ def submit_purchase_request(request, slug, plot_number):
         return JsonResponse({'status': 'ok', 'message': 'Purchase request submitted successfully.'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@transaction.atomic
+def cancel_purchase_request(request, request_id):
+    """
+    Buyer cancels their own purchase request while it is still pending.
+    Returns the plot to 'available' and notifies the landowner.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+
+    pr = get_object_or_404(
+        PurchaseRequest.objects.select_for_update(),
+        id=request_id,
+        buyer=request.user,
+    )
+
+    if pr.status not in ['pending', 'meeting_scheduled']:
+        return JsonResponse({'error': 'This request can no longer be cancelled.'}, status=400)
+
+    was_meeting_scheduled = (pr.status == 'meeting_scheduled')
+    pr.status = 'cancelled'
+    pr.save()
+
+    # Release the plot back to available if it was reserved for this request
+    plot = pr.land.plots.select_for_update().filter(plot_number=pr.plot_number).first()
+    if plot:
+        if was_meeting_scheduled and plot.status == 'reserved':
+            plot.status = 'available'
+            plot.save()
+        elif not was_meeting_scheduled and plot.status == 'reserved':
+            # A reserved plot with a cancelled (not yet met) request returns to available
+            plot.status = 'available'
+            plot.save()
+
+    Notification.objects.create(
+        recipient=pr.land.owner,
+        sender=request.user,
+        notif_type='purchase_request_cancelled',
+        title=f"Purchase Request Cancelled for Plot {pr.plot_number}",
+        message=(
+            f"Buyer {request.user.username} has cancelled their purchase request "
+            f"for Plot {pr.plot_number} in {pr.land.name}."
+        ),
+        land_slug=pr.land.slug,
+        plot_number=pr.plot_number,
+    )
+
+    try:
+        send_mail(
+            subject=f'[Lease Monkey] Purchase Request Cancelled — Plot {pr.plot_number}',
+            message=(
+                f'Hello {pr.land.owner.username},\n\n'
+                f'Buyer {request.user.username} has cancelled their purchase request '
+                f'for Plot {pr.plot_number} in {pr.land.name}.\n\n'
+                f'— The Lease Monkey Team'
+            ),
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[pr.land.owner.email],
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+
+    return JsonResponse({'status': 'ok', 'message': 'Purchase request cancelled.'})
 
 
 @login_required
@@ -1615,6 +1680,7 @@ def submit_land_request(request):
         supporting_documents = request.FILES.get('supporting_documents')
         floor_plan = request.FILES.get('floor_plan')
         plot_pricing_csv = request.FILES.get('plot_pricing_csv')
+        gallery_images = request.FILES.getlist('gallery_images')
 
         # When reusing the signup application, its ownership document already
         # covers the ownership proof requirement (only override if the user
@@ -1641,6 +1707,15 @@ def submit_land_request(request):
             errors.append("Site floor plan layout is required.")
         if plot_pricing_csv and not plot_pricing_csv.name.lower().endswith('.csv'):
             errors.append("Plot pricing sheet must be a valid CSV file.")
+
+        if len(gallery_images) > 10:
+            errors.append("You can upload at most 10 gallery images.")
+
+        allowed_img_exts = ('.jpg', '.jpeg', '.png', '.webp', '.gif')
+        for gf in gallery_images:
+            if not gf.name.lower().endswith(allowed_img_exts):
+                errors.append(f"Gallery image '{gf.name}' must be a JPG, PNG, WEBP or GIF image.")
+                break
 
         try:
             avg_price = float(avg_price_str) if avg_price_str else None
@@ -1680,6 +1755,11 @@ def submit_land_request(request):
             floor_plan=floor_plan,
             plot_pricing_csv=plot_pricing_csv,
         )
+
+        # Save any gallery images uploaded alongside the request
+        from apps.lands.models import LandRegistrationGalleryImage
+        for gf in gallery_images:
+            LandRegistrationGalleryImage.objects.create(request=req, image=gf)
 
         app = getattr(request.user, 'landowner_application', None)
         aadhaar_str = app.aadhaar_number if app else "N/A"
@@ -1873,6 +1953,29 @@ def admin_register_land_from_request(request, req_id):
         )
         req.land = land
 
+        # Transfer any gallery images uploaded with the request to the land's gallery
+        from apps.lands.models import LandImage
+        import shutil as _shutil
+        for g_img in req.gallery_images.all():
+            try:
+                if not g_img.image:
+                    continue
+                src_path = g_img.image.path
+                if not os.path.exists(src_path):
+                    continue
+                # Save a copy under the land gallery path so the land owns its media
+                dest_rel = f"land_gallery/{land.slug}/{os.path.basename(g_img.image.name)}"
+                dest_path = os.path.join(settings.MEDIA_ROOT, dest_rel)
+                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                _shutil.copyfile(src_path, dest_path)
+                LandImage.objects.create(
+                    land=land,
+                    image=dest_rel,
+                    caption=g_img.caption or '',
+                )
+            except Exception:
+                continue
+
     # Set 24-hour payment deadline
     deadline = timezone.now() + datetime.timedelta(hours=24)
     req.status = 'payment_pending'
@@ -1968,6 +2071,220 @@ def admin_update_request_message(request, req_id):
 
     messages.success(request, "Message sent to landowner successfully.")
     return redirect('lands:admin_land_request_detail', req_id=req_id)
+
+
+@login_required
+def admin_request_reupload(request, req_id):
+    """Admin asks the landowner to re-upload a specific document. Only allowed while the request is not yet live/final."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=400)
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        raise PermissionDenied
+
+    from apps.lands.models import LandRegistrationRequest
+    from apps.core.models import Notification
+    from django.core.mail import send_mail
+    from django.conf import settings
+    from django.utils import timezone
+
+    req = get_object_or_404(LandRegistrationRequest, pk=req_id)
+
+    if req.status in ('live', 'rejected', 'deleted'):
+        messages.error(request, "Document re-uploads can only be requested before the property goes live.")
+        return redirect('lands:admin_land_request_detail', req_id=req_id)
+
+    doc_value = request.POST.get('reupload_document', '').strip()
+    valid_docs = dict(LandRegistrationRequest.REUPLOAD_DOCUMENT_CHOICES)
+    if doc_value not in valid_docs:
+        messages.error(request, "Please select a valid document to request a re-upload for.")
+        return redirect('lands:admin_land_request_detail', req_id=req_id)
+
+    note = request.POST.get('reupload_note', '').strip()
+
+    # Clear any existing message so only the new (fresh) request is shown to the landowner.
+    req.admin_message = ''
+    req.reupload_requested = True
+    req.reupload_document = doc_value
+    req.reupload_note = note
+    req.reupload_requested_at = timezone.now()
+    req.reupload_submitted_at = None
+    req.save(update_fields=[
+        'admin_message', 'reupload_requested', 'reupload_document',
+        'reupload_note', 'reupload_requested_at', 'reupload_submitted_at'
+    ])
+
+    doc_label = valid_docs[doc_value]
+    Notification.objects.create(
+        recipient=req.owner,
+        sender=request.user,
+        notif_type='doc_reupload_requested',
+        title="Document Re-upload Requested",
+        message=(
+            f"Administrator has asked you to re-upload the '{doc_label}' "
+            f"for property '{req.property_name}'.\n\n{note or 'Please upload a corrected/correct version of this document.'}"
+        )
+    )
+
+    subject = f"Lease Monkey: Please re-upload {doc_label} — {req.property_name}"
+    email_body = (
+        f"Hello {req.owner.get_full_name() or req.owner.username},\n\n"
+        f"The administrator has requested you to re-upload the following document for your land "
+        f"registration request '{req.property_name}':\n\n"
+        f"Document: {doc_label}\n"
+        f"Note: {note or 'Please upload a corrected version of this document.'}\n\n"
+        f"You can re-upload it from your land registration request page on Lease Monkey.\n\n"
+        f"— The Lease Monkey Team"
+    )
+    send_mail(subject=subject, message=email_body, from_email=settings.EMAIL_HOST_USER,
+              recipient_list=[req.owner.email], fail_silently=True)
+
+    messages.success(request, f"Re-upload of '{doc_label}' requested from the landowner.")
+    return redirect('lands:admin_land_request_detail', req_id=req_id)
+
+
+@login_required
+def admin_disable_reupload(request, req_id):
+    """Admin closes the re-upload session after the corrected document has been submitted."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=400)
+    if request.user.role != 'ADMIN' and not request.user.is_superuser:
+        raise PermissionDenied
+
+    from apps.lands.models import LandRegistrationRequest
+    from apps.core.models import Notification
+    from django.core.mail import send_mail
+    from django.conf import settings
+
+    req = get_object_or_404(LandRegistrationRequest, pk=req_id)
+
+    was_requested = req.reupload_requested
+    req.reupload_requested = False
+    req.reupload_document = ''
+    req.reupload_note = ''
+    req.reupload_requested_at = None
+    req.reupload_submitted_at = None
+    req.save(update_fields=[
+        'reupload_requested', 'reupload_document', 'reupload_note',
+        'reupload_requested_at', 'reupload_submitted_at'
+    ])
+
+    Notification.objects.create(
+        recipient=req.owner,
+        sender=request.user,
+        notif_type='doc_reupload_disabled',
+        title="Document Re-upload Closed",
+        message=(
+            f"Thank you! The administrator has received the document for property '{req.property_name}' and "
+            f"closed the re-upload request. No further action is needed."
+        )
+    )
+    send_mail(
+        subject=f"Lease Monkey: Re-upload request closed — {req.property_name}",
+        message=(
+            f"Hello {req.owner.get_full_name() or req.owner.username},\n\n"
+            f"The administrator has received the corrected document for your land registration request "
+            f"'{req.property_name}' and closed the re-upload request.\n\n"
+            f"— The Lease Monkey Team"
+        ),
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[req.owner.email],
+        fail_silently=True
+    )
+
+    if was_requested:
+        messages.success(request, "Re-upload request closed. Document review complete.")
+    return redirect('lands:admin_land_request_detail', req_id=req_id)
+
+
+@login_required
+def landowner_reupload_document(request, req_id):
+    """Landowner submits a replacement for the document the admin asked them to re-upload."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=400)
+
+    from apps.lands.models import LandRegistrationRequest
+    from apps.core.models import Notification
+    from django.core.mail import send_mail
+    from django.conf import settings
+    from django.utils import timezone
+
+    req = get_object_or_404(LandRegistrationRequest, pk=req_id, owner=request.user)
+
+    if not req.reupload_requested:
+        messages.error(request, "No document re-upload was requested for this registration.")
+        return redirect('lands:landowner_request_detail', req_id=req_id)
+
+    if req.status in ('live', 'rejected', 'deleted'):
+        messages.error(request, "Re-uploads are no longer accepted for this request.")
+        return redirect('lands:landowner_request_detail', req_id=req_id)
+
+    valid_docs = dict(LandRegistrationRequest.REUPLOAD_DOCUMENT_CHOICES)
+    doc_value = req.reupload_document
+    if doc_value not in valid_docs:
+        messages.error(request, "The requested document is not valid.")
+        return redirect('lands:landowner_request_detail', req_id=req_id)
+
+    new_file = request.FILES.get('reupload_file')
+    if not new_file:
+        messages.error(request, "Please choose a file to upload.")
+        return redirect('lands:landowner_request_detail', req_id=req_id)
+
+    allowed_exts = ('.pdf', '.jpg', '.jpeg', '.png')
+    if not new_file.name.lower().endswith(allowed_exts):
+        messages.error(request, "Please upload a PDF or an image (.pdf, .jpg, .jpeg, .png).")
+        return redirect('lands:landowner_request_detail', req_id=req_id)
+
+    # Replace the corresponding document field (delete the previous physical file, if any).
+    try:
+        old_field = getattr(req, doc_value)
+        if old_field:
+            old_path = None
+            try:
+                old_path = old_field.path
+            except Exception:
+                old_path = None
+            if old_path and os.path.isfile(old_path):
+                try:
+                    os.remove(old_path)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    setattr(req, doc_value, new_file)
+    req.reupload_submitted_at = timezone.now()
+    req.save(update_fields=[doc_value, 'reupload_submitted_at'])
+
+    doc_label = valid_docs[doc_value]
+    admin_users = User.objects.filter(role='ADMIN')
+    for admin in admin_users:
+        Notification.objects.create(
+            recipient=admin,
+            sender=request.user,
+            notif_type='doc_reupload_submitted',
+            title="Document Re-uploaded by Landowner",
+            message=(
+                f"{request.user.get_full_name() or request.user.username} has re-uploaded the "
+                f"'{doc_label}' for property '{req.property_name}'. "
+                f"Please review the corrected document on the admin dashboard."
+            )
+        )
+
+    send_mail(
+        subject=f"Lease Monkey: {doc_label} re-uploaded — {req.property_name}",
+        message=(
+            f"Hello Admin,\n\n"
+            f"The landowner {request.user.get_full_name() or request.user.username} has re-uploaded the "
+            f"'{doc_label}' for property '{req.property_name}'.\n\n"
+            f"Please review the corrected document and close the re-upload request from the admin dashboard."
+        ),
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[settings.EMAIL_HOST_USER],
+        fail_silently=True
+    )
+
+    messages.success(request, f"'{doc_label}' uploaded successfully.")
+    return redirect('lands:landowner_request_detail', req_id=req_id)
 
 
 @login_required

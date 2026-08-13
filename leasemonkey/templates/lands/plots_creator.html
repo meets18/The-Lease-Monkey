@@ -2818,6 +2818,62 @@ html, body { overflow: hidden; height: 100%; }
         }
     }
 
+    // Finish Registration — AJAX submit that follows the server redirect
+    {% if land.registration_request %}
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('finishRegistrationForm');
+        if (form) {
+            form.addEventListener('submit', function (evt) {
+                evt.preventDefault();
+                const submitBtn = form.querySelector('button[type=submit]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving...';
+                }
+                const formData = new FormData(form);
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+                    },
+                    body: formData,
+                })
+                .then(function (res) {
+                    return res.json().then(function (data) {
+                        return { status: res.status, data: data };
+                    });
+                })
+                .then(function (result) {
+                    if (result.status >= 200 && result.status < 300 && result.data.status === 'success') {
+                        const modalEl = document.getElementById('finishRegistrationModal');
+                        const modal = bootstrap.Modal.getInstance(modalEl);
+                        if (modal) modal.hide();
+                        document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                        window.location.href = result.data.redirect_url || '/accounts/dashboard/';
+                    } else {
+                        alert('Error: ' + (result.data.error || 'Failed to finalize registration.'));
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = 'Finish &amp; Save';
+                        }
+                    }
+                })
+                .catch(function () {
+                    alert('Network error. Please try again.');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = 'Finish &amp; Save';
+                    }
+                });
+            });
+        }
+    });
+    {% endif %}
+
     // ─── CSV Pricing/Sizing Sheet Helpers ─────────────────────────────────────
     let plotPricingData = {}; // keyed by plot number lowercase
 

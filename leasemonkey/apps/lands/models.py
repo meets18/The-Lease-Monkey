@@ -248,6 +248,22 @@ def get_floor_plan_path(instance, filename):
 def get_pricing_csv_path(instance, filename):
     return f"land_requests/{instance.owner.username}/pricing_{filename}"
 
+def get_request_gallery_path(instance, filename):
+    return f"land_requests/{instance.request.owner.username}/gallery_{filename}"
+
+class LandRegistrationGalleryImage(models.Model):
+    request = models.ForeignKey(
+        'lands.LandRegistrationRequest',
+        on_delete=models.CASCADE,
+        related_name='gallery_images'
+    )
+    image = models.ImageField(upload_to=get_request_gallery_path)
+    caption = models.CharField(max_length=200, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Gallery image for request {self.request_id}"
+
 class LandRegistrationRequest(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -286,6 +302,19 @@ class LandRegistrationRequest(models.Model):
     admin_remarks = models.TextField(blank=True, help_text="Internal admin notes (not shown to landowner)")
     admin_message = models.TextField(blank=True, default='', help_text="Message or queries to landowner")
     rejection_reason = models.TextField(blank=True)
+
+    REUPLOAD_DOCUMENT_CHOICES = [
+        ('ownership_proof', 'Ownership Proof'),
+        ('registry_sale_deed', 'Registry / Sale Deed'),
+        ('supporting_documents', 'Supporting Documents'),
+        ('floor_plan', 'Floor Plan'),
+    ]
+    reupload_requested = models.BooleanField(default=False, help_text="Admin has asked the landowner to re-upload a document")
+    reupload_document = models.CharField(max_length=30, choices=REUPLOAD_DOCUMENT_CHOICES, blank=True, default='', help_text="Which document the landowner must re-upload")
+    reupload_note = models.TextField(blank=True, default='', help_text="Admin's note explaining what is wrong with the current document")
+    reupload_requested_at = models.DateTimeField(null=True, blank=True)
+    reupload_submitted_at = models.DateTimeField(null=True, blank=True, help_text="When the landowner replaced the requested document")
+
     status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='pending')
     land = models.OneToOneField(Land, on_delete=models.SET_NULL, null=True, blank=True, related_name='registration_request')
     payment_deadline = models.DateTimeField(null=True, blank=True, help_text="24-hour payment deadline set after admin approval")
@@ -307,6 +336,16 @@ import shutil
 @receiver(post_delete, sender=LandImage)
 def delete_land_image_file(sender, instance, **kwargs):
     """Deletes the physical image file from disk storage when a LandImage is deleted."""
+    if instance.image:
+        try:
+            if os.path.isfile(instance.image.path):
+                os.remove(instance.image.path)
+        except Exception:
+            pass
+
+@receiver(post_delete, sender=LandRegistrationGalleryImage)
+def delete_request_gallery_file(sender, instance, **kwargs):
+    """Deletes the physical image file from disk when a request gallery image is deleted."""
     if instance.image:
         try:
             if os.path.isfile(instance.image.path):

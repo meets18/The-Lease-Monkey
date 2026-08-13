@@ -1200,15 +1200,6 @@
                                     id="formMaps" name="google_maps_link"
                                     placeholder="e.g. https://maps.app.goo.gl/...">
                             </div>
-                            <div class="col-12">
-                                <label for="formDesc"
-                                    class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Description
-                                    (Optional)</label>
-                                <textarea
-                                    class="form-control bg-dark border border-secondary-glow text-white fs-14 py-2"
-                                    id="formDesc" name="description" rows="2"
-                                    placeholder="e.g. Premium residential township with wide roads and modern facilities..."></textarea>
-                            </div>
                         </div>
                     </div>
 
@@ -1300,6 +1291,33 @@
                                         accept=".pdf, .jpg, .jpeg, .png" class="d-none"
                                         onchange="updateFileLabel(this, 'floorPlanFileLabel');">
                                 </div>
+                            </div>
+                            <div class="col-12">
+                                <label
+                                    class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Land
+                                    Gallery Images (Optional)</label>
+                                <div class="file-upload-wrapper text-center border-dashed rounded p-4 position-relative"
+                                    style="border: 2px dashed rgba(255,255,255,0.15); background: rgba(0,0,0,0.2); cursor: pointer;"
+                                    onclick="document.getElementById('formGalleryImages').click();">
+                                    <i class="bi bi-images fs-2 text-cyan-glow mb-2 d-block"></i>
+                                    <span class="fs-13 fw-bold text-white d-block mb-1" id="galleryImagesLabel">Upload
+                                        Photos of the Land</span>
+                                    <span class="fs-11 text-white-50 d-block">Showcase your property to buyers (JPG,
+                                        PNG, WEBP up to 10MB each, max 10)</span>
+                                    <input type="file" id="formGalleryImages" name="gallery_images"
+                                        accept=".jpg, .jpeg, .png, .webp, .gif" class="d-none" multiple
+                                        onchange="updateGalleryLabel(this);">
+                                </div>
+                                <div id="galleryThumbnails" class="d-flex flex-wrap gap-2 mt-2"></div>
+                            </div>
+                            <div class="col-12">
+                                <label for="formDesc"
+                                    class="form-label fs-12 text-uppercase tracking-wider fw-bold text-white-50">Land
+                                    Information / Description</label>
+                                <textarea
+                                    class="form-control bg-dark border border-secondary-glow text-white fs-14 py-2"
+                                    id="formDesc" name="description" rows="3"
+                                    placeholder="Describe your land — what buyers will see in the Info panel, e.g. premium residential township with wide roads, gated entry, water & electricity connections..."></textarea>
                             </div>
                             <div class="col-12">
                                 <label for="formNotes"
@@ -1666,6 +1684,39 @@
             label.innerText = 'Choose Document';
             label.style.color = '#FFFFFF';
         }
+    }
+
+    function updateGalleryLabel(input) {
+        const label = document.getElementById('galleryImagesLabel');
+        const container = document.getElementById('galleryThumbnails');
+        const files = input.files;
+
+        if (files && files.length > 0) {
+            label.innerText = files.length === 1 ? '1 photo selected' : files.length + ' photos selected';
+            label.style.color = '#38BDF8';
+        } else {
+            label.innerText = 'Upload Photos of the Land';
+            label.style.color = '#FFFFFF';
+            container.innerHTML = '';
+            return;
+        }
+
+        container.innerHTML = '';
+        Array.from(files).forEach((file, i) => {
+            const thumb = document.createElement('div');
+            thumb.className = 'gallery-thumb-preview';
+            thumb.style.cssText = 'width:72px;height:72px;border-radius:10px;overflow:hidden;position:relative;border:2px solid rgba(0,178,255,0.35);';
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(file);
+            img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+            img.alt = file.name;
+            thumb.appendChild(img);
+            const numBadge = document.createElement('span');
+            numBadge.style.cssText = 'position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.65);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;';
+            numBadge.innerText = (i + 1);
+            thumb.appendChild(numBadge);
+            container.appendChild(thumb);
+        });
     }
 
     // ─── Multi-step Stepper Logic ──────────────────────────────────────────────

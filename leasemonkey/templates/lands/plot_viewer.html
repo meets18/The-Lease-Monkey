@@ -58,12 +58,12 @@
     <div class="d-flex flex-column gap-1 mb-4">
         <div class="detail-item-row">
             <span>Total Area:</span>
-            <strong id="detailArea">1,500 sqft</strong>
+            <strong id="detailArea" style="color: #ffffff;">1,500 sqft</strong>
         </div>
 
         <div class="detail-item-row">
             <span>Lease Price:</span>
-            <strong id="detailPrice" class="highlight-text-orange">INR 4,500,000</strong>
+            <strong id="detailPrice" style="color: #ffffff;">INR 4,500,000</strong>
         </div>
     </div>
 
@@ -76,15 +76,17 @@
         <button id="btnDeletePlot" class="btn btn-delete-plot w-100 text-uppercase fw-bold fs-11 py-2 text-center" onclick="handleDeletePlotClick();">
             Delete Plot <i class="bi bi-trash ms-1"></i>
         </button>
-        {% else %}
+        {% elif user.is_authenticated and user == land.owner %}
+        <button id="btnRequestPlotDeletion" class="btn btn-delete-plot w-100 text-uppercase fw-bold fs-11 py-2 text-center" onclick="handleOwnerDeleteRequest();">
+            Request Plot Deletion <i class="bi bi-trash ms-1"></i>
+        </button>
+        {% elif user.is_authenticated and user.role == 'BUYER' %}
         <button id="btnHoldPlot" class="btn btn-get-started flex-grow-1 text-uppercase fw-bold fs-11 py-2" onclick="handleRequestClick();">
             Raise a Request <i class="bi bi-send ms-1"></i>
         </button>
-        {% if user.is_authenticated and user.role == 'BUYER' %}
         <button id="btnSavePlot" class="btn btn-outline-info flex-grow-1 text-uppercase fw-bold fs-11 py-2" onclick="toggleSavePlot();">
             <span id="savePlotText">Save Plot</span> <i id="savePlotIcon" class="bi bi-bookmark ms-1"></i>
         </button>
-        {% endif %}
         {% endif %}
     </div>
 </div>
@@ -380,6 +382,31 @@
         .catch(err => {
             console.error("Delete Error: ", err);
             alert("Error sending delete request.");
+        });
+    }
+
+    function handleOwnerDeleteRequest() {
+        const plotNum = document.getElementById('detailNum').innerText.trim();
+        if (!plotNum) return;
+        if (!confirm(`Request admin to delete Plot ${plotNum}?\n\nThe admin will review your request. The plot will NOT be deleted until the admin approves.`)) return;
+
+        fetch(`/lands/request-delete-plot/{{ land.slug }}/${encodeURIComponent(plotNum)}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(res => {
+            if (res.status === 'ok') {
+                alert(`Deletion request for Plot ${plotNum} has been sent to the admin.`);
+            } else {
+                alert('Error: ' + (res.error || 'Something went wrong.'));
+            }
+        })
+        .catch(err => {
+            console.error("Delete Request Error: ", err);
+            alert("Network error sending deletion request.");
         });
     }
 

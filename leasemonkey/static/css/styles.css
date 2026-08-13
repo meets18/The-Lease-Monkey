@@ -2865,11 +2865,11 @@ footer {
 
 /* ── Map viewer detail rows ──────────────────────────────────── */
 .detail-item-row span {
-    color: var(--text-muted) !important;
+    color: rgba(255, 255, 255, 0.7) !important;
 }
 
 .detail-item-row strong {
-    color: var(--text-primary) !important;
+    color: #ffffff !important;
 }
 
 .map-road-label {
