@@ -427,6 +427,24 @@ def serve_protected_file(request, model_name, pk):
         else:
             return JsonResponse({'error': 'Invalid document field. Use ?doc=ownership|floor_plan|registry_sale_deed|supporting_docs|pricing_csv|gallery'}, status=400)
 
+    elif model_name == 'purchase':
+        from apps.core.models import PurchaseRequest
+        obj = get_object_or_404(PurchaseRequest, id=pk)
+        # Landowner of the land, the buyer who raised it, or admin/superuser may view.
+        is_landowner = obj.land.owner_id == request.user.pk
+        is_buyer = obj.buyer_id == request.user.pk
+        if not is_landowner and not is_buyer and request.user.role != 'ADMIN' and not request.user.is_superuser:
+            raise PermissionDenied()
+        doc_field = request.GET.get('doc', '')
+        if doc_field == 'aadhaar':
+            file_path = obj.aadhaar_document.path if obj.aadhaar_document else None
+            original_name = f'aadhaar_{obj.buyer.username}{os.path.splitext(obj.aadhaar_document.name)[1] if obj.aadhaar_document else ""}'
+        elif doc_field == 'pan':
+            file_path = obj.pan_document.path if obj.pan_document else None
+            original_name = f'pan_{obj.buyer.username}{os.path.splitext(obj.pan_document.name)[1] if obj.pan_document else ""}'
+        else:
+            return JsonResponse({'error': 'Invalid document field. Use ?doc=aadhaar|pan'}, status=400)
+
     else:
         raise Http404('Invalid file type.')
 

@@ -183,6 +183,105 @@ class PurchaseRequestFormTests(TestCase):
         # Verify plot status became reserved
         self.plot.refresh_from_db()
         self.assertEqual(self.plot.status, 'reserved')
+
+    def test_reject_blocked_before_meeting_concludes(self):
+        # meeting is scheduled for a FUTURE time -> reject must be blocked
+        from datetime import timedelta
+        future_meeting = timezone.now() + timedelta(hours=2)
+        pr = PurchaseRequest.objects.create(
+            buyer=self.buyer,
+            land=self.land,
+            plot_number="Plot101",
+            full_name='PR Buyer',
+            aadhaar_number='123456789012',
+            pan_number='ABCDE1234F',
+            email='pr_buyer@test.com',
+            phone_number='+919876543210',
+            proposed_amount=1450000,
+            status='meeting_scheduled',
+            meeting_datetime=future_meeting,
+            meeting_duration_mins=30,
+        )
+        self.client.login(username='pr_owner', password='Password123!')
+        url = reverse('lands:purchase_request_action', kwargs={'request_id': pr.id})
+        payload = {'action': 'reject', 'reason': 'Changed my mind'}
+        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        pr.refresh_from_db()
+        self.assertEqual(pr.status, 'meeting_scheduled')
+
+    def test_reject_allowed_after_meeting_concludes(self):
+        # meeting ended (started in the past + duration elapsed) -> reject works
+        from datetime import timedelta
+        past_meeting = timezone.now() - timedelta(hours=2)
+        pr = PurchaseRequest.objects.create(
+            buyer=self.buyer,
+            land=self.land,
+            plot_number="Plot101",
+            full_name='PR Buyer',
+            aadhaar_number='123456789012',
+            pan_number='ABCDE1234F',
+            email='pr_buyer@test.com',
+            phone_number='+919876543210',
+            proposed_amount=1450000,
+            status='meeting_scheduled',
+            meeting_datetime=past_meeting,
+            meeting_duration_mins=30,
+        )
+        self.client.login(username='pr_owner', password='Password123!')
+        url = reverse('lands:purchase_request_action', kwargs={'request_id': pr.id})
+        payload = {'action': 'reject', 'reason': 'Changed my mind'}
+        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+        pr.refresh_from_db()
+        self.assertEqual(pr.status, 'rejected')
+
+    def test_reject_without_reason_still_required(self):
+        from datetime import timedelta
+        past_meeting = timezone.now() - timedelta(hours=2)
+        pr = PurchaseRequest.objects.create(
+            buyer=self.buyer,
+            land=self.land,
+            plot_number="Plot101",
+            full_name='PR Buyer',
+            aadhaar_number='123456789012',
+            pan_number='ABCDE1234F',
+            email='pr_buyer@test.com',
+            phone_number='+919876543210',
+            proposed_amount=1450000,
+            status='meeting_scheduled',
+            meeting_datetime=past_meeting,
+            meeting_duration_mins=30,
+        )
+        self.client.login(username='pr_owner', password='Password123!')
+        url = reverse('lands:purchase_request_action', kwargs={'request_id': pr.id})
+        payload = {'action': 'reject', 'reason': ''}
+        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_pending_reject_still_allowed(self):
+        # Pending status is NOT affected by the meeting gating
+        pr = PurchaseRequest.objects.create(
+            buyer=self.buyer,
+            land=self.land,
+            plot_number="Plot101",
+            full_name='PR Buyer',
+            aadhaar_number='123456789012',
+            pan_number='ABCDE1234F',
+            email='pr_buyer@test.com',
+            phone_number='+919876543210',
+            proposed_amount=1450000,
+            status='pending',
+        )
+        self.client.login(username='pr_owner', password='Password123!')
+        url = reverse('lands:purchase_request_action', kwargs={'request_id': pr.id})
+        payload = {'action': 'reject', 'reason': 'No longer interested'}
+        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+        pr.refresh_from_db()
+        self.assertEqual(pr.status, 'rejected')
 from apps.lands.models import LandRegistrationRequest
 from django.core.exceptions import PermissionDenied
 

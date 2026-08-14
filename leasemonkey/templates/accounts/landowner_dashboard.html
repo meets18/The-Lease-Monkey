@@ -492,6 +492,8 @@
                                 </div>
                             </div>
                             <div class="pr-actions">
+                                <a href="{% url 'lands:landowner_purchase_request_detail' request_id=req.id %}"
+                                    class="pr-btn pr-btn-ghost" onclick="event.stopPropagation();">View Details</a>
                                 {% if req.status == 'pending' %}
                                 <button class="pr-btn pr-btn-primary"
                                     onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'fix_meeting')">Fix
@@ -500,13 +502,14 @@
                                     onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'reject')">Reject
                                     Request</button>
                                 {% elif req.status == 'meeting_scheduled' %}
-                                {% if req.is_meeting_finished %}
-                                <button class="pr-btn pr-btn-primary"
+                                <button class="pr-btn pr-btn-primary" {% if not req.is_meeting_finished %}disabled{% endif %}
                                     onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'approve')">Approve
                                     Purchase</button>
-                                {% endif %}
-                                <button class="pr-btn pr-btn-danger"
+                                <button class="pr-btn pr-btn-danger" {% if not req.is_meeting_finished %}disabled{% endif %}
                                     onclick="event.stopPropagation(); openActionModal('{{ req.id }}', 'reject')">Reject</button>
+                                {% if not req.is_meeting_finished %}
+                                <div class="pr-actions-note"><i class="bi bi-clock-history me-1"></i>Actions unlock after the meeting concludes ({{ req.meeting_ends_at|date:"d M Y, h:iA" }})</div>
+                                {% endif %}
                                 {% endif %}
                             </div>
                         </div>
@@ -3233,6 +3236,37 @@
         box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
     }
 
+    .pr-btn-ghost {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #9ca3af;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .pr-btn-ghost:hover {
+        border-color: rgba(0, 178, 255, 0.6);
+        color: #00b2ff;
+        background: rgba(0, 178, 255, 0.08);
+    }
+
+    .pr-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        filter: grayscale(0.6);
+        pointer-events: none;
+    }
+
+    .pr-actions-note {
+        width: 100%;
+        font-size: 0.72rem;
+        color: #94a3b8;
+        text-align: center;
+        padding: 0.35rem 0 0;
+    }
+
     /* ── Dark theme (default) ────────────────────────────────── */
     [data-theme="dark"] .pr-card {
         background: #1E293B;
@@ -3375,6 +3409,21 @@
         background: #DC2626 !important;
         color: #FFFFFF !important;
         box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25) !important;
+    }
+
+    [data-theme="light"] .pr-btn-ghost {
+        border-color: #D1D5DB;
+        color: #64748B;
+    }
+
+    [data-theme="light"] .pr-btn-ghost:hover {
+        border-color: #F59E0B;
+        color: #D97706;
+        background: rgba(245, 158, 11, 0.08);
+    }
+
+    [data-theme="light"] .pr-actions-note {
+        color: #94A3B8;
     }
 
     /* ── Responsive ──────────────────────────────────────────── */

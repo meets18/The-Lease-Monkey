@@ -38,6 +38,7 @@ urlpatterns = [
     path('purchase-request/verify-otp/', views.verify_otp, name='verify_otp'),
     path('purchase-request/<int:request_id>/action/', views.purchase_request_action, name='purchase_request_action'),
     path('purchase-request/<int:request_id>/cancel/', views.cancel_purchase_request, name='purchase_request_cancel'),
+    path('purchase-request/<int:request_id>/', views.landowner_purchase_request_detail, name='landowner_purchase_request_detail'),
     path('plots/<slug:slug>/toggle-save/<str:plot_number>/', views.toggle_saved_plot, name='toggle_saved_plot'),
 
     # ── Occupancy Registry ─────────────────────────────────────────────────────

@@ -1,0 +1,779 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Purchase Request #{{ req.pk }} — Landowner{% endblock %}
+
+{% block content %}
+<style>
+.ad-page {
+    padding-top: 95px;
+    min-height: 100vh;
+    background: #F4F6F9;
+}
+.ad-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+.ad-header h2 {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    color: #1F2937;
+    margin-bottom: 0.25rem;
+}
+.ad-header p {
+    color: #64748B;
+    font-size: 0.9rem;
+    margin-bottom: 0;
+}
+.ad-card {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+    margin-bottom: 1.25rem;
+}
+.ad-card h5 {
+    font-family: 'Ranade', sans-serif;
+    font-weight: 700;
+    color: #F59E0B;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #F3F4F6;
+}
+.ad-info-row {
+    display: flex;
+    padding: 0.35rem 0;
+    font-size: 0.9rem;
+}
+.ad-info-label {
+    width: 150px;
+    flex-shrink: 0;
+    color: #6B7280;
+    font-weight: 500;
+}
+.ad-info-value {
+    color: #1F2937;
+    font-weight: 600;
+}
+.ad-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 0.25rem 0.65rem;
+    border-radius: 4px;
+    letter-spacing: 0.03em;
+    margin-left: 0.5rem;
+}
+.ad-badge-pending { background: rgba(245,158,11,0.12); color: #D97706; }
+.ad-badge-meeting { background: rgba(59,130,246,0.12); color: #2563EB; }
+.ad-badge-approved { background: rgba(16,185,129,0.12); color: #059669; }
+.ad-badge-rejected { background: rgba(239,68,68,0.12); color: #DC2626; }
+
+/* OCR Validation Card styles */
+.ocr-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #F3F4F6;
+}
+.ocr-risk-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+}
+.ocr-risk-low    { background: rgba(16,185,129,0.12); color: #059669; }
+.ocr-risk-medium { background: rgba(245,158,11,0.12); color: #D97706; }
+.ocr-risk-high   { background: rgba(239,68,68,0.12); color: #DC2626; }
+.ocr-risk-failed { background: rgba(107,114,128,0.12); color: #6B7280; }
+.ocr-risk-pending{ background: rgba(107,114,128,0.10); color: #9CA3AF; }
+.ocr-score-block {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+}
+.ocr-score-num {
+    font-family: 'Ranade', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #1F2937;
+}
+.ocr-score-den {
+    font-size: 0.85rem;
+    color: #9CA3AF;
+}
+.ocr-check-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+@media (max-width: 600px) { .ocr-check-grid { grid-template-columns: 1fr; } }
+.ocr-check-box {
+    background: #F9FAFB;
+    border: 1px solid #F3F4F6;
+    border-radius: 8px;
+    padding: 1rem;
+}
+.ocr-check-box h6 {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6B7280;
+    margin-bottom: 0.65rem;
+}
+.ocr-check-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    padding: 0.2rem 0;
+    color: #374151;
+}
+.ocr-check-label { color: #6B7280; }
+.ocr-pass  { color: #059669; font-weight: 600; }
+.ocr-fail  { color: #DC2626; font-weight: 600; }
+.ocr-na    { color: #9CA3AF; }
+.ocr-flags-list {
+    background: rgba(239,68,68,0.05);
+    border: 1px solid rgba(239,68,68,0.15);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-top: 0.75rem;
+}
+.ocr-flags-list p {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #DC2626;
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.ocr-flags-list ul {
+    margin: 0;
+    padding-left: 1.25rem;
+}
+.ocr-flags-list li {
+    font-size: 0.85rem;
+    color: #374151;
+    margin-bottom: 0.2rem;
+}
+.ocr-raw-toggle {
+    background: none;
+    border: 1px solid #E5E7EB;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6B7280;
+    padding: 0.3rem 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.ocr-raw-toggle:hover { border-color: #F59E0B; color: #F59E0B; }
+.ocr-raw-text {
+    font-family: monospace;
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 6px;
+    padding: 0.75rem;
+    max-height: 180px;
+    overflow-y: auto;
+    color: #374151;
+    margin-top: 0.5rem;
+}
+.ocr-cross-row {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    font-size: 0.875rem;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+.ocr-cross-label { color: #6B7280; margin-right: 0.35rem; }
+.ad-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.55rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.ad-btn-primary {
+    background: #F59E0B;
+    color: #FFFFFF;
+}
+.ad-btn-primary:hover {
+    background: #D97706;
+    color: #FFFFFF;
+}
+.ad-btn-danger {
+    background: #EF4444;
+    color: #FFFFFF;
+}
+.ad-btn-danger:hover {
+    background: #DC2626;
+    color: #FFFFFF;
+}
+.ad-btn-back {
+    background: transparent;
+    color: #6B7280;
+    border: 1px solid #D1D5DB;
+    padding: 0.45rem 1rem;
+    font-weight: 600;
+    font-size: 0.78rem;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+.ad-btn-back:hover {
+    border-color: #9CA3AF;
+    color: #374151;
+    background: #F9FAFB;
+}
+.ad-btn-doc {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: #F3F4F6;
+    color: #374151;
+    border: 1px solid #D1D5DB;
+    padding: 0.35rem 0.9rem;
+    border-radius: 5px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+.ad-btn-doc:hover {
+    background: #E5E7EB;
+    color: #1F2937;
+}
+.ad-textarea {
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    padding: 0.65rem 1rem;
+    font-size: 0.9rem;
+    color: #1F2937 !important;
+    background-color: #FFFFFF !important;
+    width: 100%;
+    transition: border-color 0.2s ease;
+}
+.ad-textarea:focus {
+    border-color: #F59E0B !important;
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.15) !important;
+    outline: none;
+}
+.ad-input {
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    padding: 0.55rem 1rem;
+    font-size: 0.9rem;
+    color: #1F2937 !important;
+    background-color: #FFFFFF !important;
+    width: 100%;
+    transition: border-color 0.2s ease;
+}
+.ad-input:focus {
+    border-color: #F59E0B !important;
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.15) !important;
+    outline: none;
+}
+.ad-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.35rem;
+    display: block;
+}
+.ad-timestamp {
+    font-size: 0.8rem;
+    color: #9CA3AF;
+    text-align: center;
+    padding: 0.75rem;
+    background: #F9FAFB;
+    border-radius: 8px;
+    border: 1px solid #F3F4F6;
+}
+.ad-meet-box {
+    background: rgba(59,130,246,0.06);
+    border: 1px solid rgba(59,130,246,0.15);
+    border-radius: 8px;
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.88rem;
+    color: #374151;
+}
+</style>
+
+<div class="ad-page">
+    <div class="ad-container">
+        <div class="d-flex justify-content-between align-items-center mb-4 ad-header">
+            <div>
+                <h2>Purchase Request #{{ req.pk }}</h2>
+                <p>
+                    Status:
+                    <span class="ad-badge
+                        {% if req.status == 'pending' %}ad-badge-pending
+                        {% elif req.status == 'meeting_scheduled' %}ad-badge-meeting
+                        {% elif req.status == 'approved' %}ad-badge-approved
+                        {% elif req.status == 'rejected' %}ad-badge-rejected{% endif %}">
+                        {{ req.get_status_display }}
+                    </span>
+                </p>
+            </div>
+            <a href="{% url 'landowner_dashboard' %}" class="ad-btn-back"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %} alert-dismissible fade show mb-4 py-2 px-3 fs-14" role="alert" style="border-radius:8px;">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="row g-4">
+            <!-- Buyer Details -->
+            <div class="col-md-6">
+                <div class="ad-card">
+                    <h5><i class="bi bi-person-fill me-1"></i> Buyer Details</h5>
+                    <div class="ad-info-row"><span class="ad-info-label">Username</span><span class="ad-info-value">{{ req.buyer.username }}</span></div>
+                    <div class="ad-info-row"><span class="ad-info-label">Full Name</span><span class="ad-info-value">{{ req.full_name }}</span></div>
+                    <div class="ad-info-row"><span class="ad-info-label">Email</span><span class="ad-info-value">{{ req.email }}</span></div>
+                    <div class="ad-info-row"><span class="ad-info-label">Phone</span><span class="ad-info-value">{{ req.phone_number }}</span></div>
+                    {% if req.buyer_message %}
+                    <div class="ad-info-row" style="align-items:flex-start;"><span class="ad-info-label">Message</span><span class="ad-info-value" style="white-space:pre-line;">{{ req.buyer_message }}</span></div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Government IDs -->
+            <div class="col-md-6">
+                <div class="ad-card">
+                    <h5><i class="bi bi-shield-fill-check me-1"></i> Government IDs</h5>
+                    <div class="ad-info-row"><span class="ad-info-label">Aadhaar</span><span class="ad-info-value">{{ req.aadhaar_number }}</span></div>
+                    <div class="ad-info-row"><span class="ad-info-label">PAN</span><span class="ad-info-value">{{ req.pan_number }}</span></div>
+                </div>
+            </div>
+
+            <!-- Property Info -->
+            <div class="col-12">
+                <div class="ad-card">
+                    <h5><i class="bi bi-map-fill me-1"></i> Property Information</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="ad-info-row"><span class="ad-info-label">Land Name</span><span class="ad-info-value">{{ req.land.name }}</span></div>
+                            <div class="ad-info-row"><span class="ad-info-label">Plot</span><span class="ad-info-value">Plot {{ req.plot_number }}</span></div>
+                            <div class="ad-info-row"><span class="ad-info-label">Location</span><span class="ad-info-value">{{ req.land.location }}</span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="ad-info-row"><span class="ad-info-label">Proposed Amount</span><span class="ad-info-value">₹{{ req.proposed_amount }}</span></div>
+                            <div class="ad-info-row"><span class="ad-info-label">Submitted</span><span class="ad-info-value">{{ req.created_at|date:"d M Y H:i" }}</span></div>
+                            {% if req.meeting_datetime %}
+                            <div class="ad-info-row"><span class="ad-info-label">Meeting Time</span><span class="ad-info-value">{{ req.meeting_datetime|date:"d M Y, h:i A" }} ({{ req.meeting_duration_mins|default:"30" }} mins)</span></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if req.status == 'meeting_scheduled' and req.meet_link %}
+                    <div class="ad-meet-box">
+                        <i class="bi bi-camera-video me-2 text-primary"></i>
+                        <a href="{{ req.meet_link }}" target="_blank" class="fw-bold text-decoration-none">Join Google Meet</a>
+                        {% if req.meeting_notes %}<div class="mt-1" style="font-size:0.82rem;color:#64748B;">{{ req.meeting_notes }}</div>{% endif %}
+                    </div>
+                    {% endif %}
+                    {% if req.rejection_reason %}
+                    <div class="ad-meet-box" style="background:rgba(239,68,68,0.06);border-color:rgba(239,68,68,0.2);">
+                        <i class="bi bi-x-circle me-2 text-danger"></i> Rejection Reason: <strong>{{ req.rejection_reason }}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Documents -->
+            <div class="col-12">
+                <div class="ad-card">
+                    <h5><i class="bi bi-files me-1"></i> Uploaded Documents</h5>
+                    <div class="d-flex gap-3 flex-wrap">
+                        {% if req.aadhaar_document %}
+                        <a href="{% url 'core:serve_protected_file' 'purchase' req.id %}?doc=aadhaar" target="_blank" class="ad-btn-doc"><i class="bi bi-eye"></i> View Aadhaar</a>
+                        {% else %}
+                        <span class="ad-btn-doc" style="opacity:0.5;cursor:not-allowed;"><i class="bi bi-eye"></i> Aadhaar Not Uploaded</span>
+                        {% endif %}
+                        {% if req.pan_document %}
+                        <a href="{% url 'core:serve_protected_file' 'purchase' req.id %}?doc=pan" target="_blank" class="ad-btn-doc"><i class="bi bi-eye"></i> View PAN</a>
+                        {% else %}
+                        <span class="ad-btn-doc" style="opacity:0.5;cursor:not-allowed;"><i class="bi bi-eye"></i> PAN Not Uploaded</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- OCR Identity Validation -->
+            <div class="col-12">
+                <div class="ad-card">
+                    <h5><i class="bi bi-cpu me-1"></i> Identity Validation (OCR)</h5>
+
+                    {% if not ocr %}
+                    <div style="color:#9CA3AF;font-size:0.9rem;">
+                        <i class="bi bi-hourglass-split me-1"></i> OCR validation record not found.
+                    </div>
+
+                    {% elif ocr.validation_status == 'pending' or ocr.validation_status == 'processing' %}
+                    <div style="display:flex;align-items:center;gap:0.75rem;">
+                        <div class="spinner-border spinner-border-sm text-warning" role="status"></div>
+                        <span style="color:#6B7280;font-size:0.9rem;">
+                            OCR analysis is in progress. Refresh the page in a few seconds.
+                        </span>
+                    </div>
+
+                    {% elif ocr.validation_status == 'failed' %}
+                    <div style="background:rgba(107,114,128,0.07);border:1px solid #E5E7EB;border-radius:8px;padding:1rem;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+                            <span class="ocr-risk-badge ocr-risk-failed"><i class="bi bi-x-circle"></i> OCR Failed</span>
+                        </div>
+                        <p style="font-size:0.85rem;color:#6B7280;margin:0;">
+                            Tesseract could not process the documents. Please review them manually.
+                        </p>
+                        {% if ocr.error_message %}
+                        <code style="display:block;font-size:0.75rem;color:#9CA3AF;margin-top:0.5rem;">{{ ocr.error_message }}</code>
+                        {% endif %}
+                    </div>
+
+                    {% else %}
+                    {# Completed — full results panel #}
+                    <div class="ocr-card-header">
+                        <div class="ocr-score-block">
+                            <span class="ocr-score-num">{{ ocr.risk_score }}</span>
+                            <span class="ocr-score-den">/ 100</span>
+                            <span class="ms-2" style="font-size:0.8rem;color:#6B7280;">Risk Score</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                            {% if ocr.risk_level == 'low' %}
+                                <span class="ocr-risk-badge ocr-risk-low"><i class="bi bi-check-circle-fill"></i> Low Risk</span>
+                            {% elif ocr.risk_level == 'medium' %}
+                                <span class="ocr-risk-badge ocr-risk-medium"><i class="bi bi-exclamation-circle-fill"></i> Medium Risk</span>
+                            {% elif ocr.risk_level == 'high' %}
+                                <span class="ocr-risk-badge ocr-risk-high"><i class="bi bi-x-circle-fill"></i> High Risk</span>
+                            {% endif %}
+                            {% if ocr.processed_at %}
+                                <span style="font-size:0.78rem;color:#9CA3AF;">Processed {{ ocr.processed_at|date:"d M Y H:i" }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {# Per-document check grid #}
+                    <div class="ocr-check-grid">
+                        <div class="ocr-check-box">
+                            <h6><i class="bi bi-person-vcard me-1"></i> Aadhaar Card</h6>
+                            <div class="ocr-check-row">
+                                <span class="ocr-check-label">Doc Type Detected</span>
+                                {% if ocr.aadhaar_doc_type_detected is None %}
+                                    <span class="ocr-na">—</span>
+                                {% elif ocr.aadhaar_doc_type_detected %}
+                                    <span class="ocr-pass"><i class="bi bi-check-lg"></i> Yes</span>
+                                {% else %}
+                                    <span class="ocr-fail"><i class="bi bi-x-lg"></i> No</span>
+                                {% endif %}
+                            </div>
+                            <div class="ocr-check-row">
+                                <span class="ocr-check-label">Number Found</span>
+                                {% if ocr.aadhaar_number_found is None %}
+                                    <span class="ocr-na">—</span>
+                                {% elif ocr.aadhaar_number_found %}
+                                    <span class="ocr-pass"><i class="bi bi-check-lg"></i> Yes</span>
+                                {% else %}
+                                    <span class="ocr-fail"><i class="bi bi-x-lg"></i> No</span>
+                                {% endif %}
+                            </div>
+                            <div class="ocr-check-row">
+                                <span class="ocr-check-label">Number Match</span>
+                                {% if ocr.aadhaar_number_match is None %}
+                                    <span class="ocr-na">—</span>
+                                {% elif ocr.aadhaar_number_match %}
+                                    <span class="ocr-pass"><i class="bi bi-check-lg"></i> Match</span>
+                                {% else %}
+                                    <span class="ocr-fail"><i class="bi bi-x-lg"></i> Mismatch</span>
+                                {% endif %}
+                            </div>
+                            {% if ocr.aadhaar_ocr_number %}
+                            <div class="ocr-check-row">
+                                <span class="ocr-check-label">OCR Read</span>
+                                <span style="font-family:monospace;font-size:0.82rem;color:#1F2937;">{{ ocr.aadhaar_ocr_number }}</span>
+                            </div>
+                            {% endif %}
+                            {% if ocr.aadhaar_confidence is not None %}
+                            <div class="ocr-check-row">
+                                <span class="ocr-check-label">Confidence</span>
+                                <span style="font-weight:600;color:{% if ocr.aadhaar_confidence >= 70 %}#059669{% else %}#DC2626{% endif %};">{{ ocr.aadhaar_confidence|floatformat:0 }}%</span>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="ocr-check-box">
+                            <h6><i class="bi bi-credit-card me-1"></i> PAN Card</h6>
+                            <div class="ocr-check-row">
+                                <span class="ocr-check-label">Doc Type Detected</span>
+                                {% if ocr.pan_doc_type_detected is None %}
+                                    <span class="ocr-na">—</span>
+                                {% elif ocr.pan_doc_type_detected %}
+                                    <span class="ocr-pass"><i class="bi bi-check-lg"></i> Yes</span>
+                                {% else %}
+                                    <span class="ocr-fail"><i class="bi bi-x-lg"></i> No</span>
+                                {% endif %}
+                            </div>
+                            <div class="ocr-check-row">
+                                <span class="ocr-check-label">Number Found</span>
+                                {% if ocr.pan_number_found is None %}
+                                    <span class="ocr-na">—</span>
+                                {% elif ocr.pan_number_found %}
+                                    <span class="ocr-pass"><i class="bi bi-check-lg"></i> Yes</span>
+                                {% else %}
+                                    <span class="ocr-fail"><i class="bi bi-x-lg"></i> No</span>
+                                {% endif %}
+                            </div>
+                            <div class="ocr-check-row">
+                                <span class="ocr-check-label">Number Match</span>
+                                {% if ocr.pan_number_match is None %}
+                                    <span class="ocr-na">—</span>
+                                {% elif ocr.pan_number_match %}
+                                    <span class="ocr-pass"><i class="bi bi-check-lg"></i> Match</span>
+                                {% else %}
+                                    <span class="ocr-fail"><i class="bi bi-x-lg"></i> Mismatch</span>
+                                {% endif %}
+                            </div>
+                            {% if ocr.pan_ocr_number %}
+                            <div class="ocr-check-row">
+                                <span class="ocr-check-label">OCR Read</span>
+                                <span style="font-family:monospace;font-size:0.82rem;color:#1F2937;">{{ ocr.pan_ocr_number }}</span>
+                            </div>
+                            {% endif %}
+                            {% if ocr.pan_confidence is not None %}
+                            <div class="ocr-check-row">
+                                <span class="ocr-check-label">Confidence</span>
+                                <span style="font-weight:600;color:{% if ocr.pan_confidence >= 70 %}#059669{% else %}#DC2626{% endif %};">{{ ocr.pan_confidence|floatformat:0 }}%</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {# Cross-checks row #}
+                    {% if ocr.name_match_score is not None %}
+                    <div class="ocr-cross-row">
+                        <div>
+                            <span class="ocr-cross-label">Name Match</span>
+                            {% if ocr.name_match_score is not None %}
+                                <strong class="{% if ocr.name_match_score >= 80 %}ocr-pass{% else %}ocr-fail{% endif %}">
+                                    {{ ocr.name_match_score|floatformat:0 }}%
+                                    {% if ocr.name_match_score >= 80 %}<i class="bi bi-check-lg"></i>{% else %}<i class="bi bi-exclamation-triangle"></i>{% endif %}
+                                </strong>
+                            {% else %}
+                                <span class="ocr-na">—</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {# Flags #}
+                    {% if ocr.validation_flags %}
+                    <div class="ocr-flags-list">
+                        <p><i class="bi bi-exclamation-triangle-fill me-1"></i> Flags Raised</p>
+                        <ul>
+                            {% for flag in ocr.validation_flags %}
+                            <li>{{ flag }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% else %}
+                    <p style="font-size:0.85rem;color:#059669;margin:0.5rem 0 0;"><i class="bi bi-check-circle me-1"></i> No flags raised.</p>
+                    {% endif %}
+
+                    {# Raw OCR collapsible #}
+                    <div class="d-flex gap-2 mt-3 flex-wrap">
+                        {% if ocr.aadhaar_raw_text %}
+                        <div>
+                            <button class="ocr-raw-toggle" onclick="toggleRaw('ocr-raw-aadhaar')">
+                                <i class="bi bi-code-slash me-1"></i> Raw OCR — Aadhaar
+                            </button>
+                            <div id="ocr-raw-aadhaar" class="ocr-raw-text" style="display:none;">{{ ocr.aadhaar_raw_text }}</div>
+                        </div>
+                        {% endif %}
+                        {% if ocr.pan_raw_text %}
+                        <div>
+                            <button class="ocr-raw-toggle" onclick="toggleRaw('ocr-raw-pan')">
+                                <i class="bi bi-code-slash me-1"></i> Raw OCR — PAN
+                            </button>
+                            <div id="ocr-raw-pan" class="ocr-raw-text" style="display:none;">{{ ocr.pan_raw_text }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% endif %}{# end completed #}
+                </div>
+            </div>
+
+            <!-- Landowner Actions -->
+            {% if req.status == 'pending' %}
+            <div class="col-12">
+                <div class="ad-card">
+                    <h5><i class="bi bi-shield-check me-1"></i> Landowner Actions</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="ad-label">Schedule Google Meet</label>
+                            <input type="datetime-local" id="meeting_datetime" class="ad-input" name="meeting_datetime">
+                            <div class="mt-2">
+                                <label class="ad-label">Duration (minutes)</label>
+                                <input type="number" id="meeting_duration" class="ad-input" name="duration_minutes" value="30" min="10" max="180" step="5">
+                            </div>
+                            <div class="mt-2">
+                                <label class="ad-label">Meeting Notes (optional)</label>
+                                <textarea id="meeting_notes" class="ad-textarea" rows="2" placeholder="Agenda for the buyer..."></textarea>
+                            </div>
+                            <button class="ad-btn ad-btn-primary w-100 mt-3" id="btnFixMeeting" onclick="submitAction('fix_meeting')">
+                                <i class="bi bi-calendar-check"></i> Fix Meeting
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="ad-label">Rejection Reason <span style="color:#EF4444;">*</span></label>
+                            <textarea id="reject_reason" class="ad-textarea" rows="4" placeholder="Explain why this request is rejected..."></textarea>
+                            <button class="ad-btn ad-btn-danger w-100 mt-3" id="btnReject" onclick="submitAction('reject')">
+                                <i class="bi bi-x-lg"></i> Reject Request
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% elif req.status == 'meeting_scheduled' %}
+            <div class="col-12">
+                <div class="ad-card">
+                    <h5><i class="bi bi-shield-check me-1"></i> Landowner Actions</h5>
+                    <div class="row g-3">
+                        {% if not req.is_meeting_finished %}
+                        <div class="col-12" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:0.75rem 1rem;font-size:0.85rem;color:#B45309;">
+                            <i class="bi bi-clock-history me-1"></i>
+                            These actions unlock after the meeting concludes
+                            ({{ req.meeting_ends_at|date:"d M Y, h:iA" }}).
+                        </div>
+                        {% endif %}
+                        <div class="col-md-6">
+                            <label class="ad-label">Approve the purchase after the meeting</label>
+                            <button class="ad-btn ad-btn-primary w-100 mt-2" id="btnApprove" onclick="submitAction('approve')"
+                                {% if not req.is_meeting_finished %}disabled style="opacity:0.5;cursor:not-allowed;"{% endif %}>
+                                <i class="bi bi-check-lg"></i> Approve Purchase
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="ad-label">Rejection Reason <span style="color:#EF4444;">*</span></label>
+                            <textarea id="reject_reason" class="ad-textarea" rows="2" placeholder="Explain why this request is rejected..."></textarea>
+                            <button class="ad-btn ad-btn-danger w-100 mt-2" id="btnReject" onclick="submitAction('reject')"
+                                {% if not req.is_meeting_finished %}disabled style="opacity:0.5;cursor:not-allowed;"{% endif %}>
+                                <i class="bi bi-x-lg"></i> Reject Request
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Timestamps -->
+            <div class="col-12">
+                <div class="ad-timestamp">
+                    Submitted: {{ req.created_at|date:"d M Y H:i" }}
+                    {% if req.updated_at %} &nbsp;&bull;&nbsp; Last Updated: {{ req.updated_at|date:"d M Y H:i" }}{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    return document.cookie.split('; ').find(r => r.startsWith(name + '='))?.split('=')[1] || '';
+}
+
+function toggleRaw(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function submitAction(action) {
+    const requestId = {{ req.id }};
+    const csrf = getCookie('csrftoken');
+
+    let payload = { action: action };
+    if (action === 'fix_meeting') {
+        const meeting_datetime = document.getElementById('meeting_datetime').value;
+        const duration_minutes = document.getElementById('meeting_duration').value || 30;
+        const meeting_notes = document.getElementById('meeting_notes').value;
+        if (!meeting_datetime) { alert('Please select a meeting date and time.'); return; }
+        payload.meeting_datetime = meeting_datetime;
+        payload.duration_minutes = duration_minutes;
+        payload.message = meeting_notes;
+    } else if (action === 'reject') {
+        const reason = document.getElementById('reject_reason').value.trim();
+        if (!reason) { alert('Please provide a rejection reason.'); return; }
+        payload.reason = reason;
+    } else if (action === 'approve') {
+        if (!confirm('Approve this purchase request? This will mark the plot as sold.')) return;
+    }
+
+    const btnIds = { 'fix_meeting': 'btnFixMeeting', 'reject': 'btnReject', 'approve': 'btnApprove' };
+    const btn = document.getElementById(btnIds[action]);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...'; }
+
+    try {
+        const res = await fetch(`/lands/purchase-request/${requestId}/action/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrf
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            location.reload();
+        } else {
+            alert(data.error || data.message || 'Something went wrong.');
+            if (btn) {
+                btn.disabled = false;
+                if (action === 'approve') { btn.innerHTML = '<i class="bi bi-check-lg"></i> Approve Purchase'; }
+                else { btn.innerHTML = action === 'fix_meeting' ? '<i class="bi bi-calendar-check"></i> Fix Meeting' : '<i class="bi bi-x-lg"></i> Reject Request'; }
+            }
+        }
+    } catch (err) {
+        alert('Network error. Please try again.');
+        if (btn) {
+            btn.disabled = false;
+            if (action === 'approve') { btn.innerHTML = '<i class="bi bi-check-lg"></i> Approve Purchase'; }
+            else { btn.innerHTML = action === 'fix_meeting' ? '<i class="bi bi-calendar-check"></i> Fix Meeting' : '<i class="bi bi-x-lg"></i> Reject Request'; }
+        }
+    }
+}
+</script>
+{% endblock %}

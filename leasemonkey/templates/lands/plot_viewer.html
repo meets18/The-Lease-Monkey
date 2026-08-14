@@ -253,6 +253,17 @@
             alert('Only registered buyers can raise a purchase request.');
             return;
         }
+        if (landConfig.requestedPlots && landConfig.requestedPlots.includes(plotNum)) {
+            window.location.href = "/accounts/dashboard/buyer/#requests";
+            return;
+        }
+        const cooldown = landConfig.cooldownPlots && landConfig.cooldownPlots[plotNum];
+        if (cooldown && cooldown.remaining > 0) {
+            const mins = Math.floor(cooldown.remaining / 60);
+            const secs = cooldown.remaining % 60;
+            alert(`Your previous request for this plot was rejected. Please wait ${mins}m ${secs}s before requesting again.`);
+            return;
+        }
         window.location.href = `/lands/plots/${landSlug}/request/${encodeURIComponent(plotNum)}/`;
     }
 
@@ -312,6 +323,63 @@
         });
     }
 
+    let requestButtonTimer = null;
+    function renderRequestButton(btn, plotNum) {
+        if (!btn) return;
+        if (requestButtonTimer) {
+            clearInterval(requestButtonTimer);
+            requestButtonTimer = null;
+        }
+        const hasRequest = landConfig.requestedPlots && landConfig.requestedPlots.includes(plotNum);
+        const cooldown = landConfig.cooldownPlots && landConfig.cooldownPlots[plotNum];
+
+        function setCooldownButton(remaining) {
+            btn.disabled = true;
+            btn.classList.add('btn-cooldown');
+            btn.classList.remove('btn-get-started');
+            if (remaining > 0) {
+                const h = Math.floor(remaining / 3600);
+                const m = Math.floor((remaining % 3600) / 60);
+                const s = remaining % 60;
+                const pad = (n) => String(n).padStart(2, '0');
+                const timeText = h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+                btn.innerHTML = `Retry in ${timeText} <i class="bi bi-hourglass-split ms-1"></i>`;
+            } else {
+                btn.innerHTML = 'Raise a Request <i class="bi bi-send ms-1"></i>';
+                btn.disabled = false;
+                btn.classList.remove('btn-cooldown');
+                btn.classList.add('btn-get-started');
+            }
+        }
+
+        if (hasRequest) {
+            btn.disabled = false;
+            btn.classList.remove('btn-cooldown');
+            btn.classList.add('btn-get-started');
+            btn.innerHTML = 'View Your Request <i class="bi bi-eye ms-1"></i>';
+            return;
+        }
+
+        if (cooldown && cooldown.remaining > 0) {
+            let remaining = cooldown.remaining;
+            setCooldownButton(remaining);
+            requestButtonTimer = setInterval(function() {
+                remaining -= 1;
+                setCooldownButton(remaining);
+                if (remaining <= 0) {
+                    clearInterval(requestButtonTimer);
+                    requestButtonTimer = null;
+                }
+            }, 1000);
+            return;
+        }
+
+        btn.disabled = false;
+        btn.classList.remove('btn-cooldown');
+        btn.classList.add('btn-get-started');
+        btn.innerHTML = 'Raise a Request <i class="bi bi-send ms-1"></i>';
+    }
+
     // On detail panel open, we need to update the save icon state
     // We'll use a MutationObserver on the detailNum to know when a plot changes
     document.addEventListener("DOMContentLoaded", function() {
@@ -331,11 +399,17 @@
                             textSpan.innerText = 'Save Plot';
                         }
                     }
+                    const btnHold = document.getElementById('btnHoldPlot');
+                    if (btnHold) {
+                        renderRequestButton(btnHold, currentPlotNum);
+                    }
                 });
             });
             observer.observe(detailNum, { childList: true, characterData: true, subtree: true });
         }
         
+        renderRequestButton(document.getElementById('btnHoldPlot'), detailNum.innerText.trim());
+
         // Wait for map to initialize, then check URL parameters
         setTimeout(() => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -1080,7 +1154,9 @@
         images: {{ images_list_json|safe|default:"[]" }},
         roads: {{ roads_list_json|safe|default:"[]" }},
         savedPlots: {{ saved_plots_json|safe|default:"[]" }},
-        ownedPlots: {{ owned_plots_json|safe|default:"[]" }}
+        ownedPlots: {{ owned_plots_json|safe|default:"[]" }},
+        requestedPlots: {{ requested_plots_json|safe|default:"[]" }},
+        cooldownPlots: {{ cooldown_plots_json|safe|default:"{}" }}
     };
 </script>
 
@@ -1288,6 +1364,26 @@ body {
     color: #FFFFFF !important;
     box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35) !important;
     transform: translateY(-1px);
+}
+/* Cooldown after a rejected request — grey disabled button with countdown */
+.btn-cooldown {
+    background: #4B5563 !important;
+    border: 1px solid #6B7280 !important;
+    color: #D1D5DB !important;
+    border-radius: 100px !important;
+    cursor: not-allowed !important;
+    opacity: 0.9 !important;
+    box-shadow: none !important;
+}
+.btn-cooldown:hover {
+    background: #4B5563 !important;
+    color: #D1D5DB !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+.btn-cooldown:disabled {
+    cursor: not-allowed !important;
+    opacity: 0.9 !important;
 }
 /* Custom Range Slider styling for Road thickness control */
 .custom-slider {

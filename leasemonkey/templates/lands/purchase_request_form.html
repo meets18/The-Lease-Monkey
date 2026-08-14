@@ -723,7 +723,7 @@
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="termsCheck" onchange="checkSubmitCondition()">
                                     <label class="form-check-label terms-label" for="termsCheck">
-                                        I verify that the details provided are accurate and agree to the <a href="#" class="terms-link">terms and conditions</a>.
+                                        I verify that the details provided are accurate and agree to the <a href="{% url 'core:terms' %}" target="_blank" class="terms-link">terms and conditions</a>.
                                     </label>
                                 </div>
                             </div>
@@ -1022,28 +1022,22 @@
             return;
         }
 
-        // Files are optional; when present, attach their names for reference.
-        let aadhaarFileName = '';
-        let panFileName = '';
+        // Files are optional; attach them to the FormData upload below.
+        const formData = new FormData();
+        formData.append('full_name', document.getElementById('fullName').value.trim());
+        formData.append('phone_number', document.getElementById('phoneNumber').value.trim());
+        formData.append('aadhaar_number', document.getElementById('aadhaarNumber').value.trim());
+        formData.append('pan_number', document.getElementById('panNumber').value.trim().toUpperCase());
+        formData.append('email', "{{ user_email }}");
+        formData.append('proposed_amount', proposedAmount.value);
+        formData.append('otp_code', otpCode.value.trim());
+        formData.append('buyer_message', document.getElementById('buyerMessage').value.trim());
         if (aadhaarFile && aadhaarFile.files && aadhaarFile.files.length > 0) {
-            aadhaarFileName = aadhaarFile.files[0].name;
+            formData.append('aadhaar_document', aadhaarFile.files[0]);
         }
         if (panFile && panFile.files && panFile.files.length > 0) {
-            panFileName = panFile.files[0].name;
+            formData.append('pan_document', panFile.files[0]);
         }
-
-        const data = {
-            full_name: document.getElementById('fullName').value.trim(),
-            phone_number: document.getElementById('phoneNumber').value.trim(),
-            aadhaar_number: document.getElementById('aadhaarNumber').value.trim(),
-            pan_number: document.getElementById('panNumber').value.trim().toUpperCase(),
-            email: "{{ user_email }}",
-            proposed_amount: proposedAmount.value,
-            otp_code: otpCode.value.trim(),
-            buyer_message: document.getElementById('buyerMessage').value.trim(),
-            aadhaar_file_name: aadhaarFileName,
-            pan_file_name: panFileName,
-        };
 
         const btn = document.getElementById('btnSubmit');
         btn.innerText = "Submitting Request...";
@@ -1052,10 +1046,9 @@
         fetch("{% url 'lands:submit_purchase_request' slug=land_slug plot_number=plot_number %}", {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify(data)
+            body: formData
         })
         .then(res => res.json())
         .then(data => {

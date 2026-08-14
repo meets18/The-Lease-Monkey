@@ -101,6 +101,8 @@ def plot_viewer(request, slug):
     
     saved_plots = []
     owned_plots = []
+    requested_plots = []
+    cooldown_plots = {}
     if request.user.is_authenticated and request.user.role == 'BUYER':
         from apps.core.models import PurchaseRequest
         saved_plots = list(request.user.saved_plots.filter(land=land).values_list('plot_number', flat=True))
@@ -113,6 +115,26 @@ def plot_viewer(request, slug):
         ).values_list('plot_number', flat=True))
         owned_plots = list(set(pr_plots + occ_plots))
 
+        requested_plots = list(PurchaseRequest.objects.filter(
+            land=land, buyer=request.user
+        ).exclude(status__in=['cancelled', 'rejected']).values_list('plot_number', flat=True))
+        requested_plots = list(set(requested_plots))
+
+        cooldown_plots = {}
+        from datetime import timedelta
+        rejected_qs = PurchaseRequest.objects.filter(
+            land=land, buyer=request.user, status='rejected'
+        ).exclude(rejected_at__isnull=True).order_by('-created_at')
+        for pr in rejected_qs:
+            if pr.plot_number in cooldown_plots:
+                continue
+            remaining = timedelta(hours=1) - (timezone.now() - pr.rejected_at)
+            if remaining.total_seconds() > 0:
+                cooldown_plots[pr.plot_number] = {
+                    'remaining': max(int(remaining.total_seconds()), 0),
+                    'rejected_at': pr.rejected_at.isoformat(),
+                }
+
     context = {
         'land': land,
         'images_list_json': json.dumps(images_list),
@@ -123,6 +145,8 @@ def plot_viewer(request, slug):
         'buildings_list_json': json.dumps(buildings_list),
         'saved_plots_json': json.dumps(saved_plots),
         'owned_plots_json': json.dumps(owned_plots),
+        'requested_plots_json': json.dumps(requested_plots),
+        'cooldown_plots_json': json.dumps(cooldown_plots),
         'google_maps_api_key': os.getenv('GOOGLE_MAPS_API_KEY', ''),
         'is_admin': is_admin,
     }
@@ -1052,7 +1076,7 @@ def request_plot_deletion(request, slug, plot_number):
 
 import random
 from django.utils import timezone
-from apps.core.models import EmailOTP, PurchaseRequest, Notification
+from apps.core.models import EmailOTP, PurchaseRequest, Notification, PurchaseRequestOCRValidation
 from django.core.mail import send_mail
 from django.conf import settings
 
@@ -1136,6 +1160,19 @@ def purchase_request_form(request, slug, plot_number):
     if not plot or getattr(plot, 'status', 'available') != 'available':
         messages.error(request, 'This plot is not available for purchase requests.')
         return redirect('lands:plot_viewer', slug=slug)
+
+    from apps.core.models import PurchaseRequest
+    from datetime import timedelta
+    existing = PurchaseRequest.objects.filter(
+        buyer=request.user, land=land, plot_number=plot_number
+    ).exclude(status='cancelled').order_by('-created_at').first()
+    if existing:
+        if existing.status != 'rejected':
+            messages.info(request, 'You already have a request for this plot. View it in your dashboard.')
+            return redirect('buyer_dashboard')
+        if existing.rejected_at and timezone.now() - existing.rejected_at < timedelta(hours=1):
+            messages.info(request, 'Your previous request was rejected. Please wait 1 hour before requesting again.')
+            return redirect('buyer_dashboard')
         
     user_email = request.user.email
 
@@ -1151,6 +1188,28 @@ def purchase_request_form(request, slug, plot_number):
     return render(request, 'lands/purchase_request_form.html', context)
 
 @login_required
+def landowner_purchase_request_detail(request, request_id):
+    from apps.core.models import PurchaseRequest, PurchaseRequestOCRValidation
+    pr = get_object_or_404(
+        PurchaseRequest.objects.select_related('buyer', 'land', 'land__owner', 'ocr_validation'),
+        id=request_id,
+        land__owner=request.user,
+    )
+
+    ocr = None
+    try:
+        ocr = PurchaseRequestOCRValidation.objects.get(request=pr)
+    except PurchaseRequestOCRValidation.DoesNotExist:
+        ocr = None
+
+    context = {
+        'req': pr,
+        'ocr': ocr,
+        'is_landowner': True,
+    }
+    return render(request, 'lands/landowner_purchase_request_detail.html', context)
+
+@login_required
 def submit_purchase_request(request, slug, plot_number):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required.'}, status=400)
@@ -1159,15 +1218,29 @@ def submit_purchase_request(request, slug, plot_number):
         return JsonResponse({'error': 'Only buyers can raise purchase requests.'}, status=403)
         
     try:
-        data = json.loads(request.body)
-        full_name = data.get('full_name', '').strip()
-        aadhaar_number = data.get('aadhaar_number', '').strip()
-        pan_number = data.get('pan_number', '').strip().upper()
-        email = request.user.email or data.get('email', '').strip()
-        phone_number = data.get('phone_number', '').strip() or (request.user.phone_number or '')
-        proposed_amount = data.get('proposed_amount')
-        otp_code = data.get('otp_code', '').strip()
-        buyer_message = data.get('buyer_message', '').strip()
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            full_name = request.POST.get('full_name', '').strip()
+            aadhaar_number = request.POST.get('aadhaar_number', '').strip()
+            pan_number = request.POST.get('pan_number', '').strip().upper()
+            email = request.user.email or request.POST.get('email', '').strip()
+            phone_number = request.POST.get('phone_number', '').strip() or (request.user.phone_number or '')
+            proposed_amount = request.POST.get('proposed_amount')
+            otp_code = request.POST.get('otp_code', '').strip()
+            buyer_message = request.POST.get('buyer_message', '').strip()
+            aadhaar_file = request.FILES.get('aadhaar_document')
+            pan_file = request.FILES.get('pan_document')
+        else:
+            data = json.loads(request.body)
+            full_name = data.get('full_name', '').strip()
+            aadhaar_number = data.get('aadhaar_number', '').strip()
+            pan_number = data.get('pan_number', '').strip().upper()
+            email = request.user.email or data.get('email', '').strip()
+            phone_number = data.get('phone_number', '').strip() or (request.user.phone_number or '')
+            proposed_amount = data.get('proposed_amount')
+            otp_code = data.get('otp_code', '').strip()
+            buyer_message = data.get('buyer_message', '').strip()
+            aadhaar_file = None
+            pan_file = None
         
         if not (full_name and aadhaar_number and pan_number and email and phone_number and proposed_amount):
             return JsonResponse({'error': 'All fields are required.'}, status=400)
@@ -1198,9 +1271,17 @@ def submit_purchase_request(request, slug, plot_number):
             if plot and plot.status == 'sold':
                 return JsonResponse({'error': 'This plot has already been sold.'}, status=400)
 
-            # Check for existing pending request
-            if PurchaseRequest.objects.filter(buyer=request.user, land=land, plot_number=plot_number, status__in=['pending', 'meeting_scheduled']).exists():
-                return JsonResponse({'error': 'You already have an active request for this plot.'}, status=400)
+            # Check for existing non-cancelled request
+            existing = PurchaseRequest.objects.filter(
+                buyer=request.user, land=land, plot_number=plot_number
+            ).exclude(status='cancelled').order_by('-created_at').first()
+            if existing:
+                if existing.status == 'rejected' and existing.rejected_at:
+                    from datetime import timedelta
+                    if timezone.now() - existing.rejected_at < timedelta(hours=1):
+                        return JsonResponse({'error': 'You must wait 1 hour after a rejected request before submitting a new one.'}, status=400)
+                elif existing.status != 'rejected':
+                    return JsonResponse({'error': 'You already have a request for this plot.'}, status=400)
                 
             # Create request
             pr = PurchaseRequest.objects.create(
@@ -1214,13 +1295,29 @@ def submit_purchase_request(request, slug, plot_number):
                 phone_number=phone_number,
                 proposed_amount=proposed_amount,
                 buyer_message=buyer_message,
+                aadhaar_document=aadhaar_file,
+                pan_document=pan_file,
                 status='pending'
             )
+
+            # Create OCR validation record (background processing runs below)
+            if aadhaar_file or pan_file:
+                PurchaseRequestOCRValidation.objects.create(
+                    request=pr,
+                    validation_status='pending'
+                )
             
             # Save phone_number to buyer profile if not already set
             if phone_number and not request.user.phone_number:
                 request.user.phone_number = phone_number
                 request.user.save(update_fields=['phone_number'])
+
+        # Kick off OCR validation in a background thread (non-blocking)
+        if pr.aadhaar_document or pr.pan_document:
+            import threading
+            from apps.core.purchase_ocr_pipeline import run_purchase_ocr_validation
+            ocr_thread = threading.Thread(target=run_purchase_ocr_validation, args=(pr.pk,), daemon=True)
+            ocr_thread.start()
         
         # Notify landowner
         msg_text = f"Buyer {full_name} ({request.user.username}) has requested to purchase Plot {plot_number} in {land.name} for ₹{proposed_amount}."
@@ -1507,7 +1604,8 @@ def purchase_request_action(request, request_id):
             for other_pr in other_requests:
                 other_pr.status = 'rejected'
                 other_pr.rejection_reason = 'Plot sold to another buyer.'
-                other_pr.save()
+                other_pr.rejected_at = timezone.now()
+                other_pr.save(update_fields=['status', 'rejection_reason', 'rejected_at'])
                 Notification.objects.create(
                     recipient=other_pr.buyer,
                     sender=request.user,
@@ -1542,13 +1640,24 @@ def purchase_request_action(request, request_id):
             return JsonResponse({'success': True, 'message': 'Purchase approved successfully.'})
             
         elif action == 'reject' and pr.status in ['pending', 'meeting_scheduled']:
+            from django.utils import timezone
             if not reason:
                 return JsonResponse({'error': 'Rejection reason is required.'}, status=400)
-                
+
+            if pr.status == 'meeting_scheduled':
+                from datetime import timedelta
+                if pr.meeting_datetime:
+                    meeting_end = pr.meeting_datetime + timedelta(minutes=pr.meeting_duration_mins)
+                    if timezone.now() < meeting_end:
+                        return JsonResponse({
+                            'error': 'Cannot reject this request yet. The scheduled meeting has not concluded.'
+                        }, status=400)
+
             was_meeting_scheduled = (pr.status == 'meeting_scheduled')
             pr.status = 'rejected'
             pr.rejection_reason = reason
-            pr.save()
+            pr.rejected_at = timezone.now()
+            pr.save(update_fields=['status', 'rejection_reason', 'rejected_at'])
             
             # Revert plot status to available if it was reserved
             if was_meeting_scheduled:

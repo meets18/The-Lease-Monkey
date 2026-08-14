@@ -80,6 +80,13 @@ class EmailOTP(models.Model):
     def is_expired(self):
         return (timezone.now() - self.created_at).total_seconds() > 300  # 5 min
 
+def _purchase_doc_path(instance, filename):
+    import uuid
+    ext = filename.split('.')[-1] if '.' in filename else ''
+    name = f"{uuid.uuid4().hex}{'.' + ext if ext else ''}"
+    return f"purchase_requests/req_{instance.pk}_{instance.buyer_id}/{name}"
+
+
 class PurchaseRequest(models.Model):
     STATUS_CHOICES = [
         ('pending',            'Pending'),
@@ -99,8 +106,11 @@ class PurchaseRequest(models.Model):
     phone_number    = models.CharField(max_length=15)
     proposed_amount = models.DecimalField(max_digits=14, decimal_places=2)
     buyer_message   = models.TextField(blank=True, default='')
+    aadhaar_document = models.FileField(upload_to=_purchase_doc_path, blank=True, null=True)
+    pan_document     = models.FileField(upload_to=_purchase_doc_path, blank=True, null=True)
     status          = models.CharField(max_length=30, choices=STATUS_CHOICES, default='pending')
     rejection_reason = models.TextField(blank=True)
+    rejected_at     = models.DateTimeField(blank=True, null=True)
     meeting_notes   = models.TextField(blank=True)
     meet_link       = models.URLField(blank=True, null=True)
     meeting_datetime = models.DateTimeField(blank=True, null=True)
@@ -120,8 +130,73 @@ class PurchaseRequest(models.Model):
         from django.utils import timezone
         return timezone.now() >= self.meeting_datetime + timedelta(minutes=self.meeting_duration_mins)
 
+    @property
+    def meeting_ends_at(self):
+        if not self.meeting_datetime:
+            return None
+        from datetime import timedelta
+        return self.meeting_datetime + timedelta(minutes=self.meeting_duration_mins)
+
     def __str__(self):
         return f"PurchaseRequest by {self.buyer.username} for Plot {self.plot_number} in {self.land.name}"
+
+
+class PurchaseRequestOCRValidation(models.Model):
+    VALIDATION_STATUS = [
+        ('pending',    'Pending'),
+        ('processing', 'Processing'),
+        ('completed',  'Completed'),
+        ('failed',     'OCR Processing Failed'),
+    ]
+    RISK_LEVEL_CHOICES = [
+        ('low',    'Low'),
+        ('medium', 'Medium'),
+        ('high',   'High'),
+        ('failed', 'Failed'),
+    ]
+
+    request = models.OneToOneField(
+        PurchaseRequest,
+        on_delete=models.CASCADE,
+        related_name='ocr_validation'
+    )
+
+    # Aadhaar card results
+    aadhaar_doc_type_detected = models.BooleanField(null=True, blank=True)
+    aadhaar_number_found      = models.BooleanField(null=True, blank=True)
+    aadhaar_number_match      = models.BooleanField(null=True, blank=True)
+    aadhaar_ocr_number        = models.CharField(max_length=20, blank=True)
+    aadhaar_confidence        = models.FloatField(null=True, blank=True)
+
+    # PAN card results
+    pan_doc_type_detected     = models.BooleanField(null=True, blank=True)
+    pan_number_found          = models.BooleanField(null=True, blank=True)
+    pan_number_match          = models.BooleanField(null=True, blank=True)
+    pan_ocr_number            = models.CharField(max_length=15, blank=True)
+    pan_confidence            = models.FloatField(null=True, blank=True)
+
+    # Optional cross-checks
+    name_match_score          = models.FloatField(null=True, blank=True)
+
+    # Risk assessment
+    risk_score                = models.IntegerField(default=0)
+    risk_level                = models.CharField(max_length=20, choices=RISK_LEVEL_CHOICES, blank=True)
+    validation_flags          = models.JSONField(default=list, blank=True)
+
+    # Raw OCR text
+    aadhaar_raw_text          = models.TextField(blank=True)
+    pan_raw_text              = models.TextField(blank=True)
+
+    # Pipeline state
+    validation_status         = models.CharField(max_length=20, choices=VALIDATION_STATUS, default='pending')
+    error_message             = models.TextField(blank=True)
+    processed_at              = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-processed_at']
+
+    def __str__(self):
+        return f"PurchaseOCR [{self.risk_level or 'pending'}] — Request #{self.request_id}"
 
 
 def _ticket_attachment_path(instance, filename):
