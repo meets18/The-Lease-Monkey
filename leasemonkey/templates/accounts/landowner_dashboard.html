@@ -43,6 +43,13 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkVacate" onclick="switchTab('vacate');"
+                        class="sidebar-link">
+                        <i class="bi bi-box-arrow-in-left"></i> Vacate Requests
+                        {% if pending_deallotment_requests %}<span class="notif-badge ms-auto">{{ pending_deallotment_requests|length }}</span>{% endif %}
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="javascript:void(0);" id="tabLinkPurchaseRequests" onclick="switchTab('purchaseRequests');"
                         class="sidebar-link">
                         <i class="bi bi-cart-fill"></i> Purchase Requests
@@ -67,6 +74,18 @@
                         class="sidebar-link">
                         <i class="bi bi-bell-fill"></i> Notifications
                         {% if unread_count %}<span class="notif-badge ms-auto">{{ unread_count }}</span>{% endif %}
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkTickets" onclick="switchTab('tickets');"
+                        class="sidebar-link">
+                        <i class="bi bi-ticket-fill"></i> Support Tickets
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkSupport" onclick="switchTab('support');"
+                        class="sidebar-link">
+                        <i class="bi bi-question-circle-fill"></i> Help & Support
                     </a>
                 </li>
             </ul>
@@ -340,15 +359,30 @@
                     </thead>
                     <tbody>
                         {% for req in active_buyers %}
-                        <tr>
+                        <tr class="buyer-detail-row" onclick="openBuyerDetail(this);"
+                            data-username="{{ req.buyer.username }}"
+                            data-full-name="{{ req.full_name|escapejs }}"
+                            data-email="{{ req.email|escapejs }}"
+                            data-phone="{{ req.phone_number|escapejs }}"
+                            data-aadhaar="{{ req.aadhaar_number }}"
+                            data-pan="{{ req.pan_number }}"
+                            data-amount="{{ req.proposed_amount }}"
+                            data-plot="{{ req.plot_number }}"
+                            data-land="{{ req.land.name|escapejs }}"
+                            data-message="{{ req.buyer_message|escapejs }}"
+                            data-date="{{ req.updated_at|date:'M d, Y' }}">
                             <td class="fw-bold text-white">{{ req.buyer.username }}</td>
                             <td class="text-muted-glow">{{ req.full_name }}</td>
                             <td class="text-muted-glow">Plot {{ req.plot_number }} (Land: {{ req.land.name }})</td>
                             <td class="text-cyan-glow fw-bold">₹{{ req.proposed_amount }}</td>
                             <td class="text-muted-glow">{{ req.updated_at|date:"M d, Y" }}</td>
-                            <td class="text-end px-3">
+                            <td class="text-end px-3" onclick="event.stopPropagation();">
+                                <button type="button" class="btn btn-sm btn-outline-primary py-1 me-1"
+                                    onclick="openBuyerDetail(this.closest('tr'));">
+                                    View Details
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline-danger py-1"
-                                    onclick="dashboardDeallotPlot('{{ req.land.slug }}', '{{ req.plot_number }}')">
+                                    onclick="openDeallotDialog('{{ req.land.slug }}', '{{ req.plot_number }}')">
                                     De-allot
                                 </button>
                             </td>
@@ -362,6 +396,57 @@
                 <i class="bi bi-people fs-1 text-muted-glow d-block mb-3"></i>
                 <p class="text-muted-glow fs-15 mb-1">Active buyers are shown here.</p>
                 <p class="text-white-50 fs-13">Once you approve a purchase request, the buyer will appear here.</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- ── VACATE REQUESTS TAB ─────────────────────────────────────────── -->
+        <section id="sectionVacate" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Vacate Requests</h2>
+                <p class="text-muted-glow fs-14 mb-0">Buyers requesting to vacate their allotted plots.</p>
+            </div>
+
+            {% if pending_deallotment_requests %}
+            <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
+                <table class="table table-dark align-middle mb-0 font-opensans table-modern">
+                    <thead>
+                        <tr>
+                            <th class="px-3">Buyer Username</th>
+                            <th>Plot Details</th>
+                            <th>Reason</th>
+                            <th>Requested On</th>
+                            <th class="text-end px-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for dreq in pending_deallotment_requests %}
+                        <tr>
+                            <td class="fw-bold text-white">{{ dreq.buyer.username }}</td>
+                            <td class="text-muted-glow">Plot {{ dreq.plot_number }} (Land: {{ dreq.land.name }})</td>
+                            <td class="text-muted-glow" style="max-width: 260px;">{{ dreq.reason|truncatechars:80 }}</td>
+                            <td class="text-muted-glow">{{ dreq.created_at|date:"M d, Y h:i A" }}</td>
+                            <td class="text-end px-3">
+                                <button type="button" class="btn btn-sm btn-outline-warning py-1"
+                                    data-dreq-id="{{ dreq.id }}"
+                                    data-dreq-slug="{{ dreq.land.slug }}"
+                                    data-dreq-buyer="{{ dreq.buyer.username }}"
+                                    data-dreq-plot="{{ dreq.plot_number }}"
+                                    data-dreq-reason="{{ dreq.reason|escapejs }}"
+                                    onclick="openVacateDecision(this);">
+                                    Decide
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-5 text-center">
+                <i class="bi bi-box-arrow-in-left fs-1 text-muted-glow d-block mb-3"></i>
+                <p class="text-muted-glow fs-15 mb-1">No pending vacate requests.</p>
+                <p class="text-white-50 fs-13">When a buyer requests to vacate a plot, it will appear here.</p>
             </div>
             {% endif %}
         </section>
@@ -898,6 +983,143 @@
                 <p class="text-muted-glow fs-15 mb-0">No notifications yet.</p>
             </div>
             {% endif %}
+        </section>
+
+        <!-- SUPPORT TICKETS TAB -->
+        <section id="sectionTickets" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Support Tickets</h2>
+                <p class="text-muted-glow fs-14 mb-0">Submit a new support request and track all your tickets.</p>
+            </div>
+
+            <!-- Create Ticket -->
+            <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4 mb-4">
+                <h4 class="font-ranade text-white fw-bold mb-1 fs-18">Create Ticket</h4>
+                <p class="text-muted-glow fs-13 mb-3">Submit a new support request. Our team will respond shortly.</p>
+
+                <form id="ticketForm" method="post" enctype="multipart/form-data" onsubmit="event.preventDefault(); submitTicket();">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-white-50 fs-13">Subject <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="ticketSubject" placeholder="Brief summary of your issue" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-white-50 fs-13">Category <span class="text-danger">*</span></label>
+                            <select class="form-select" id="ticketCategory" required>
+                                <option value="">Select...</option>
+                                <option value="general">General Question</option>
+                                <option value="technical">Technical Issue</option>
+                                <option value="property_verification">Property Verification</option>
+                                <option value="meeting">Meeting Issue</option>
+                                <option value="account">Account Issue</option>
+                                <option value="bug">Bug Report</option>
+                                <option value="feature">Feature Request</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label text-white-50 fs-13">Description <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="ticketDescription" rows="4" placeholder="Describe your issue in detail..." required></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-white-50 fs-13">Attachment (optional)</label>
+                            <input type="file" class="form-control" id="ticketAttachment" accept=".pdf,.png,.jpg,.jpeg">
+                            <div class="text-muted-glow fs-11 mt-1">Allowed: PDF, PNG, JPG, JPEG (Max 10 MB)</div>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" id="btnCreateTicket" class="btn btn-get-started text-uppercase fw-bold fs-12 py-2 px-4">
+                                <i class="bi bi-plus-circle me-1"></i> Create Ticket
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- My Tickets -->
+            <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4 mb-4">
+                <h4 class="font-ranade text-white fw-bold mb-1 fs-18">My Tickets</h4>
+                <p class="text-muted-glow fs-13 mb-3">Track all your support requests.</p>
+
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover align-middle mb-0 font-opensans">
+                        <thead>
+                            <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
+                                <th scope="col" class="py-3 px-3">Ticket ID</th>
+                                <th scope="col" class="py-3">Subject</th>
+                                <th scope="col" class="py-3">Category</th>
+                                <th scope="col" class="py-3">Created</th>
+                                <th scope="col" class="py-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="fs-14">
+                            {% if landowner_tickets %}
+                                {% for ticket in landowner_tickets %}
+                                <tr class="border-bottom border-dark-glow" style="cursor: pointer;" onclick="window.location.href='{% url 'core:ticket_conversation' ticket.ticket_id %}';">
+                                    <td class="py-3 px-3 fw-bold font-ranade">
+                                        <span class="text-cyan-glow">{{ ticket.ticket_id }}</span>
+                                    </td>
+                                    <td class="py-3 text-white">{{ ticket.subject }}</td>
+                                    <td class="py-3 text-muted-glow">{{ ticket.get_category_display }}</td>
+                                    <td class="py-3 text-muted-glow">{{ ticket.created_at|date:"d M Y" }}</td>
+                                    <td class="py-3">
+                                        {% if ticket.status == 'open' %}
+                                        <span class="badge bg-success-glow fs-10">Open</span>
+                                        {% elif ticket.status == 'in_progress' %}
+                                        <span class="badge bg-warning-glow fs-10">In Progress</span>
+                                        {% elif ticket.status == 'waiting' %}
+                                        <span class="badge bg-info-glow fs-10" style="background:rgba(59,130,246,0.15)!important;color:#60A5FA!important;">Waiting</span>
+                                        {% elif ticket.status == 'resolved' %}
+                                        <span class="badge bg-success-glow fs-10">Resolved</span>
+                                        {% elif ticket.status == 'closed' %}
+                                        <span class="badge bg-danger-glow fs-10">Closed</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="py-5 text-center text-muted-glow">
+                                        <i class="bi bi-ticket fs-2 d-block mb-2"></i>
+                                        No tickets yet. Create one above!
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- HELP & SUPPORT TAB -->
+        <section id="sectionSupport" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Help & Support</h2>
+                <p class="text-muted-glow fs-14 mb-0">Get assistance and find answers to common questions.</p>
+            </div>
+
+            <!-- FAQs -->
+            <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4">
+                <h4 class="font-ranade text-white fw-bold mb-1 fs-18">FAQs</h4>
+                <p class="text-muted-glow fs-13 mb-3">Frequently asked questions.</p>
+
+                <div class="accordion" id="faqAccordion">
+                    {% for faq in faqs %}
+                    <div class="accordion-item bg-transparent border-0 mb-2">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed bg-dark-glow text-white fs-13 fw-bold px-3 py-2.5 rounded-2 border border-secondary-glow" type="button" data-bs-toggle="collapse" data-bs-target="#faq{{ forloop.counter }}" style="box-shadow: none;">
+                                {{ faq.question }}
+                            </button>
+                        </h2>
+                        <div id="faq{{ forloop.counter }}" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body px-3 py-2 text-muted-glow fs-13">
+                                {{ faq.answer }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </section>
 
     </main>
@@ -1581,6 +1803,120 @@
     </div>
 </div>
 
+<!-- Buyer Detail Modal -->
+<div class="modal fade" id="buyerDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content notif-modal-content">
+            <div class="modal-header notif-modal-header border-bottom pb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="notif-modal-icon-badge">
+                        <i class="bi bi-person-badge-fill"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title font-ranade fw-bold mb-0" id="bdTitle">Buyer Details</h5>
+                        <span class="fs-12 text-muted-glow" id="bdSub"></span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close notif-btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-4">
+                <div class="lo-bd-panel mb-3">
+                    <div class="lo-bd-row"><span class="lo-bd-label">Username</span><strong class="lo-bd-value" id="bdUsername"></strong></div>
+                    <div class="lo-bd-row"><span class="lo-bd-label">Full Name</span><strong class="lo-bd-value" id="bdFullName"></strong></div>
+                    <div class="lo-bd-row"><span class="lo-bd-label">Email</span><strong class="lo-bd-value" id="bdEmail"></strong></div>
+                    <div class="lo-bd-row"><span class="lo-bd-label">Phone</span><strong class="lo-bd-value" id="bdPhone"></strong></div>
+                    <div class="lo-bd-row"><span class="lo-bd-label">Aadhaar</span><strong class="lo-bd-value" id="bdAadhaar"></strong></div>
+                    <div class="lo-bd-row"><span class="lo-bd-label">PAN</span><strong class="lo-bd-value" id="bdPan"></strong></div>
+                    <div class="lo-bd-row"><span class="lo-bd-label">Plot</span><strong class="lo-bd-value" id="bdPlot"></strong></div>
+                    <div class="lo-bd-row"><span class="lo-bd-label">Proposed Amount</span><strong class="lo-bd-value text-primary-glow" id="bdAmount"></strong></div>
+                    <div class="lo-bd-row"><span class="lo-bd-label">Approval Date</span><strong class="lo-bd-value" id="bdDate"></strong></div>
+                </div>
+                <div id="bdMessageWrap" style="display:none;">
+                    <label class="form-label fs-13 text-white fw-semibold mb-1">Message from Buyer</label>
+                    <div class="lo-bd-msgbox p-3 rounded-3">
+                        <p class="fs-13 mb-0 text-muted-glow" id="bdMessage" style="white-space: pre-wrap; line-height: 1.6;"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top pt-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-sm btn-secondary-soft px-4 py-2 fs-13 fw-bold" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- De-Allot Dialog Modal -->
+<div class="modal fade" id="deallotDialogModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content notif-modal-content">
+            <div class="modal-header notif-modal-header border-bottom pb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="notif-modal-icon-badge" style="background:rgba(255,74,74,0.15);border-color:rgba(255,74,74,0.35);">
+                        <i class="bi bi-person-x-fill"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title font-ranade fw-bold mb-0" id="deallotDialogTitle">De-Allot Plot</h5>
+                        <span class="fs-12 text-muted-glow" id="deallotDialogSub"></span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close notif-btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-4">
+                <p class="fs-13 text-muted-glow mb-3">This will cancel the buyer's allotment, free the plot, and notify the buyer by email.</p>
+                <label class="form-label fs-13 text-white fw-semibold mb-1">Reason for de-allotment <span class="text-danger">*</span></label>
+                <textarea id="deallotDialogReason" class="form-control lo-deallot-textarea" rows="3" placeholder="e.g. Payment not received"></textarea>
+                <div class="text-danger fs-12 mt-2 d-none" id="deallotDialogError"></div>
+            </div>
+            <div class="modal-footer border-top pt-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-sm btn-secondary-soft px-4 py-2 fs-13 fw-bold" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-danger px-4 py-2 fs-13 fw-bold" id="deallotDialogConfirmBtn">
+                    <i class="bi bi-check-circle me-1"></i> Confirm De-Allot
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Vacate Request Decision Modal -->
+<div class="modal fade" id="vacateDecisionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content notif-modal-content">
+            <div class="modal-header notif-modal-header border-bottom pb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="notif-modal-icon-badge" style="background:rgba(251,191,36,0.15);border-color:rgba(251,191,36,0.35);">
+                        <i class="bi bi-box-arrow-right"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title font-ranade fw-bold mb-0" id="vacateDecisionTitle">Vacate Request</h5>
+                        <span class="fs-12 text-muted-glow" id="vacateDecisionSub"></span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close notif-btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-4">
+                <div class="lo-deallot-info-panel mb-3">
+                    <div class="d-flex justify-content-between"><span class="text-muted-glow fs-13">Buyer</span><strong class="text-white fs-13" id="vacateDecisionBuyer"></strong></div>
+                    <div class="d-flex justify-content-between mt-1"><span class="text-muted-glow fs-13">Plot</span><strong class="text-white fs-13" id="vacateDecisionPlot"></strong></div>
+                </div>
+                <label class="form-label fs-13 text-white fw-semibold mb-1">Buyer's Reason</label>
+                <div class="lo-deallot-reason-box p-3 rounded-3 mb-3">
+                    <p class="fs-13 mb-0 text-muted-glow" id="vacateDecisionReason" style="white-space: pre-wrap; line-height: 1.6;"></p>
+                </div>
+                <label class="form-label fs-13 text-white fw-semibold mb-1" id="vacateDecisionReasonLabel">Reason (optional)</label>
+                <textarea id="vacateDecisionReasonInput" class="form-control lo-deallot-textarea" rows="2" placeholder="Optional note sent with the decision"></textarea>
+            </div>
+            <div class="modal-footer border-top pt-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-sm btn-danger-soft px-4 py-2 fs-13 fw-bold" id="vacateDeclineBtn">
+                    <i class="bi bi-x-circle me-1"></i> Decline
+                </button>
+                <button type="button" class="btn btn-sm btn-success px-4 py-2 fs-13 fw-bold" id="vacateApproveBtn">
+                    <i class="bi bi-check-circle me-1"></i> Approve &amp; Free Plot
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Rejection Confirmation Toast -->
 <div id="ownerToast" class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
     <div id="ownerToastEl" class="toast align-items-center text-white border-0" role="alert">
@@ -1620,8 +1956,8 @@
 <script>
     // ─── Tab Switching ─────────────────────────────────────────────────────────
     function switchTab(tabName) {
-        const tabs = { lands: 'sectionLands', layouts: 'sectionLayouts', buyers: 'sectionBuyers', purchaseRequests: 'sectionPurchaseRequests', requests: 'sectionRequests', payments: 'sectionPayments', notifs: 'sectionNotifs' };
-        const links = { lands: 'tabLinkLands', layouts: 'tabLinkLayouts', buyers: 'tabLinkBuyers', purchaseRequests: 'tabLinkPurchaseRequests', requests: 'tabLinkRequests', payments: 'tabLinkPayments', notifs: 'tabLinkNotifs' };
+const tabs = { lands: 'sectionLands', layouts: 'sectionLayouts', buyers: 'sectionBuyers', purchaseRequests: 'sectionPurchaseRequests', requests: 'sectionRequests', payments: 'sectionPayments', notifs: 'sectionNotifs', vacate: 'sectionVacate', tickets: 'sectionTickets', support: 'sectionSupport' };
+const links = { lands: 'tabLinkLands', layouts: 'tabLinkLayouts', buyers: 'tabLinkBuyers', purchaseRequests: 'tabLinkPurchaseRequests', requests: 'tabLinkRequests', payments: 'tabLinkPayments', notifs: 'tabLinkNotifs', vacate: 'tabLinkVacate', tickets: 'tabLinkTickets', support: 'tabLinkSupport' };
 
         if (!tabs[tabName]) return;
         Object.keys(tabs).forEach(t => {
@@ -2814,41 +3150,293 @@
         }
     }
 
-    function dashboardDeallotPlot(landSlug, plotNumber) {
-        const reason = prompt(`Please enter the reason for de-alloting Plot ${plotNumber} (an email will be sent to the buyer):`);
-        if (reason === null) return;
-        if (reason.trim() === '') {
-            alert("A reason is required to de-allot the user.");
+    let currentDeallotUrl = null;
+    let currentVacateId = null;
+    let currentVacateSlug = null;
+
+    function openBuyerDetail(tr) {
+        const get = (k) => tr.getAttribute('data-' + k) || '';
+        document.getElementById('bdTitle').textContent = get('full-name') || get('username');
+        document.getElementById('bdSub').textContent = get('plot') + ' · ' + get('land');
+        document.getElementById('bdUsername').textContent = get('username');
+        document.getElementById('bdFullName').textContent = get('full-name');
+        document.getElementById('bdEmail').textContent = get('email');
+        document.getElementById('bdPhone').textContent = get('phone');
+        document.getElementById('bdAadhaar').textContent = get('aadhaar');
+        document.getElementById('bdPan').textContent = get('pan');
+        document.getElementById('bdPlot').textContent = 'Plot ' + get('plot');
+        document.getElementById('bdAmount').textContent = '₹' + get('amount');
+        document.getElementById('bdDate').textContent = get('date');
+        const msgWrap = document.getElementById('bdMessageWrap');
+        if (get('message')) {
+            document.getElementById('bdMessage').textContent = get('message');
+            msgWrap.style.display = 'block';
+        } else {
+            msgWrap.style.display = 'none';
+        }
+        new bootstrap.Modal(document.getElementById('buyerDetailModal')).show();
+    }
+
+    function openDeallotDialog(landSlug, plotNumber) {
+        currentDeallotUrl = `/lands/plots-creator/${landSlug}/deallot/${encodeURIComponent(plotNumber)}/`;
+        document.getElementById('deallotDialogTitle').textContent = 'De-Allot Plot ' + plotNumber;
+        document.getElementById('deallotDialogSub').textContent = 'Land: ' + landSlug;
+        document.getElementById('deallotDialogReason').value = '';
+        document.getElementById('deallotDialogError').classList.add('d-none');
+        new bootstrap.Modal(document.getElementById('deallotDialogModal')).show();
+    }
+
+    function submitDeallot() {
+        const reason = document.getElementById('deallotDialogReason').value.trim();
+        const errEl = document.getElementById('deallotDialogError');
+        if (!reason) {
+            errEl.textContent = 'A reason for de-allotment is required.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+        const btn = document.getElementById('deallotDialogConfirmBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>De-Alloting...';
+        fetch(currentDeallotUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf()
+            },
+            body: JSON.stringify({ reason: reason })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    errEl.textContent = data.error;
+                    errEl.classList.remove('d-none');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Confirm De-Allot';
+                } else {
+                    showToast(data.message, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('deallotDialogModal')).hide();
+                    setTimeout(() => location.reload(), 600);
+                }
+            })
+            .catch(() => {
+                errEl.textContent = 'Network error occurred. Please try again.';
+                errEl.classList.remove('d-none');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Confirm De-Allot';
+            });
+    }
+
+    function openVacateDecision(btnEl) {
+        const id = btnEl.getAttribute('data-dreq-id');
+        const slug = btnEl.getAttribute('data-dreq-slug');
+        const buyer = btnEl.getAttribute('data-dreq-buyer');
+        const plot = btnEl.getAttribute('data-dreq-plot');
+        const reason = btnEl.getAttribute('data-dreq-reason');
+        currentVacateId = id;
+        currentVacateSlug = slug;
+
+        document.getElementById('vacateDecisionSub').textContent = 'Plot ' + plot + ' · ' + slug;
+        document.getElementById('vacateDecisionBuyer').textContent = buyer;
+        document.getElementById('vacateDecisionPlot').textContent = 'Plot ' + plot;
+        document.getElementById('vacateDecisionReason').textContent = reason;
+        document.getElementById('vacateDecisionReasonInput').value = '';
+        new bootstrap.Modal(document.getElementById('vacateDecisionModal')).show();
+    }
+
+    function submitVacateDecision(action) {
+        const note = document.getElementById('vacateDecisionReasonInput').value.trim();
+        const btn = action === 'approve'
+            ? document.getElementById('vacateApproveBtn')
+            : document.getElementById('vacateDeclineBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing...';
+        fetch(`/lands/plots-creator/${currentVacateSlug}/decide-deallotment/${currentVacateId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf()
+            },
+            body: JSON.stringify({ action: action, reason: note })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    showToast(data.error, 'danger');
+                    btn.disabled = false;
+                    btn.innerHTML = action === 'approve'
+                        ? '<i class="bi bi-check-circle me-1"></i> Approve &amp; Free Plot'
+                        : '<i class="bi bi-x-circle me-1"></i> Decline';
+                } else {
+                    showToast(data.message, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('vacateDecisionModal')).hide();
+                    setTimeout(() => location.reload(), 600);
+                }
+            })
+            .catch(() => {
+                showToast('Network error occurred.', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = action === 'approve'
+                    ? '<i class="bi bi-check-circle me-1"></i> Approve &amp; Free Plot'
+                    : '<i class="bi bi-x-circle me-1"></i> Decline';
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const deallotConfirm = document.getElementById('deallotDialogConfirmBtn');
+        if (deallotConfirm) deallotConfirm.addEventListener('click', submitDeallot);
+        const vacateApprove = document.getElementById('vacateApproveBtn');
+        if (vacateApprove) vacateApprove.addEventListener('click', () => submitVacateDecision('approve'));
+        const vacateDecline = document.getElementById('vacateDeclineBtn');
+        if (vacateDecline) vacateDecline.addEventListener('click', () => submitVacateDecision('decline'));
+    });
+
+    /* ── Support Ticket ── */
+    function submitTicket() {
+        const subject = document.getElementById('ticketSubject').value.trim();
+        const category = document.getElementById('ticketCategory').value;
+        const description = document.getElementById('ticketDescription').value.trim();
+        const attachment = document.getElementById('ticketAttachment').files[0];
+
+        if (!subject || !category || !description) {
+            alert('Please fill in all required fields.');
             return;
         }
 
-        if (confirm(`Are you sure you want to de-allot Plot ${plotNumber} and mark it as Available?`)) {
-            fetch(`/lands/plots-creator/${landSlug}/deallot/${encodeURIComponent(plotNumber)}/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrf()
-                },
-                body: JSON.stringify({ reason: reason.trim() })
-            })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.error) {
-                        alert("Error: " + data.error);
-                    } else {
-                        alert(data.message);
-                        location.reload();
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert("Network error occurred.");
-                });
-        }
+        const btn = document.getElementById('btnCreateTicket');
+        btn.disabled = true;
+        btn.innerHTML = 'Creating <span class="spinner-border spinner-border-sm ms-1" role="status"></span>';
+
+        const formData = new FormData();
+        formData.append('subject', subject);
+        formData.append('category', category);
+        formData.append('description', description);
+        if (attachment) formData.append('attachment', attachment);
+
+        fetch('{% url "core:create_ticket_ajax" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() },
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                alert('Support ticket created successfully! Ticket ID: ' + data.ticket_id);
+                window.location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Something went wrong.'));
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Create Ticket';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Network error occurred.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Create Ticket';
+        });
     }
 </script>
 
 <style>
+    /* ── Buyer Detail Modal ───────────────────────────────────── */
+    .buyer-detail-row {
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+    .buyer-detail-row:hover {
+        background: rgba(0, 178, 255, 0.06);
+    }
+    .lo-bd-panel {
+        background: rgba(30, 41, 59, 0.4);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 10px;
+        padding: 12px 14px;
+    }
+    .lo-bd-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+    }
+    .lo-bd-label {
+        color: #94a3b8;
+        font-size: 13px;
+    }
+    .lo-bd-value {
+        color: #f1f5f9;
+        font-size: 13px;
+    }
+    .lo-bd-msgbox {
+        background: rgba(30, 41, 59, 0.4);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    [data-theme="light"] .buyer-detail-row:hover {
+        background: rgba(249, 109, 0, 0.06);
+    }
+    [data-theme="light"] .lo-bd-panel {
+        background: #F8FAFC;
+        border-color: #E5E7EB;
+    }
+    [data-theme="light"] .lo-bd-label {
+        color: #64748B;
+    }
+    [data-theme="light"] .lo-bd-value {
+        color: #1F2937;
+    }
+    [data-theme="light"] .lo-bd-msgbox {
+        background: #F9FAFB;
+        border-color: #E5E7EB;
+    }
+    [data-theme="light"] .lo-deallot-textarea {
+        background: #FFFFFF;
+        border-color: #D1D5DB;
+        color: #1F2937;
+    }
+    [data-theme="light"] .lo-deallot-textarea:focus {
+        background: #FFFFFF;
+        border-color: var(--accent-orange, #F96D00);
+        color: #1F2937;
+        box-shadow: none;
+    }
+    [data-theme="light"] .lo-deallot-info-panel {
+        background: #F8FAFC;
+        border-color: #E5E7EB;
+    }
+    [data-theme="light"] .lo-deallot-info-panel strong {
+        color: #1F2937 !important;
+    }
+    [data-theme="light"] .lo-deallot-reason-box {
+        background: #F9FAFB;
+        border-color: #E5E7EB;
+    }
+    [data-theme="light"] .lo-deallot-reason-box p {
+        color: #374151 !important;
+    }
+
+    /* ── De-Allot / Vacate Dialogs ─────────────────────────────── */
+    .lo-deallot-textarea {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        color: #e2e8f0;
+    }
+    .lo-deallot-textarea:focus {
+        background: rgba(15, 23, 42, 0.8);
+        border-color: rgba(0, 178, 255, 0.5);
+        color: #e2e8f0;
+        box-shadow: none;
+    }
+    .lo-deallot-info-panel {
+        background: rgba(30, 41, 59, 0.4);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 10px;
+        padding: 12px 14px;
+    }
+    .lo-deallot-reason-box {
+        background: rgba(30, 41, 59, 0.4);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
     /* ── Sidebar ─────────────────────────────────────────────── */
     .sidebar-wrapper {
         width: 280px;

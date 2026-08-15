@@ -121,18 +121,22 @@ def plot_viewer(request, slug):
         requested_plots = list(set(requested_plots))
 
         cooldown_plots = {}
-        from datetime import timedelta
-        rejected_qs = PurchaseRequest.objects.filter(
-            land=land, buyer=request.user, status='rejected'
-        ).exclude(rejected_at__isnull=True).order_by('-created_at')
-        for pr in rejected_qs:
-            if pr.plot_number in cooldown_plots:
-                continue
-            remaining = timedelta(hours=1) - (timezone.now() - pr.rejected_at)
-            if remaining.total_seconds() > 0:
-                cooldown_plots[pr.plot_number] = {
-                    'remaining': max(int(remaining.total_seconds()), 0),
-                    'rejected_at': pr.rejected_at.isoformat(),
+        from apps.core.models import DeallotmentRequest
+        deallot_plots = set(DeallotmentRequest.objects.filter(
+            land=land, buyer=request.user, status='approved',
+            decided_at__isnull=False,
+        ).values_list('plot_number', flat=True))
+        rejected_plots = set(PurchaseRequest.objects.filter(
+            land=land, buyer=request.user, status='rejected',
+            rejected_at__isnull=False,
+        ).values_list('plot_number', flat=True))
+        for plot_number in deallot_plots | rejected_plots:
+            remaining, kind = get_requeue_cooldown_seconds(request.user, land, plot_number)
+            if remaining > 0:
+                cooldown_plots[plot_number] = {
+                    'remaining': remaining,
+                    'kind': kind,
+                    'rejected_at': timezone.now().isoformat(),
                 }
 
     context = {
@@ -635,85 +639,291 @@ def update_plot(request, slug, plot_number):
         
     return JsonResponse({'error': 'Invalid request method.'}, status=400)
 
-@require_POST
-@login_required
+
+def get_requeue_cooldown_seconds(buyer, land, plot_number):
+    """Return (remaining_seconds, kind) before the buyer may submit a new purchase
+    request for this plot. kind is 'deallot' (24h after a de-allotment) or 'reject'
+    (1h after a rejected request); None when no cooldown applies."""
+    from datetime import timedelta
+    from django.utils import timezone
+    from apps.core.models import PurchaseRequest, DeallotmentRequest
+
+    deallot = DeallotmentRequest.objects.filter(
+        land=land, plot_number=plot_number, buyer=buyer, status='approved',
+        decided_at__isnull=False,
+    ).order_by('-decided_at').first()
+    if deallot:
+        remaining = timedelta(hours=24) - (timezone.now() - deallot.decided_at)
+        if remaining.total_seconds() > 0:
+            return max(int(remaining.total_seconds()), 0), 'deallot'
+
+    pr = PurchaseRequest.objects.filter(
+        land=land, plot_number=plot_number, buyer=buyer, status='rejected',
+        rejected_at__isnull=False,
+    ).order_by('-rejected_at').first()
+    if pr:
+        remaining = timedelta(hours=1) - (timezone.now() - pr.rejected_at)
+        if remaining.total_seconds() > 0:
+            return max(int(remaining.total_seconds()), 0), 'reject'
+
+    return 0, None
+
+
+def perform_deallotment(land, plot_number, reason, actor):
+    """Core de-allotment logic shared by landowner-initiated de-allotment and
+    fulfilled buyer vacate requests. Returns (ok, error_message)."""
+    from django.utils import timezone
+    from apps.core.models import PurchaseRequest, Notification
+    from django.core.mail import send_mail
+    from django.conf import settings as django_settings
+
+    reason = (reason or '').strip()
+    if not reason:
+        return False, 'A reason for de-allocation is required.'
+
+    pr = PurchaseRequest.objects.filter(
+        land=land,
+        plot_number=plot_number,
+        status__in=['approved', 'lease_active']
+    ).first()
+
+    if not pr:
+        return False, 'No allotted buyer found for this plot.'
+
+    pr.status = 'rejected'
+    pr.rejection_reason = reason
+    pr.rejected_at = timezone.now()
+    pr.save()
+
+    plot = land.plots.filter(plot_number=plot_number).first()
+    if plot:
+        plot.status = 'available'
+        plot.save()
+
+    from apps.lands.models import OccupancyRecord
+    active_record = OccupancyRecord.objects.filter(
+        land=land, plot_number=plot_number, status='active'
+    ).first()
+    if active_record:
+        active_record.status = 'terminated'
+        active_record.deallotted_at = timezone.now()
+        active_record.deallotment_reason = reason
+        active_record.save()
+
+    Notification.objects.create(
+        recipient=pr.buyer,
+        sender=actor,
+        notif_type='purchase_request_rejected',
+        title=f"Plot {plot_number} De-allocated",
+        message=f"Your allotment for Plot {plot_number} in {land.name} has been cancelled by the landowner.\n\nReason: {reason}",
+        land_slug=land.slug,
+        plot_number=plot_number
+    )
+
+    try:
+        send_mail(
+            subject=f'[Lease Monkey] Plot {plot_number} De-allocation Notice',
+            message=f'Hello {pr.buyer.username},\n\nWe regret to inform you that your allotment for Plot {plot_number} in {land.name} has been cancelled by the landowner.\n\nReason for de-allocation: {reason}\n\nIf you have any questions, please contact the landowner or our support team.\n\n— The Lease Monkey Team',
+            from_email=django_settings.EMAIL_HOST_USER,
+            recipient_list=[pr.buyer.email],
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+
+    return True, None
+
+
 def deallot_plot(request, slug, plot_number):
     """De-allot a plot from a buyer by rejecting their approved purchase request."""
-    from django.utils import timezone
     land = get_object_or_404(Land, slug=slug)
-    
+
     if request.user != land.owner and not request.user.is_superuser:
         return JsonResponse({'error': 'Permission denied.'}, status=403)
-        
+
     try:
         data = json.loads(request.body)
         reason = data.get('reason', '').strip()
-        
-        if not reason:
-            return JsonResponse({'error': 'A reason for de-allocation is required.'}, status=400)
-            
-        from apps.core.models import PurchaseRequest, Notification
-        from django.core.mail import send_mail
-        from django.conf import settings as django_settings
-        
-        # Find the approved purchase request
-        pr = PurchaseRequest.objects.filter(
-            land=land, 
-            plot_number=plot_number, 
-            status__in=['approved', 'lease_active']
-        ).first()
-        
-        if not pr:
-            return JsonResponse({'error': 'No allotted buyer found for this plot.'}, status=404)
-            
-        # Update Purchase Request
-        pr.status = 'rejected'
-        pr.rejection_reason = reason
-        pr.save()
-        
-        # Update Plot status back to available
-        plot = land.plots.filter(plot_number=plot_number).first()
-        if plot:
-            plot.status = 'available'
-            plot.save()
-            
-        # Terminate occupancy record
-        from apps.lands.models import OccupancyRecord
-        active_record = OccupancyRecord.objects.filter(
-            land=land, plot_number=plot_number, status='active'
-        ).first()
-        if active_record:
-            active_record.status = 'terminated'
-            active_record.deallotted_at = timezone.now()
-            active_record.deallotment_reason = reason
-            active_record.save()
-            
-        # Send Notification to Buyer
-        Notification.objects.create(
-            recipient=pr.buyer,
-            sender=request.user,
-            notif_type='purchase_request_rejected',
-            title=f"Plot {plot_number} De-allocated",
-            message=f"Your allotment for Plot {plot_number} in {land.name} has been cancelled by the landowner.\n\nReason: {reason}",
-            land_slug=land.slug,
-            plot_number=plot_number
+        ok, error = perform_deallotment(land, plot_number, reason, request.user)
+        if not ok:
+            return JsonResponse({'error': error}, status=400)
+        # Record an approved de-allotment request so the 24h re-request cooldown
+        # anchors on decided_at, consistent with buyer-initiated vacate approvals.
+        from apps.core.models import DeallotmentRequest
+        from django.utils import timezone
+        buyer_pr = PurchaseRequest.objects.filter(
+            land=land, plot_number=plot_number, status='rejected',
+            rejected_at__isnull=False,
+        ).order_by('-rejected_at').first()
+        if buyer_pr and not DeallotmentRequest.objects.filter(
+            land=land, plot_number=plot_number, buyer=buyer_pr.buyer, status='approved'
+        ).exists():
+            DeallotmentRequest.objects.create(
+                land=land,
+                plot_number=plot_number,
+                buyer=buyer_pr.buyer,
+                reason=reason,
+                status='approved',
+                decided_at=timezone.now(),
+            )
+        return JsonResponse({'status': 'ok', 'message': f'Plot {plot_number} has been de-allotted successfully.'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def request_deallotment(request, slug, plot_number):
+    """Buyer-initiated 'Vacate Plot' request. Sends a pending de-allotment
+    request to the landowner, who must approve it before the plot is freed."""
+    from apps.core.models import PurchaseRequest, DeallotmentRequest, Notification
+    from django.core.mail import send_mail
+    from django.conf import settings as django_settings
+    from django.utils import timezone
+
+    if request.user.role != 'BUYER' and not request.user.is_superuser:
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+
+    land = get_object_or_404(Land, slug=slug)
+
+    try:
+        data = json.loads(request.body)
+        reason = data.get('reason', '').strip()
+    except Exception:
+        reason = ''
+
+    if not reason:
+        return JsonResponse({'error': 'A reason for vacating the plot is required.'}, status=400)
+
+    pr = PurchaseRequest.objects.filter(
+        land=land,
+        plot_number=plot_number,
+        buyer=request.user,
+        status__in=['approved', 'lease_active']
+    ).first()
+    if not pr:
+        return JsonResponse({'error': 'You are not allotted this plot.'}, status=404)
+
+    if DeallotmentRequest.objects.filter(
+        land=land, plot_number=plot_number, buyer=request.user, status='pending'
+    ).exists():
+        return JsonResponse({'error': 'A vacate request is already pending for this plot.'}, status=400)
+
+    with transaction.atomic():
+        req = DeallotmentRequest.objects.create(
+            land=land,
+            plot_number=plot_number,
+            buyer=request.user,
+            reason=reason,
+            status='pending',
         )
-        
-        # Send Email to Buyer
+        Notification.objects.create(
+            recipient=land.owner,
+            sender=request.user,
+            notif_type='deallot_request_sent',
+            title=f"Vacate Request: Plot {plot_number}",
+            message=f"{request.user.username} has requested to vacate Plot {plot_number} in {land.name}.\n\nReason: {reason}",
+            land_slug=land.slug,
+            plot_number=plot_number,
+        )
+
+    try:
+        send_mail(
+            subject=f'[Lease Monkey] Vacate Request — Plot {plot_number}',
+            message=f'Hello {land.owner.username},\n\n{request.user.username} has requested to vacate Plot {plot_number} in {land.name}.\n\nReason: {reason}\n\nYou can approve or decline this request from your dashboard under the Buyers tab.\n\n— The Lease Monkey Team',
+            from_email=django_settings.EMAIL_HOST_USER,
+            recipient_list=[land.owner.email],
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+
+    return JsonResponse({'status': 'ok', 'message': 'Your vacate request has been sent to the landowner.'})
+
+
+@login_required
+@require_POST
+def decide_deallotment(request, slug, request_id):
+    """Landowner approves or declines a buyer's vacate (de-allotment) request."""
+    from apps.core.models import DeallotmentRequest, Notification
+    from django.core.mail import send_mail
+    from django.conf import settings as django_settings
+    from django.utils import timezone
+
+    land = get_object_or_404(Land, slug=slug)
+    if request.user != land.owner and not request.user.is_superuser:
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+
+    deallot = get_object_or_404(
+        DeallotmentRequest, id=request_id, land=land, status='pending'
+    )
+
+    try:
+        data = json.loads(request.body)
+        action = data.get('action', '').strip()
+        reason = data.get('reason', '').strip()
+    except Exception:
+        action = ''
+        reason = ''
+
+    if action == 'approve':
+        reason = reason or deallot.reason
+        with transaction.atomic():
+            ok, error = perform_deallotment(land, deallot.plot_number, reason, request.user)
+            if not ok:
+                return JsonResponse({'error': error}, status=400)
+            deallot.status = 'approved'
+            deallot.decided_at = timezone.now()
+            deallot.reason = reason
+            deallot.save()
+        Notification.objects.create(
+            recipient=deallot.buyer,
+            sender=request.user,
+            notif_type='deallot_request_approved',
+            title=f"Vacate Request Approved — Plot {deallot.plot_number}",
+            message=f"Your request to vacate Plot {deallot.plot_number} in {land.name} has been approved. The plot has been freed and your allotment is cancelled.",
+            land_slug=land.slug,
+            plot_number=deallot.plot_number,
+        )
         try:
             send_mail(
-                subject=f'[Lease Monkey] Plot {plot_number} De-allocation Notice',
-                message=f'Hello {pr.buyer.username},\n\nWe regret to inform you that your allotment for Plot {plot_number} in {land.name} has been cancelled by the landowner.\n\nReason for de-allocation: {reason}\n\nIf you have any questions, please contact the landowner or our support team.\n\n— The Lease Monkey Team',
+                subject=f'[Lease Monkey] Vacate Approved — Plot {deallot.plot_number}',
+                message=f'Hello {deallot.buyer.username},\n\nYour request to vacate Plot {deallot.plot_number} in {land.name} has been approved by the landowner. The plot has been freed and your allotment is cancelled.\n\n— The Lease Monkey Team',
                 from_email=django_settings.EMAIL_HOST_USER,
-                recipient_list=[pr.buyer.email],
+                recipient_list=[deallot.buyer.email],
                 fail_silently=True,
             )
         except Exception:
             pass
-            
-        return JsonResponse({'status': 'ok', 'message': f'Plot {plot_number} has been de-allotted successfully.'})
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({'status': 'ok', 'message': f'Vacate request for Plot {deallot.plot_number} has been approved and the plot freed.'})
+
+    elif action == 'decline':
+        with transaction.atomic():
+            deallot.status = 'declined'
+            deallot.decided_at = timezone.now()
+            deallot.save()
+        Notification.objects.create(
+            recipient=deallot.buyer,
+            sender=request.user,
+            notif_type='deallot_request_declined',
+            title=f"Vacate Request Declined — Plot {deallot.plot_number}",
+            message=f"Your request to vacate Plot {deallot.plot_number} in {land.name} was declined by the landowner. Your allotment remains active.",
+            land_slug=land.slug,
+            plot_number=deallot.plot_number,
+        )
+        try:
+            send_mail(
+                subject=f'[Lease Monkey] Vacate Declined — Plot {deallot.plot_number}',
+                message=f'Hello {deallot.buyer.username},\n\nYour request to vacate Plot {deallot.plot_number} in {land.name} was declined by the landowner. Your allotment remains active.\n\n— The Lease Monkey Team',
+                from_email=django_settings.EMAIL_HOST_USER,
+                recipient_list=[deallot.buyer.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+        return JsonResponse({'status': 'ok', 'message': f'Vacate request for Plot {deallot.plot_number} has been declined.'})
+
+    return JsonResponse({'error': 'Invalid action.'}, status=400)
 
 @login_required
 def save_road(request, slug):
@@ -1162,7 +1372,6 @@ def purchase_request_form(request, slug, plot_number):
         return redirect('lands:plot_viewer', slug=slug)
 
     from apps.core.models import PurchaseRequest
-    from datetime import timedelta
     existing = PurchaseRequest.objects.filter(
         buyer=request.user, land=land, plot_number=plot_number
     ).exclude(status='cancelled').order_by('-created_at').first()
@@ -1170,8 +1379,12 @@ def purchase_request_form(request, slug, plot_number):
         if existing.status != 'rejected':
             messages.info(request, 'You already have a request for this plot. View it in your dashboard.')
             return redirect('buyer_dashboard')
-        if existing.rejected_at and timezone.now() - existing.rejected_at < timedelta(hours=1):
-            messages.info(request, 'Your previous request was rejected. Please wait 1 hour before requesting again.')
+        remaining, kind = get_requeue_cooldown_seconds(request.user, land, plot_number)
+        if remaining > 0:
+            if kind == 'deallot':
+                messages.info(request, 'You recently vacated this plot. Please wait 24 hours before requesting it again.')
+            else:
+                messages.info(request, 'Your previous request was rejected. Please wait 1 hour before requesting again.')
             return redirect('buyer_dashboard')
         
     user_email = request.user.email
@@ -1276,11 +1489,13 @@ def submit_purchase_request(request, slug, plot_number):
                 buyer=request.user, land=land, plot_number=plot_number
             ).exclude(status='cancelled').order_by('-created_at').first()
             if existing:
-                if existing.status == 'rejected' and existing.rejected_at:
-                    from datetime import timedelta
-                    if timezone.now() - existing.rejected_at < timedelta(hours=1):
+                if existing.status == 'rejected':
+                    remaining, kind = get_requeue_cooldown_seconds(request.user, land, plot_number)
+                    if remaining > 0:
+                        if kind == 'deallot':
+                            return JsonResponse({'error': 'You must wait 24 hours after a de-allotment before submitting a new request.'}, status=400)
                         return JsonResponse({'error': 'You must wait 1 hour after a rejected request before submitting a new one.'}, status=400)
-                elif existing.status != 'rejected':
+                else:
                     return JsonResponse({'error': 'You already have a request for this plot.'}, status=400)
                 
             # Create request

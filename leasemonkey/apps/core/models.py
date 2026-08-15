@@ -26,6 +26,9 @@ class Notification(models.Model):
         ('doc_reupload_submitted', 'Document Re-uploaded'),
         ('doc_reupload_disabled', 'Document Re-upload Closed'),
     ('purchase_request_ocr', 'Purchase Request OCR Verified'),
+    ('deallot_request_sent',     'De-allotment Request Sent'),
+    ('deallot_request_approved', 'De-allotment Approved'),
+    ('deallot_request_declined', 'De-allotment Declined'),
     ]
 
     ticket_id = models.CharField(max_length=20, null=True, blank=True)
@@ -256,3 +259,25 @@ class TicketReply(models.Model):
 
     def __str__(self):
         return f"Reply by {self.sender.username} on {self.ticket.ticket_id}"
+
+
+class DeallotmentRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending',  'Pending'),
+        ('approved', 'Approved'),
+        ('declined', 'Declined'),
+    ]
+
+    land        = models.ForeignKey('lands.Land', on_delete=models.CASCADE, related_name='deallotment_requests')
+    plot_number = models.CharField(max_length=50)
+    buyer       = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='deallotment_requests')
+    reason      = models.TextField()
+    status      = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at  = models.DateTimeField(auto_now_add=True)
+    decided_at  = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Deallot Plot {self.plot_number} ({self.land.name}) → {self.buyer.username} [{self.status}]"

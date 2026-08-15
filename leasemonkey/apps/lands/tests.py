@@ -2,11 +2,215 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from apps.core.models import EmailOTP, PurchaseRequest
-from apps.lands.models import Land, Plot
+from apps.core.models import EmailOTP, PurchaseRequest, DeallotmentRequest, Notification
+from apps.lands.models import Land, Plot, OccupancyRecord
 import json
 
 User = get_user_model()
+
+
+class DeallotmentRequestTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.buyer = User.objects.create_user(
+            username='deallot_buyer',
+            email='deallot_buyer@test.com',
+            password='Password123!',
+            role='BUYER',
+            is_verified=True
+        )
+        self.owner = User.objects.create_user(
+            username='deallot_owner',
+            email='deallot_owner@test.com',
+            password='Password123!',
+            role='LAND_OWNER',
+            is_verified=True
+        )
+        self.land = Land.objects.create(
+            name="Deallot Land",
+            owner=self.owner,
+            slug="deallot-land",
+            area=10.0,
+            average_plot_price=1500000,
+            is_live=True
+        )
+        self.plot = Plot.objects.create(
+            land=self.land,
+            plot_number="P1",
+            price=1500000,
+            status="available",
+            area="1500 sqft",
+            coordinates=[[26.9, 75.8], [26.91, 75.8], [26.91, 75.81], [26.9, 75.8]]
+        )
+        self.pr = PurchaseRequest.objects.create(
+            buyer=self.buyer,
+            land=self.land,
+            plot_number="P1",
+            full_name='Deallot Buyer',
+            aadhaar_number='123456789012',
+            pan_number='ABCDE1234F',
+            email='deallot_buyer@test.com',
+            phone_number='+919876543210',
+            proposed_amount=1450000,
+            status='approved',
+        )
+        OccupancyRecord.objects.create(
+            land=self.land,
+            plot_number="P1",
+            buyer=self.buyer,
+            status='active',
+        )
+
+    def test_buyer_sends_vacate_request(self):
+        self.client.login(username='deallot_buyer', password='Password123!')
+        url = reverse('lands:request_deallotment', kwargs={'slug': 'deallot-land', 'plot_number': 'P1'})
+        response = self.client.post(url, json.dumps({'reason': 'Relocating'}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        dr = DeallotmentRequest.objects.get(buyer=self.buyer, land=self.land, plot_number="P1")
+        self.assertEqual(dr.status, 'pending')
+        self.assertEqual(dr.reason, 'Relocating')
+        self.assertTrue(Notification.objects.filter(
+            recipient=self.owner, notif_type='deallot_request_sent'
+        ).exists())
+
+    def test_buyer_cannot_request_for_unallotted_plot(self):
+        other = User.objects.create_user(
+            username='deallot_other',
+            email='deallot_other@test.com',
+            password='Password123!',
+            role='BUYER',
+            is_verified=True
+        )
+        self.client.login(username='deallot_other', password='Password123!')
+        url = reverse('lands:request_deallotment', kwargs={'slug': 'deallot-land', 'plot_number': 'P1'})
+        response = self.client.post(url, json.dumps({'reason': 'Nope'}), content_type='application/json')
+        self.assertEqual(response.status_code, 404)
+
+    def test_duplicate_pending_vacate_blocked(self):
+        DeallotmentRequest.objects.create(
+            land=self.land, plot_number="P1", buyer=self.buyer, reason='First', status='pending'
+        )
+        self.client.login(username='deallot_buyer', password='Password123!')
+        url = reverse('lands:request_deallotment', kwargs={'slug': 'deallot-land', 'plot_number': 'P1'})
+        response = self.client.post(url, json.dumps({'reason': 'Second'}), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_vacate_requires_reason(self):
+        self.client.login(username='deallot_buyer', password='Password123!')
+        url = reverse('lands:request_deallotment', kwargs={'slug': 'deallot-land', 'plot_number': 'P1'})
+        response = self.client.post(url, json.dumps({'reason': '  '}), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_owner_approves_vacate_frees_plot(self):
+        dr = DeallotmentRequest.objects.create(
+            land=self.land, plot_number="P1", buyer=self.buyer, reason='Relocating', status='pending'
+        )
+        self.client.login(username='deallot_owner', password='Password123!')
+        url = reverse('lands:decide_deallotment', kwargs={'slug': 'deallot-land', 'request_id': dr.id})
+        response = self.client.post(url, json.dumps({'action': 'approve'}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        dr.refresh_from_db()
+        self.assertEqual(dr.status, 'approved')
+        self.pr.refresh_from_db()
+        self.assertEqual(self.pr.status, 'rejected')
+        self.plot.refresh_from_db()
+        self.assertEqual(self.plot.status, 'available')
+        self.assertFalse(OccupancyRecord.objects.filter(
+            land=self.land, plot_number="P1", status='active'
+        ).exists())
+        self.assertTrue(Notification.objects.filter(
+            recipient=self.buyer, notif_type='deallot_request_approved'
+        ).exists())
+
+    def test_owner_declines_vacate(self):
+        dr = DeallotmentRequest.objects.create(
+            land=self.land, plot_number="P1", buyer=self.buyer, reason='Relocating', status='pending'
+        )
+        self.client.login(username='deallot_owner', password='Password123!')
+        url = reverse('lands:decide_deallotment', kwargs={'slug': 'deallot-land', 'request_id': dr.id})
+        response = self.client.post(url, json.dumps({'action': 'decline'}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        dr.refresh_from_db()
+        self.assertEqual(dr.status, 'declined')
+        self.pr.refresh_from_db()
+        self.assertEqual(self.pr.status, 'approved')
+        self.plot.refresh_from_db()
+        self.assertEqual(self.plot.status, 'available')
+        self.assertTrue(Notification.objects.filter(
+            recipient=self.buyer, notif_type='deallot_request_declined'
+        ).exists())
+
+    def test_non_owner_cannot_decide(self):
+        other_owner = User.objects.create_user(
+            username='deallot_other_owner',
+            email='deallot_other_owner@test.com',
+            password='Password123!',
+            role='LAND_OWNER',
+            is_verified=True
+        )
+        dr = DeallotmentRequest.objects.create(
+            land=self.land, plot_number="P1", buyer=self.buyer, reason='Relocating', status='pending'
+        )
+        self.client.login(username='deallot_other_owner', password='Password123!')
+        url = reverse('lands:decide_deallotment', kwargs={'slug': 'deallot-land', 'request_id': dr.id})
+        response = self.client.post(url, json.dumps({'action': 'approve'}), content_type='application/json')
+        self.assertEqual(response.status_code, 403)
+        dr.refresh_from_db()
+        self.assertEqual(dr.status, 'pending')
+
+    def _approve_vacate(self):
+        dr = DeallotmentRequest.objects.create(
+            land=self.land, plot_number="P1", buyer=self.buyer, reason='Relocating', status='pending'
+        )
+        self.client.login(username='deallot_owner', password='Password123!')
+        url = reverse('lands:decide_deallotment', kwargs={'slug': 'deallot-land', 'request_id': dr.id})
+        response = self.client.post(url, json.dumps({'action': 'approve'}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        return dr
+
+    def test_buyer_blocked_from_rerequesting_after_deallot(self):
+        dr = self._approve_vacate()
+        dr.refresh_from_db()
+        self.assertEqual(dr.status, 'approved')
+        self.pr.refresh_from_db()
+        self.assertEqual(self.pr.status, 'rejected')
+        self.assertIsNotNone(self.pr.rejected_at)
+
+        self.client.login(username='deallot_buyer', password='Password123!')
+        url = reverse('lands:purchase_request_form', kwargs={'slug': 'deallot-land', 'plot_number': 'P1'})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('buyer_dashboard'))
+
+    def test_buyer_blocked_on_submit_within_deallot_cooldown(self):
+        self._approve_vacate()
+        self.client.login(username='deallot_buyer', password='Password123!')
+        EmailOTP.objects.create(email='deallot_buyer@test.com', otp_code='654321', is_used=True)
+        payload = {
+            'full_name': 'Deallot Buyer',
+            'aadhaar_number': '123456789012',
+            'pan_number': 'ABCDE1234F',
+            'email': 'deallot_buyer@test.com',
+            'phone_number': '+919876543210',
+            'proposed_amount': 1450000,
+            'otp_code': '654321'
+        }
+        url = reverse('lands:submit_purchase_request', kwargs={'slug': 'deallot-land', 'plot_number': 'P1'})
+        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('24 hours', response.json()['error'])
+
+    def test_buyer_can_rerequest_after_24h_cooldown(self):
+        dr = self._approve_vacate()
+        dr.decided_at = timezone.now() - timezone.timedelta(hours=25)
+        dr.save(update_fields=['decided_at'])
+        self.pr.rejected_at = timezone.now() - timezone.timedelta(hours=25)
+        self.pr.save(update_fields=['rejected_at'])
+
+        self.client.login(username='deallot_buyer', password='Password123!')
+        url = reverse('lands:purchase_request_form', kwargs={'slug': 'deallot-land', 'plot_number': 'P1'})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
 
 class PurchaseRequestFormTests(TestCase):
     def setUp(self):

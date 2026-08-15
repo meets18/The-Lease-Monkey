@@ -259,9 +259,12 @@
         }
         const cooldown = landConfig.cooldownPlots && landConfig.cooldownPlots[plotNum];
         if (cooldown && cooldown.remaining > 0) {
-            const mins = Math.floor(cooldown.remaining / 60);
-            const secs = cooldown.remaining % 60;
-            alert(`Your previous request for this plot was rejected. Please wait ${mins}m ${secs}s before requesting again.`);
+            const timeText = formatCooldown(cooldown.remaining);
+            if (cooldown.kind === 'deallot') {
+                alert(`You recently vacated this plot. Please wait ${timeText} before requesting it again.`);
+            } else {
+                alert(`Your previous request for this plot was rejected. Please wait ${timeText} before requesting again.`);
+            }
             return;
         }
         window.location.href = `/lands/plots/${landSlug}/request/${encodeURIComponent(plotNum)}/`;
@@ -323,6 +326,17 @@
         });
     }
 
+    function formatCooldown(remaining) {
+        const d = Math.floor(remaining / 86400);
+        const h = Math.floor((remaining % 86400) / 3600);
+        const m = Math.floor((remaining % 3600) / 60);
+        const s = remaining % 60;
+        const pad = (n) => String(n).padStart(2, '0');
+        if (d > 0) return `${d}d ${pad(h)}:${pad(m)}:${pad(s)}`;
+        if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
+        return `${pad(m)}:${pad(s)}`;
+    }
+
     let requestButtonTimer = null;
     function renderRequestButton(btn, plotNum) {
         if (!btn) return;
@@ -338,12 +352,7 @@
             btn.classList.add('btn-cooldown');
             btn.classList.remove('btn-get-started');
             if (remaining > 0) {
-                const h = Math.floor(remaining / 3600);
-                const m = Math.floor((remaining % 3600) / 60);
-                const s = remaining % 60;
-                const pad = (n) => String(n).padStart(2, '0');
-                const timeText = h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
-                btn.innerHTML = `Retry in ${timeText} <i class="bi bi-hourglass-split ms-1"></i>`;
+                btn.innerHTML = `Retry in ${formatCooldown(remaining)} <i class="bi bi-hourglass-split ms-1"></i>`;
             } else {
                 btn.innerHTML = 'Raise a Request <i class="bi bi-send ms-1"></i>';
                 btn.disabled = false;

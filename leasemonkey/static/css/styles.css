@@ -2093,6 +2093,27 @@ body::before {
     background: #FCFCFD !important;
     border-right: 1px solid var(--border-subtle) !important;
     backdrop-filter: none !important;
+    overflow-y: auto;
+    max-height: 100vh;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-orange) transparent;
+}
+
+.sidebar-nav {
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-orange) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: var(--accent-orange);
+    border-radius: 3px;
 }
 
 .user-profile-badge {

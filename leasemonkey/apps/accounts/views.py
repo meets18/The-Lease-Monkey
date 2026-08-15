@@ -121,7 +121,21 @@ def buyer_dashboard(request):
     purchase_requests = PurchaseRequest.objects.filter(buyer=request.user, land__is_live=True).select_related('land', 'land__owner').order_by('-created_at')
     purchased_plots = purchase_requests.filter(status='approved')
     purchased_count = purchased_plots.count()
-    
+
+    from apps.core.models import DeallotmentRequest
+    vacate_map = {
+        (r.land_id, r.plot_number): r
+        for r in DeallotmentRequest.objects.filter(
+            buyer=request.user
+        ).order_by('-created_at')
+    }
+    for pr in purchased_plots:
+        pr.plot_vacate_request = vacate_map.get((pr.land_id, pr.plot_number))
+
+    deallot_requests = DeallotmentRequest.objects.filter(
+        buyer=request.user
+    ).select_related('land').order_by('-created_at')
+
     saved_plots = SavedPlot.objects.filter(user=request.user, land__is_live=True).select_related('land').order_by('-created_at')
     
     tickets = Ticket.objects.filter(user=request.user).order_by('-created_at')
@@ -145,6 +159,7 @@ def buyer_dashboard(request):
         'purchased_plots': purchased_plots,
         'purchased_count': purchased_count,
         'saved_plots': saved_plots,
+        'deallot_requests': deallot_requests,
         'tickets': tickets,
         'faqs': faqs,
     }
@@ -346,6 +361,14 @@ def landowner_dashboard(request):
         'faqs': faqs,
         'signup_application': signup_application,
     }
+
+    from apps.core.models import DeallotmentRequest
+    deallotment_requests = DeallotmentRequest.objects.filter(
+        land__owner=request.user
+    ).select_related('buyer', 'land').order_by('-created_at')
+    context['deallotment_requests'] = deallotment_requests
+    context['pending_deallotment_requests'] = deallotment_requests.filter(status='pending')
+
     return render(request, 'accounts/landowner_dashboard.html', context)
 
 

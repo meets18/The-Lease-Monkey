@@ -32,6 +32,13 @@
                         <i class="bi bi-cart-fill"></i> My Requests
                     </a>
                 </li>
+                {% if purchased_plots %}
+                <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkDeallot" onclick="switchTab('deallot');" class="sidebar-link">
+                        <i class="bi bi-box-arrow-in-left"></i> De-Allot Requests
+                    </a>
+                </li>
+                {% endif %}
                 <li class="nav-item">
                     <a href="javascript:void(0);" id="tabLinkNotifs" onclick="switchTab('notifs');" class="sidebar-link">
                         <i class="bi bi-bell-fill"></i> Notifications
@@ -41,6 +48,11 @@
                 <li class="nav-item">
                     <a href="javascript:void(0);" id="tabLinkSaved" onclick="switchTab('saved');" class="sidebar-link">
                         <i class="bi bi-heart"></i> Saved Plots
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkTickets" onclick="switchTab('tickets');" class="sidebar-link">
+                        <i class="bi bi-ticket-fill"></i> Support Tickets
                     </a>
                 </li>
                 <li class="nav-item">
@@ -85,7 +97,17 @@
             <div class="row g-4">
                 {% for req in purchased_plots %}
                 <div class="col-md-6 col-lg-4">
-                    <div class="card bg-dark-glow border border-secondary-glow h-100 shadow-sm rounded-4 overflow-hidden">
+                    <div class="card bg-dark-glow border border-secondary-glow h-100 shadow-sm rounded-4 overflow-hidden plot-action-card"
+                        onclick="openPlotActionsModal(this);"
+                        data-plot-number="{{ req.plot_number }}"
+                        data-land-name="{{ req.land.name|escape }}"
+                        data-land-slug="{{ req.land.slug }}"
+                        data-proposed-amount="{{ req.proposed_amount }}"
+                        data-updated-at="{{ req.updated_at|date:'M d, Y' }}"
+                        data-vacate-url="{% url 'lands:request_deallotment' slug=req.land.slug plot_number=req.plot_number %}"
+                        data-view-url="{% url 'lands:plot_viewer' slug=req.land.slug %}?plot={{ req.plot_number }}"
+                        {% with dreq=req.plot_vacate_request %}
+                        {% if dreq %}{% if dreq.status == 'pending' %}data-vacate-status="pending"{% elif dreq.status == 'approved' %}data-vacate-status="approved"{% else %}data-vacate-status="declined"{% endif %}{% else %}data-vacate-status="none"{% endif %}{% endwith %}>
                         <div class="card-body p-4 position-relative">
                             <span class="badge bg-success position-absolute top-0 end-0 m-3 fs-11">Owned</span>
                             <h5 class="text-white font-ranade fw-bold mb-1">Plot {{ req.plot_number }}</h5>
@@ -101,6 +123,9 @@
                                     <span class="text-white fs-13 fw-bold">{{ req.updated_at|date:"M d, Y" }}</span>
                                 </div>
                             </div>
+                            <div class="text-center mt-3 pt-2 border-top border-secondary-glow">
+                                <span class="fs-12 text-muted-glow"><i class="bi bi-three-dots me-1"></i>Click for actions</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -110,6 +135,54 @@
             <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-5 text-center">
                 <i class="bi bi-map fs-1 text-muted-glow d-block mb-3"></i>
                 <p class="text-muted-glow fs-15 mb-0">You do not own any plots yet.</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- DE-ALLOT REQUESTS TAB -->
+        <section id="sectionDeallot" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">De-Allot Requests</h2>
+                <p class="text-muted-glow fs-14 mb-0">Requests you have made to vacate your allotted plots.</p>
+            </div>
+
+            {% if deallot_requests %}
+            <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
+                <table class="table table-dark align-middle mb-0 font-opensans">
+                    <thead>
+                        <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
+                            <th class="py-3 px-3">Plot</th>
+                            <th class="py-3">Reason</th>
+                            <th class="py-3">Requested On</th>
+                            <th class="py-3">Status</th>
+                            <th class="py-3">Decided On</th>
+                        </tr>
+                    </thead>
+                    <tbody class="fs-14">
+                        {% for dreq in deallot_requests %}
+                        <tr class="border-bottom border-dark-glow">
+                            <td class="py-3 px-3 fw-bold text-white">Plot {{ dreq.plot_number }} <span class="text-muted-glow fw-normal">in {{ dreq.land.name }}</span></td>
+                            <td class="py-3 text-muted-glow" style="max-width: 300px;">{{ dreq.reason }}</td>
+                            <td class="py-3 text-muted-glow">{{ dreq.created_at|date:"M d, Y h:i A" }}</td>
+                            <td class="py-3">
+                                {% if dreq.status == 'pending' %}
+                                <span class="badge rounded-pill fs-12 px-3 py-1.5" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);"><i class="bi bi-hourglass-split me-1"></i>Pending</span>
+                                {% elif dreq.status == 'approved' %}
+                                <span class="badge rounded-pill fs-12 px-3 py-1.5" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.35);"><i class="bi bi-check-circle me-1"></i>Approved</span>
+                                {% else %}
+                                <span class="badge rounded-pill fs-12 px-3 py-1.5" style="background:rgba(248,113,113,0.15);color:#f87171;border:1px solid rgba(248,113,113,0.35);"><i class="bi bi-x-circle me-1"></i>Declined</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 text-muted-glow">{% if dreq.decided_at %}{{ dreq.decided_at|date:"M d, Y h:i A" }}{% else %}<span class="text-white-50">—</span>{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-5 text-center">
+                <i class="bi bi-box-arrow-in-left fs-1 text-muted-glow d-block mb-3"></i>
+                <p class="text-muted-glow fs-15 mb-0">You have not made any de-allot requests yet.</p>
             </div>
             {% endif %}
         </section>
@@ -307,10 +380,11 @@
         </section>
 
         <!-- HELP & SUPPORT TAB -->
-        <section id="sectionSupport" style="display:none;">
+        <!-- SUPPORT TICKETS TAB -->
+        <section id="sectionTickets" style="display:none;">
             <div class="mb-4">
-                <h2 class="h3 font-ranade text-white fw-bold mb-1">Help & Support</h2>
-                <p class="text-muted-glow fs-14 mb-0">Get assistance, create tickets, and find answers to common questions.</p>
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Support Tickets</h2>
+                <p class="text-muted-glow fs-14 mb-0">Submit a new support request and track all your tickets.</p>
             </div>
 
             <!-- Create Ticket -->
@@ -410,6 +484,14 @@
                     </table>
                 </div>
             </div>
+        </section>
+
+        <!-- HELP & SUPPORT TAB -->
+        <section id="sectionSupport" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Help & Support</h2>
+                <p class="text-muted-glow fs-14 mb-0">Get assistance and find answers to common questions.</p>
+            </div>
 
             <!-- FAQs -->
             <div class="rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-4">
@@ -433,53 +515,14 @@
                     {% endfor %}
                 </div>
             </div>
-        <!-- Notification Detail Modal -->
-        <div class="modal fade" id="notifDetailModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content notif-modal-content">
-                    <div class="modal-header notif-modal-header border-bottom pb-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="notif-modal-icon-badge">
-                                <i class="bi bi-bell-fill"></i>
-                            </div>
-                            <h5 class="modal-title font-ranade fw-bold mb-0" id="notifDetailTitle">Notification Details</h5>
-                        </div>
-                        <button type="button" class="btn-close notif-btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body py-4">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <span class="fs-13 fw-semibold text-muted-glow" id="notifDetailTime"></span>
-                            <span class="badge px-3 py-1.5 rounded-pill fs-12" id="notifDetailStatus"></span>
-                        </div>
-                        <div class="notif-message-box p-3.5 rounded-3 mb-2">
-                            <p class="fs-14 mb-0" id="notifDetailMessage" style="white-space: pre-wrap; line-height: 1.6;"></p>
-                        </div>
-                    </div>
-                    <div class="modal-footer border-top pt-3 d-flex justify-content-between">
-                        <button type="button" class="btn btn-sm btn-danger-soft px-3.5 py-2 fs-13 fw-bold" id="btnNotifDetailDelete">
-                            <i class="bi bi-trash3-fill me-1.5"></i> Delete
-                        </button>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-sm fw-bold px-3 py-2 fs-13" data-bs-dismiss="modal"
-                                onclick="switchTab('notifs');" style="background:rgba(249,109,0,0.15);border:1px solid rgba(249,109,0,0.3);color:#fb923c;">
-                                <i class="bi bi-arrow-up-right-square me-1"></i> Open
-                            </button>
-                            <button type="button" class="btn btn-sm btn-secondary-soft px-4 py-2 fs-13 fw-bold" data-bs-dismiss="modal">
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
     </main>
 </div>
 
 <script>
     function switchTab(tabName) {
-        const tabs = { plots: 'sectionPlots', requests: 'sectionRequests', notifs: 'sectionNotifs', saved: 'sectionSaved', support: 'sectionSupport' };
-        const links = { plots: 'tabLinkPlots', requests: 'tabLinkRequests', notifs: 'tabLinkNotifs', saved: 'tabLinkSaved', support: 'tabLinkSupport' };
+        const tabs = { plots: 'sectionPlots', requests: 'sectionRequests', deallot: 'sectionDeallot', notifs: 'sectionNotifs', saved: 'sectionSaved', tickets: 'sectionTickets', support: 'sectionSupport' };
+        const links = { plots: 'tabLinkPlots', requests: 'tabLinkRequests', deallot: 'tabLinkDeallot', notifs: 'tabLinkNotifs', saved: 'tabLinkSaved', tickets: 'tabLinkTickets', support: 'tabLinkSupport' };
         if (!tabs[tabName]) return;
         Object.keys(tabs).forEach(t => {
             const sectionEl = document.getElementById(tabs[t]);
@@ -496,6 +539,102 @@
     function getCsrf() {
         return document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
     }
+
+    let currentVacateUrl = null;
+
+    function openPlotActionsModal(cardEl) {
+        const plotNum = cardEl.getAttribute('data-plot-number');
+        const landName = cardEl.getAttribute('data-land-name');
+        const price = cardEl.getAttribute('data-proposed-amount');
+        const date = cardEl.getAttribute('data-updated-at');
+        const viewUrl = cardEl.getAttribute('data-view-url');
+        currentVacateUrl = cardEl.getAttribute('data-vacate-url');
+        const status = cardEl.getAttribute('data-vacate-status');
+
+        document.getElementById('paPlotTitle').textContent = 'Plot ' + plotNum;
+        document.getElementById('paLandName').textContent = landName;
+        document.getElementById('paPrice').textContent = '₹' + price;
+        document.getElementById('paDate').textContent = date;
+        document.getElementById('paViewBtn').setAttribute('href', viewUrl);
+
+        const wrap = document.getElementById('paStatusWrap');
+        const vacateBtn = document.getElementById('paVacateBtn');
+        if (status === 'pending') {
+            wrap.innerHTML = '<span class="badge rounded-pill fs-12 px-3 py-1.5" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);"><i class="bi bi-hourglass-split me-1"></i>Vacate request pending</span>';
+            vacateBtn.disabled = true;
+            vacateBtn.innerHTML = 'Vacate Request Pending <i class="bi bi-hourglass-split ms-1"></i>';
+        } else if (status === 'approved') {
+            wrap.innerHTML = '<span class="badge rounded-pill fs-12 px-3 py-1.5" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.35);"><i class="bi bi-check-circle me-1"></i>Vacate approved — plot freed</span>';
+            vacateBtn.disabled = true;
+            vacateBtn.innerHTML = 'Vacate Approved <i class="bi bi-check-circle ms-1"></i>';
+        } else if (status === 'declined') {
+            wrap.innerHTML = '<span class="badge rounded-pill fs-12 px-3 py-1.5" style="background:rgba(248,113,113,0.15);color:#f87171;border:1px solid rgba(248,113,113,0.35);"><i class="bi bi-x-circle me-1"></i>Vacate request declined</span>';
+            vacateBtn.disabled = false;
+            vacateBtn.innerHTML = 'Vacate Plot <i class="bi bi-box-arrow-left ms-1"></i>';
+        } else {
+            wrap.innerHTML = '';
+            vacateBtn.disabled = false;
+            vacateBtn.innerHTML = 'Vacate Plot <i class="bi bi-box-arrow-left ms-1"></i>';
+        }
+
+        new bootstrap.Modal(document.getElementById('plotActionsModal')).show();
+    }
+
+    function openVacateConfirm() {
+        document.getElementById('vcReason').value = '';
+        document.getElementById('vcError').classList.add('d-none');
+        const plotModal = bootstrap.Modal.getInstance(document.getElementById('plotActionsModal'));
+        if (plotModal) plotModal.hide();
+        document.getElementById('plotActionsModal').addEventListener('hidden.bs.modal', function _onHidden() {
+            document.getElementById('plotActionsModal').removeEventListener('hidden.bs.modal', _onHidden);
+            new bootstrap.Modal(document.getElementById('vacateConfirmModal')).show();
+        });
+    }
+
+    function submitVacateRequest() {
+        const reason = document.getElementById('vcReason').value.trim();
+        const errEl = document.getElementById('vcError');
+        if (!reason) {
+            errEl.textContent = 'Please enter a reason for vacating the plot.';
+            errEl.classList.remove('d-none');
+            return;
+        }
+        const btn = document.getElementById('vcSubmitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sending...';
+        fetch(currentVacateUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrf()
+            },
+            body: JSON.stringify({ reason: reason })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    errEl.textContent = data.error;
+                    errEl.classList.remove('d-none');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Request';
+                } else {
+                    const vcModal = bootstrap.Modal.getInstance(document.getElementById('vacateConfirmModal'));
+                    if (vcModal) vcModal.hide();
+                    location.reload();
+                }
+            })
+            .catch(() => {
+                errEl.textContent = 'Network error occurred. Please try again.';
+                errEl.classList.remove('d-none');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-send me-1"></i> Send Request';
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const vcSubmit = document.getElementById('vcSubmitBtn');
+        if (vcSubmit) vcSubmit.addEventListener('click', submitVacateRequest);
+    });
 
     function markRead(notifId, cardEl) {
         if (cardEl.querySelector('.unread-dot')) {
@@ -642,6 +781,9 @@
         } else {
             const savedTab = sessionStorage.getItem('buyer_active_tab');
             if (savedTab) defaultTab = savedTab;
+        }
+        if (defaultTab === 'deallot' && !document.getElementById('sectionDeallot')) {
+            defaultTab = 'plots';
         }
         switchTab(defaultTab);
 
@@ -814,6 +956,53 @@
 </script>
 
 <style>
+.plot-action-card {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.plot-action-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35) !important;
+    border-color: rgba(0, 178, 255, 0.45) !important;
+}
+.pa-info-panel {
+    background: rgba(30, 41, 59, 0.4);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+.pa-textarea {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    color: #e2e8f0;
+}
+.pa-textarea:focus {
+    background: rgba(15, 23, 42, 0.8);
+    border-color: rgba(0, 178, 255, 0.5);
+    color: #e2e8f0;
+    box-shadow: none;
+}
+[data-theme="light"] .plot-action-card:hover {
+    border-color: rgba(249, 109, 0, 0.45) !important;
+}
+[data-theme="light"] .pa-info-panel {
+    background: #F8FAFC;
+    border-color: #E5E7EB;
+}
+[data-theme="light"] .pa-info-panel strong {
+    color: #1F2937 !important;
+}
+[data-theme="light"] .pa-textarea {
+    background: #FFFFFF;
+    border-color: #D1D5DB;
+    color: #1F2937;
+}
+[data-theme="light"] .pa-textarea:focus {
+    background: #FFFFFF;
+    border-color: var(--accent-orange, #F96D00);
+    color: #1F2937;
+    box-shadow: none;
+}
 .sidebar-wrapper {
     width: 280px;
     min-height: calc(100vh - 75px);
@@ -1023,6 +1212,73 @@
                 </button>
                 <button type="button" class="btn btn-sm btn-secondary-soft px-4 py-2 fs-13 fw-bold" data-bs-dismiss="modal">
                     Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plot Actions Modal -->
+<div class="modal fade" id="plotActionsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content notif-modal-content">
+            <div class="modal-header notif-modal-header border-bottom pb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="notif-modal-icon-badge">
+                        <i class="bi bi-grid-3x3-gap-fill"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title font-ranade fw-bold mb-0" id="paPlotTitle">Plot Actions</h5>
+                        <span class="fs-12 text-muted-glow" id="paLandName"></span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close notif-btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-4">
+<div class="pa-info-panel mb-3">
+    <div class="d-flex justify-content-between"><span class="text-muted-glow fs-13">Purchase Price</span><strong class="text-primary-glow fs-14" id="paPrice"></strong></div>
+    <div class="d-flex justify-content-between mt-1"><span class="text-muted-glow fs-13">Date Acquired</span><strong class="text-white fs-13" id="paDate"></strong></div>
+</div>
+                <div id="paStatusWrap" class="mb-3"></div>
+                <div class="d-grid gap-2">
+                    <a id="paViewBtn" href="#"
+                        class="btn btn-action btn-lg py-2 fs-12 text-uppercase fw-bold text-decoration-none">
+                        View Plot <i class="bi bi-eye ms-1"></i>
+                    </a>
+                    <button id="paVacateBtn" type="button"
+                        class="btn btn-outline-danger btn-lg py-2 fs-12 text-uppercase fw-bold"
+                        onclick="openVacateConfirm();">
+                        Vacate Plot <i class="bi bi-box-arrow-left ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Vacate Confirm Modal -->
+<div class="modal fade" id="vacateConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content notif-modal-content">
+            <div class="modal-header notif-modal-header border-bottom pb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="notif-modal-icon-badge" style="background:rgba(255,74,74,0.15);border-color:rgba(255,74,74,0.35);">
+                        <i class="bi bi-box-arrow-left"></i>
+                    </div>
+                    <h5 class="modal-title font-ranade fw-bold mb-0" id="vcTitle">Vacate Plot?</h5>
+                </div>
+                <button type="button" class="btn-close notif-btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-4">
+                <p class="fs-13 text-muted-glow mb-3">This sends a de-allotment request to the landowner. The plot will only be freed once the landowner approves your request.</p>
+                <label class="form-label fs-13 text-white fw-semibold mb-1">Reason for vacating <span class="text-danger">*</span></label>
+                <textarea id="vcReason" class="form-control pa-textarea" rows="3" placeholder="e.g. Relocating to another city"></textarea>
+                <div class="text-danger fs-12 mt-2 d-none" id="vcError"></div>
+            </div>
+            <div class="modal-footer border-top pt-3 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-sm btn-secondary-soft px-4 py-2 fs-13 fw-bold" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-danger px-4 py-2 fs-13 fw-bold" id="vcSubmitBtn">
+                    <i class="bi bi-send me-1"></i> Send Request
                 </button>
             </div>
         </div>
