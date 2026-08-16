@@ -1965,6 +1965,13 @@ const links = { lands: 'tabLinkLands', layouts: 'tabLinkLayouts', buyers: 'tabLi
             const linkEl = document.getElementById(links[t]);
             if (linkEl) {
                 linkEl.classList.toggle('active', t === tabName);
+                if (t === tabName && t !== 'notifs') {
+                    const badge = linkEl.querySelector('.notif-badge') || linkEl.querySelector('.admin-notif-badge');
+                    if (badge) {
+                        badge.style.display = 'none';
+                        localStorage.setItem('landowner_badge_seen_' + t, badge.textContent.trim());
+                    }
+                }
             }
         });
         sessionStorage.setItem('landowner_active_tab', tabName);
@@ -2002,6 +2009,22 @@ const links = { lands: 'tabLinkLands', layouts: 'tabLinkLayouts', buyers: 'tabLi
     }
 
     document.addEventListener("DOMContentLoaded", function () {
+        // Hide badges that were already acknowledged in previous sessions
+        const links = { vacate: 'tabLinkVacate', purchaseRequests: 'tabLinkPurchaseRequests' };
+        Object.keys(links).forEach(t => {
+            const linkEl = document.getElementById(links[t]);
+            if (linkEl) {
+                const badge = linkEl.querySelector('.notif-badge') || linkEl.querySelector('.admin-notif-badge');
+                if (badge) {
+                    const currentVal = parseInt(badge.textContent.trim()) || 0;
+                    const seenVal = parseInt(localStorage.getItem('landowner_badge_seen_' + t)) || 0;
+                    if (currentVal > 0 && currentVal <= seenVal) {
+                        badge.style.display = 'none';
+                    }
+                }
+            }
+        });
+
         applyNotifVisibility();
         let defaultTab = 'lands';
         const hash = window.location.hash.substring(1);

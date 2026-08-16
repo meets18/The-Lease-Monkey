@@ -37,6 +37,18 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkBuyers" onclick="switchTab('buyers');"
+                        class="sidebar-link">
+                        <i class="bi bi-person-badge-fill"></i> Buyers
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="javascript:void(0);" id="tabLinkRegistry" onclick="switchTab('registry');"
+                        class="sidebar-link">
+                        <i class="bi bi-journal-text"></i> Lease Registry
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="javascript:void(0);" id="tabLinkLayouts" onclick="switchTab('layouts');"
                         class="sidebar-link">
                         <i class="bi bi-file-earmark-text-fill"></i> Land Requests
@@ -219,7 +231,7 @@
                                 {{ owner.lands.count }} Land(s)
                             </td>
                             <td class="py-3 text-end px-3">
-                                <button onclick="confirmDeleteLandowner('{{ owner.username|escapejs }}');"
+                                <button onclick="openDeleteLandownerModal('{{ owner.username|escapejs }}', '{{ owner.email|escapejs }}');"
                                     class="btn btn-sm btn-danger px-2.5 py-1 fs-11 fw-bold text-uppercase bg-danger-glow"
                                     style="border: 1px solid rgba(220, 38, 38, 0.2);">
                                     <i class="bi bi-trash-fill"></i> Delete
@@ -232,6 +244,132 @@
                             <td colspan="5" class="py-5 text-center text-muted-glow">
                                 <i class="bi bi-people fs-2 d-block mb-2"></i>
                                 No landowners registered in the system yet.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ── BUYERS TAB ─────────────────────────────────────────────────── -->
+        <section id="sectionBuyers" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Buyers</h2>
+                <p class="text-muted-glow fs-14 mb-0">Manage registered buyers on the platform. Deleting a buyer frees their allotted plots and notifies the affected landowners.</p>
+            </div>
+
+            <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
+                <table class="table table-dark table-hover align-middle mb-0 font-opensans">
+                    <thead>
+                        <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
+                            <th scope="col" class="py-3 px-3">Username</th>
+                            <th scope="col" class="py-3">Email Address</th>
+                            <th scope="col" class="py-3">Phone Number</th>
+                            <th scope="col" class="py-3">Status</th>
+                            <th scope="col" class="py-3">Plots Owned</th>
+                            <th scope="col" class="py-3 text-end px-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="fs-14">
+                        {% if buyers %}
+                        {% for buyer in buyers %}
+                        <tr class="border-bottom border-dark-glow">
+                            <td class="py-3 px-3 fw-bold text-white font-ranade fs-15">{{ buyer.username }}</td>
+                            <td class="py-3 text-muted-glow">{{ buyer.email }}</td>
+                            <td class="py-3">{% if buyer.phone_number %}{{ buyer.phone_number }}{% else %}-{% endif %}</td>
+                            <td class="py-3">
+                                <span class="badge {% if buyer.status == 'ACTIVE' %}bg-success-glow{% else %}bg-warning-glow{% endif %} text-uppercase fs-10">
+                                    {{ buyer.status }}
+                                </span>
+                            </td>
+                            <td class="py-3 fw-bold text-cyan-glow">{{ buyer.owned_plot_count }}</td>
+                            <td class="py-3 text-end px-3">
+                                <button onclick="openDeleteBuyerModal('{{ buyer.username|escapejs }}', '{{ buyer.email|escapejs }}');"
+                                    class="btn btn-sm btn-danger px-2.5 py-1 fs-11 fw-bold text-uppercase bg-danger-glow"
+                                    style="border: 1px solid rgba(220, 38, 38, 0.2);">
+                                    <i class="bi bi-trash-fill"></i> Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="py-5 text-center text-muted-glow">
+                                <i class="bi bi-person-x fs-2 d-block mb-2"></i>
+                                No buyers registered in the system yet.
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ── LEASE REGISTRY TAB ─────────────────────────────────────────── -->
+        <section id="sectionRegistry" style="display:none;">
+            <div class="mb-4">
+                <h2 class="h3 font-ranade text-white fw-bold mb-1">Lease Registry</h2>
+                <p class="text-muted-glow fs-14 mb-0">Digital registry of plot leases, vacations, and purchase requests, by land.</p>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <select id="registryLandFilter" class="form-select bg-dark border-secondary text-white fs-14 py-2" onchange="filterRegistry()">
+                        <option value="">All Lands</option>
+                        {% for land_name in registry_lands %}
+                        <option value="{{ land_name }}">{{ land_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <select id="registryEventFilter" class="form-select bg-dark border-secondary text-white fs-14 py-2" onchange="filterRegistry()">
+                        <option value="">All Events</option>
+                        <option value="leased">Leased</option>
+                        <option value="vacated">Vacated</option>
+                        <option value="requested">Requested</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-responsive rounded-3 border border-secondary-glow bg-dark-glow shadow-lg p-3">
+                <table class="table table-dark table-hover align-middle mb-0 font-opensans">
+                    <thead>
+                        <tr class="text-secondary-glow fs-13 border-bottom border-secondary-glow">
+                            <th scope="col" class="py-3 px-3">Land</th>
+                            <th scope="col" class="py-3">Plot</th>
+                            <th scope="col" class="py-3">Buyer</th>
+                            <th scope="col" class="py-3">Event</th>
+                            <th scope="col" class="py-3">Date &amp; Time</th>
+                            <th scope="col" class="py-3">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody class="fs-14" id="registryTableBody">
+                        {% if registry_entries %}
+                        {% for entry in registry_entries %}
+                        <tr class="border-bottom border-dark-glow registry-row"
+                            data-land="{{ entry.land_name }}" data-event="{{ entry.event }}">
+                            <td class="py-3 px-3 fw-bold text-white font-ranade fs-15">{% if entry.land_deleted %}<span class="text-danger-glow fs-13 fw-bold me-1">(deleted)</span>{% endif %}{{ entry.land_name }}</td>
+                            <td class="py-3 text-cyan-glow fw-bold">{{ entry.plot_number }}</td>
+                            <td class="py-3">{{ entry.buyer_username }}</td>
+                            <td class="py-3">
+                                {% if entry.event == 'leased' %}
+                                <span class="badge bg-success-glow fs-10">Leased</span>
+                                {% elif entry.event == 'requested' %}
+                                <span class="badge bg-info-glow fs-10">Requested</span>
+                                {% else %}
+                                <span class="badge bg-danger-glow fs-10">Vacated</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 text-muted-glow">{{ entry.event_at|date:"d M Y, h:i A" }}</td>
+                            <td class="py-3 text-muted-glow">{{ entry.reason }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="py-5 text-center text-muted-glow">
+                                <i class="bi bi-journal-x fs-2 d-block mb-2"></i>
+                                No registry entries yet.
                             </td>
                         </tr>
                         {% endif %}
@@ -813,13 +951,49 @@
 </div>
 
 
+<!-- Delete Account Modal (Landowner / Buyer) -->
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="delModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel border border-secondary-glow shadow-2xl p-2 text-white">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title font-ranade fw-bold text-white fs-18" id="delModalTitle">Delete Account</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-3">
+                <div class="rounded-3 border border-danger-glow bg-danger-glow p-3 mb-3 fs-13" style="background:rgba(220,38,38,0.08)!important;">
+                    <div class="fw-bold text-danger mb-1"><i class="bi bi-exclamation-triangle-fill me-1"></i> Warning</div>
+                    <div class="text-white-50" id="delModalWarning"></div>
+                </div>
+                <div class="mb-2">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <i class="bi bi-person-fill text-cyan-glow"></i>
+                        <span class="fs-13 fw-bold text-white" id="delModalTargetName"></span>
+                        <span class="fs-12 text-muted-glow" id="delModalEmail"></span>
+                    </div>
+                    <p class="text-muted-glow fs-12 mb-0">
+                        This notice will be sent to the above email address on mail only.
+                    </p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-white-50 fs-12 fw-bold text-uppercase tracking-wide">Deletion Message (emailed)</label>
+                    <textarea class="form-control bg-dark border-secondary text-white fs-14" id="delModalMessage" rows="5"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary px-3 py-2 fs-12 fw-bold text-uppercase" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger px-3 py-2 fs-12 fw-bold text-uppercase" id="delModalConfirmBtn" onclick="executeDeleteAccount();">
+                    <i class="bi bi-trash-fill me-1"></i> Confirm Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Floating Google Drive Style Action Button (+) -->
 <button class="btn btn-floating-plus shadow-lg" data-bs-toggle="modal" data-bs-target="#addLandModal"
     title="Register New Land">
     <i class="bi bi-plus-lg fs-4"></i>
-</button>
-
-<!-- Register New Land Modal -->
+</button><!-- Register New Land Modal -->
 <div class="modal fade" id="addLandModal" tabindex="-1" aria-labelledby="addLandModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content land-registration-modal">
@@ -908,6 +1082,8 @@
         const tabMap = {
             lands: { section: 'sectionLands', link: 'tabLinkLands' },
             owners: { section: 'sectionOwners', link: 'tabLinkOwners' },
+            buyers: { section: 'sectionBuyers', link: 'tabLinkBuyers' },
+            registry: { section: 'sectionRegistry', link: 'tabLinkRegistry' },
             layouts: { section: 'sectionLayouts', link: 'tabLinkLayouts' },
             tickets: { section: 'sectionTickets', link: 'tabLinkTickets' },
             notifs: { section: 'sectionNotifications', link: 'tabLinkNotifs' },
@@ -919,7 +1095,16 @@
             const sec = document.getElementById(tabMap[t].section);
             const lnk = document.getElementById(tabMap[t].link);
             if (sec) sec.style.display = (t === tabName) ? 'block' : 'none';
-            if (lnk) lnk.classList.toggle('active', t === tabName);
+            if (lnk) {
+                lnk.classList.toggle('active', t === tabName);
+                if (t === tabName && t !== 'notifs') {
+                    const badge = lnk.querySelector('.admin-notif-badge') || lnk.querySelector('.notif-badge');
+                    if (badge) {
+                        badge.style.display = 'none';
+                        localStorage.setItem('admin_badge_seen_' + t, badge.textContent.trim());
+                    }
+                }
+            }
         });
         sessionStorage.setItem('admin_active_tab', tabName);
         window.location.hash = tabName;
@@ -1009,6 +1194,22 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
+        // Hide badges that were already acknowledged in previous sessions
+        const links = { layouts: 'tabLinkLayouts', tickets: 'tabLinkTickets' };
+        Object.keys(links).forEach(t => {
+            const linkEl = document.getElementById(links[t]);
+            if (linkEl) {
+                const badge = linkEl.querySelector('.admin-notif-badge') || linkEl.querySelector('.notif-badge');
+                if (badge) {
+                    const currentVal = parseInt(badge.textContent.trim()) || 0;
+                    const seenVal = parseInt(localStorage.getItem('admin_badge_seen_' + t)) || 0;
+                    if (currentVal > 0 && currentVal <= seenVal) {
+                        badge.style.display = 'none';
+                    }
+                }
+            }
+        });
+
         let defaultTab = 'lands';
         const hash = window.location.hash.substring(1);
         if (hash) {
@@ -1020,30 +1221,90 @@
         switchTab(defaultTab);
     });
 
-    // ─── Landowner Deletion Action ─────────────────────────────────────────
-    function confirmDeleteLandowner(username) {
-        if (confirm(`Are you sure you want to permanently delete landowner "${username}"? All their registered lands and plots will also be deleted. This action is irreversible.`)) {
-            fetch(`/accounts/admin/delete-landowner/${username}/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCsrf()
+    // ─── Landowner Deletion Action (modal-based) ───────────────────────────
+    let deleteTarget = null;
+    let deleteKind = null; // 'landowner' | 'buyer'
+
+    function openDeleteLandownerModal(username, email) {
+        deleteTarget = username;
+        deleteKind = 'landowner';
+        document.getElementById('delModalTitle').textContent = 'Delete Landowner';
+        document.getElementById('delModalTargetName').textContent = username;
+        document.getElementById('delModalEmail').textContent = email || '';
+        document.getElementById('delModalWarning').innerHTML =
+            'This action is <strong>irreversible</strong>. All of this landowner\'s registered lands, plots, and data will be deleted. ' +
+            'Any plots allotted to buyers on their lands will be <strong>vacated</strong> and removed from the buyers\' side.';
+        document.getElementById('delModalMessage').value =
+            `Dear ${username},\n\nYour landowner account has been deleted by the Lease Monkey admin. All of your registered lands and data have been removed.\n\nIf you believe this was a mistake, please contact our support team.\n\n— The Lease Monkey Team`;
+        new bootstrap.Modal(document.getElementById('deleteAccountModal')).show();
+    }
+
+    function openDeleteBuyerModal(username, email) {
+        deleteTarget = username;
+        deleteKind = 'buyer';
+        document.getElementById('delModalTitle').textContent = 'Delete Buyer';
+        document.getElementById('delModalTargetName').textContent = username;
+        document.getElementById('delModalEmail').textContent = email || '';
+        document.getElementById('delModalWarning').innerHTML =
+            'This action is <strong>irreversible</strong>. The buyer\'s account and data will be removed, and their allotted plots will be <strong>freed and made available</strong>. ' +
+            'The landowners of those plots will be notified. A deletion notice will be emailed to the buyer.';
+        document.getElementById('delModalMessage').value =
+            `Dear ${username},\n\nYour buyer account has been deleted by the Lease Monkey admin. Any plots allotted to you have been freed.\n\nIf you believe this was a mistake, please contact our support team.\n\n— The Lease Monkey Team`;
+        new bootstrap.Modal(document.getElementById('deleteAccountModal')).show();
+    }
+
+    function executeDeleteAccount() {
+        if (!deleteTarget || !deleteKind) return;
+        const message = document.getElementById('delModalMessage').value.trim();
+        const endpoint = deleteKind === 'landowner'
+            ? `/accounts/admin/delete-landowner/${deleteTarget}/`
+            : `/accounts/admin/delete-buyer/${deleteTarget}/`;
+
+        const btn = document.getElementById('delModalConfirmBtn');
+        btn.disabled = true;
+        btn.innerHTML = 'Deleting <span class="spinner-border spinner-border-sm ms-1" role="status"></span>';
+
+        fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrf(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ message: message })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'deleted') {
+                    alert(data.message);
+                    window.location.reload();
+                } else {
+                    alert(data.error || 'Failed to delete account.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-trash-fill me-1"></i> Confirm Delete';
                 }
             })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'deleted') {
-                        alert(data.message);
-                        window.location.reload();
-                    } else {
-                        alert(data.error || 'Failed to delete landowner.');
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Network error while deleting landowner.');
-                });
-        }
+            .catch(err => {
+                console.error(err);
+                alert('Network error while deleting account.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-trash-fill me-1"></i> Confirm Delete';
+            });
     }
+
+    function filterRegistry() {
+        const landVal = document.getElementById('registryLandFilter').value;
+        const eventVal = document.getElementById('registryEventFilter').value;
+        const tbody = document.getElementById('registryTableBody');
+        if (!tbody) return;
+        tbody.querySelectorAll('.registry-row').forEach(row => {
+            const land = row.getAttribute('data-land') || '';
+            const event = row.getAttribute('data-event') || '';
+            const okLand = !landVal || land === landVal;
+            const okEvent = !eventVal || event === eventVal;
+            row.style.display = (okLand && okEvent) ? '' : 'none';
+        });
+    }
+
 
     // ─── Notification Actions ──────────────────────────────────────────────
     function getCsrf() {

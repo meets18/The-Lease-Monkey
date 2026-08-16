@@ -350,7 +350,10 @@ class AccountDeletionAndAdminTests(TestCase):
         payload = {'username': 'delete_buyer', 'otp': '987654'}
         response = self.client.post(reverse('delete_account'), json.dumps(payload), content_type='application/json')
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(User.objects.filter(username='delete_buyer').exists())
+        deleted = User.objects.filter(username='delete_buyer').first()
+        self.assertIsNotNone(deleted)
+        self.assertTrue(deleted.is_deleted)
+        self.assertFalse(deleted.is_active)
 
     def test_admin_delete_buyer(self):
         # Non-admin try to delete
@@ -362,7 +365,66 @@ class AccountDeletionAndAdminTests(TestCase):
         self.client.login(username='admin_user', password='AdminPassword123!')
         response = self.client.post(reverse('admin_delete_buyer', kwargs={'username': 'delete_buyer'}))
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(User.objects.filter(username='delete_buyer').exists())
+        deleted = User.objects.filter(username='delete_buyer').first()
+        self.assertIsNotNone(deleted)
+        self.assertTrue(deleted.is_deleted)
+        self.assertFalse(deleted.is_active)
+        self.assertEqual(deleted.status, User.DELETED)
+
+    def test_admin_delete_buyer_frees_plots_notifies_owner_and_emails(self):
+        from django.core import mail
+        from apps.lands.models import Land, Plot, OccupancyRecord, PlotLeaseLog
+        from apps.core.models import PurchaseRequest, Notification
+
+        owner = User.objects.create_user(
+            username='owner_to_notify', email='owner_to_notify@test.com',
+            password='Password123!', role='LAND_OWNER', is_verified=True
+        )
+        other_owner = User.objects.create_user(
+            username='owner_not_notified', email='owner_not_notified@test.com',
+            password='Password123!', role='LAND_OWNER', is_verified=True
+        )
+        unrelated_land = Land.objects.create(name='Unrelated Land', owner=other_owner, location='Jaipur', area=2.0, average_plot_price=100000.00)
+        land = Land.objects.create(name='Notify Land', owner=owner, location='Jaipur', area=2.0, average_plot_price=100000.00)
+        plot = Plot.objects.create(land=land, plot_number='P1', area='1000 sqft', price=100000.00, status='sold', coordinates=[[27.0, 75.0], [27.1, 75.1], [27.2, 75.2]])
+        Plot.objects.create(land=unrelated_land, plot_number='P1', area='1000 sqft', price=100000.00, status='sold', coordinates=[[28.0, 76.0], [28.1, 76.1], [28.2, 76.2]])
+
+        PurchaseRequest.objects.create(
+            buyer=self.buyer, land=land, plot_number='P1', full_name='Delete Buyer',
+            aadhaar_number='111122223333', pan_number='ABCDE1234F', email='delete_buyer@test.com',
+            phone_number='9999999999', proposed_amount=100000.00, status='approved'
+        )
+        OccupancyRecord.objects.create(land=land, plot_number='P1', buyer=self.buyer, status='active')
+
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse('admin_delete_buyer', kwargs={'username': self.buyer.username}),
+            data=json.dumps({'message': 'Account terminated.'}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        deleted = User.objects.filter(username='delete_buyer').first()
+        self.assertIsNotNone(deleted)
+        self.assertTrue(deleted.is_deleted)
+        self.assertFalse(deleted.is_active)
+
+        # Plot set to reserved (not available) per retention policy
+        plot.refresh_from_db()
+        self.assertEqual(plot.status, 'reserved')
+
+        # Registry log persists with the vacated event
+        logs = PlotLeaseLog.objects.filter(event='vacated', land_name='Notify Land', plot_number='P1')
+        self.assertEqual(logs.count(), 1)
+        self.assertEqual(logs.first().buyer_username, 'delete_buyer')
+
+        # Only the affected owner is notified (the unrelated owner is not)
+        self.assertTrue(Notification.objects.filter(recipient=owner, notif_type='buyer_deleted').exists())
+        self.assertFalse(Notification.objects.filter(recipient=other_owner, notif_type='buyer_deleted').exists())
+
+        # Email sent to buyer
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('Your buyer account deletion notice', mail.outbox[0].subject)
+        self.assertIn('delete_buyer@test.com', mail.outbox[0].to)
 
 
 class OCRValidationTests(TestCase):
@@ -645,8 +707,10 @@ class LandownerOnboardingAndManagementTests(TestCase):
         self.assertIn('Green Valley Extension', mail.outbox[0].body)
 
     def test_admin_delete_landowner_cascades(self):
-        """Verify admin can delete landowner account, cascading delete to their lands and plots."""
-        from apps.lands.models import Land
+        """Verify admin can soft-delete landowner; lands go offline and held plots set to reserved."""
+        from django.core import mail
+        from apps.lands.models import Land, Plot, OccupancyRecord, PlotLeaseLog
+
         land = Land.objects.create(
             name='Green Farms',
             owner=self.landowner,
@@ -654,20 +718,55 @@ class LandownerOnboardingAndManagementTests(TestCase):
             area=5.0,
             average_plot_price=500000.00
         )
-        
+        plot = Plot.objects.create(land=land, plot_number='P1', area='1500 sqft', price=500000.00, status='sold', coordinates=[[27.0, 75.0], [27.1, 75.1], [27.2, 75.2]])
+        buyer = User.objects.create_user(
+            username='farms_buyer', email='farms_buyer@test.com',
+            password='Password123!', role='BUYER', is_verified=True
+        )
+        from apps.core.models import PurchaseRequest
+        PurchaseRequest.objects.create(
+            buyer=buyer, land=land, plot_number='P1', full_name='Farms Buyer',
+            aadhaar_number='111122223333', pan_number='ABCDE1234F', email='farms_buyer@test.com',
+            phone_number='9999999999', proposed_amount=500000.00, status='approved'
+        )
+        OccupancyRecord.objects.create(land=land, plot_number='P1', buyer=buyer, status='active')
+
         # Log in as Admin
         self.client.force_login(self.admin)
-        
-        # Send delete request
-        response = self.client.post(reverse('admin_delete_landowner', args=[self.landowner.username]))
+
+        # Send delete request with a message
+        response = self.client.post(
+            reverse('admin_delete_landowner', args=[self.landowner.username]),
+            data=json.dumps({'message': 'Your account has been removed.'}),
+            content_type='application/json'
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'deleted')
-        
-        # Check user is deleted
-        self.assertFalse(User.objects.filter(username=self.landowner.username).exists())
-        
-        # Check land is deleted (cascaded)
-        self.assertFalse(Land.objects.filter(pk=land.pk).exists())
+
+        # Check user is soft-deleted (retained for 24h retention policy)
+        deleted_owner = User.objects.filter(username=self.landowner.username).first()
+        self.assertIsNotNone(deleted_owner)
+        self.assertTrue(deleted_owner.is_deleted)
+        self.assertFalse(deleted_owner.is_active)
+
+        # Land is taken offline (not deleted) per retention policy
+        land.refresh_from_db()
+        self.assertFalse(land.is_live)
+
+        # Plot held by the buyer is set to reserved
+        plot.refresh_from_db()
+        self.assertEqual(plot.status, 'reserved')
+
+        # Registry log survives with the vacated event recorded before deletion
+        logs = PlotLeaseLog.objects.filter(event='vacated', land_name='Green Farms', plot_number='P1')
+        self.assertEqual(logs.count(), 1)
+        self.assertEqual(logs.first().buyer_username, 'farms_buyer')
+        self.assertEqual(logs.first().reason, 'Landowner account deleted by admin')
+
+        # Email sent to the landowner (mail only)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('Your landowner account deletion notice', mail.outbox[0].subject)
+        self.assertIn('Your account has been removed.', mail.outbox[0].body)
 
 
 class RejectedLandownerFlagTests(TestCase):

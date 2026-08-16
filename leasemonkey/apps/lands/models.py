@@ -233,6 +233,37 @@ class OccupancyRecord(models.Model):
     def __str__(self):
         return f"{self.plot_number} - {self.buyer.username} ({self.status})"
 
+
+class PlotLeaseLog(models.Model):
+    """Immutable, append-only digital registry of plot lease/vacate events.
+
+    Every row is written once and never updated or deleted, so the registry
+    history survives account/land deletions. It stores snapshots (strings)
+    instead of foreign keys for that reason.
+    """
+    EVENT_CHOICES = [
+        ('leased', 'Leased'),
+        ('vacated', 'Vacated'),
+    ]
+
+    land_name       = models.CharField(max_length=200)
+    land_slug       = models.CharField(max_length=150, blank=True, default='')
+    owner_username  = models.CharField(max_length=150)
+    plot_number     = models.CharField(max_length=50)
+    buyer_username  = models.CharField(max_length=150)
+    event           = models.CharField(max_length=20, choices=EVENT_CHOICES)
+    event_at        = models.DateTimeField(default=timezone.now)
+    reason          = models.TextField(blank=True, default='')
+
+    created_at      = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-event_at']
+
+    def __str__(self):
+        return f"{self.land_name} {self.plot_number} — {self.get_event_display()} by {self.buyer_username}"
+
+
 def get_ownership_proof_path(instance, filename):
     return f"land_requests/{instance.owner.username}/ownership_{filename}"
 

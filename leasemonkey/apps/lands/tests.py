@@ -3,7 +3,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from apps.core.models import EmailOTP, PurchaseRequest, DeallotmentRequest, Notification
-from apps.lands.models import Land, Plot, OccupancyRecord
+from apps.lands.models import Land, Plot, OccupancyRecord, PlotLeaseLog
 import json
 
 User = get_user_model()
@@ -120,6 +120,10 @@ class DeallotmentRequestTests(TestCase):
         ).exists())
         self.assertTrue(Notification.objects.filter(
             recipient=self.buyer, notif_type='deallot_request_approved'
+        ).exists())
+        self.assertTrue(PlotLeaseLog.objects.filter(
+            land_name='Deallot Land', plot_number='P1', buyer_username='deallot_buyer',
+            event='vacated', reason='Relocating'
         ).exists())
 
     def test_owner_declines_vacate(self):

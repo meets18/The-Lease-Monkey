@@ -2326,6 +2326,12 @@ body::before {
     color: #92400E !important;
 }
 
+.badge.bg-info,
+.badge.bg-info-glow {
+    background: #DBEAFE !important;
+    color: #1D4ED8 !important;
+}
+
 .badge[style*="background-color: #fd7e14"] {
     background: #DBEAFE !important;
     color: #1D4ED8 !important;
@@ -2848,6 +2854,11 @@ footer {
 
 .text-cyan-glow {
     color: #0EA5E9 !important;
+    text-shadow: none !important;
+}
+
+.text-danger-glow {
+    color: #F87171 !important;
     text-shadow: none !important;
 }
 

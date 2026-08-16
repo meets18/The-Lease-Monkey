@@ -785,11 +785,20 @@
             const origFetch = window.fetch;
             if (typeof origFetch === 'function') {
                 window.fetch = function () {
-                    start(false);
+                    // Chatbot (Ollama) requests may take a while and show their
+                    // own typing indicator — don't run the top progress bar for them.
+                    let reqUrl = '';
+                    if (typeof arguments[0] === 'string') {
+                        reqUrl = arguments[0];
+                    } else if (arguments[0] && typeof arguments[0].url === 'string') {
+                        reqUrl = arguments[0].url;
+                    }
+                    const isAiChat = reqUrl.indexOf('/ai/') !== -1;
+                    if (!isAiChat) start(false);
                     const p = origFetch.apply(this, arguments);
                     p.then(
-                        function (r) { done(); return r; },
-                        function (e) { done(); throw e; }
+                        function (r) { if (!isAiChat) done(); return r; },
+                        function (e) { if (!isAiChat) done(); throw e; }
                     );
                     return p;
                 };

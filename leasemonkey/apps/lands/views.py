@@ -700,7 +700,7 @@ def perform_deallotment(land, plot_number, reason, actor):
         plot.status = 'available'
         plot.save()
 
-    from apps.lands.models import OccupancyRecord
+    from apps.lands.models import OccupancyRecord, PlotLeaseLog
     active_record = OccupancyRecord.objects.filter(
         land=land, plot_number=plot_number, status='active'
     ).first()
@@ -709,6 +709,16 @@ def perform_deallotment(land, plot_number, reason, actor):
         active_record.deallotted_at = timezone.now()
         active_record.deallotment_reason = reason
         active_record.save()
+        PlotLeaseLog.objects.create(
+            land_name=land.name,
+            land_slug=land.slug or '',
+            owner_username=land.owner.username,
+            plot_number=plot_number,
+            buyer_username=active_record.buyer.username,
+            event='vacated',
+            event_at=timezone.now(),
+            reason=reason,
+        )
 
     Notification.objects.create(
         recipient=pr.buyer,
@@ -1521,6 +1531,19 @@ def submit_purchase_request(request, slug, plot_number):
                     request=pr,
                     validation_status='pending'
                 )
+
+            # Log the request submission in the digital lease registry (immutable)
+            from apps.lands.models import PlotLeaseLog
+            PlotLeaseLog.objects.create(
+                land_name=land.name,
+                land_slug=land.slug or '',
+                owner_username=land.owner.username,
+                plot_number=plot_number,
+                buyer_username=request.user.username,
+                event='requested',
+                event_at=timezone.now(),
+                reason='Purchase request submitted',
+            )
             
             # Save phone_number to buyer profile if not already set
             if phone_number and not request.user.phone_number:
@@ -1802,13 +1825,23 @@ def purchase_request_action(request, request_id):
                 plot.save()
                 
             # Create occupancy record
-            from apps.lands.models import OccupancyRecord
+            from apps.lands.models import OccupancyRecord, PlotLeaseLog
             OccupancyRecord.objects.create(
                 land=pr.land,
                 plot_number=pr.plot_number,
                 buyer=pr.buyer,
                 status='active',
                 allotted_at=timezone.now()
+            )
+            PlotLeaseLog.objects.create(
+                land_name=pr.land.name,
+                land_slug=pr.land.slug or '',
+                owner_username=pr.land.owner.username,
+                plot_number=pr.plot_number,
+                buyer_username=pr.buyer.username,
+                event='leased',
+                event_at=timezone.now(),
+                reason='Purchase request approved',
             )
                 
             # Reject all other pending/meeting_scheduled requests for this plot

@@ -29,6 +29,8 @@ class Notification(models.Model):
     ('deallot_request_sent',     'De-allotment Request Sent'),
     ('deallot_request_approved', 'De-allotment Approved'),
     ('deallot_request_declined', 'De-allotment Declined'),
+    ('buyer_deleted', 'Buyer Account Deleted'),
+    ('landowner_deleted', 'Landowner Account Deleted'),
     ]
 
     ticket_id = models.CharField(max_length=20, null=True, blank=True)

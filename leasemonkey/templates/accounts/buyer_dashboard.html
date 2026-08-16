@@ -530,7 +530,16 @@
                 sectionEl.style.display = (t === tabName) ? 'block' : 'none';
             }
             const linkEl = document.getElementById(links[t]);
-            if (linkEl) linkEl.classList.toggle('active', t === tabName);
+            if (linkEl) {
+                linkEl.classList.toggle('active', t === tabName);
+                if (t === tabName && t !== 'notifs') {
+                    const badge = linkEl.querySelector('.notif-badge') || linkEl.querySelector('.admin-notif-badge');
+                    if (badge) {
+                        badge.style.display = 'none';
+                        localStorage.setItem('buyer_badge_seen_' + t, badge.textContent.trim());
+                    }
+                }
+            }
         });
         sessionStorage.setItem('buyer_active_tab', tabName);
         window.location.hash = tabName;
@@ -771,7 +780,23 @@
         modal.show();
     }
 
-    document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener("DOMContentLoaded", function () {
+        // Hide badges that were already acknowledged in previous sessions
+        const links = { requests: 'tabLinkRequests', deallot: 'tabLinkDeallot', tickets: 'tabLinkTickets' };
+        Object.keys(links).forEach(t => {
+            const linkEl = document.getElementById(links[t]);
+            if (linkEl) {
+                const badge = linkEl.querySelector('.notif-badge') || linkEl.querySelector('.admin-notif-badge');
+                if (badge) {
+                    const currentVal = parseInt(badge.textContent.trim()) || 0;
+                    const seenVal = parseInt(localStorage.getItem('buyer_badge_seen_' + t)) || 0;
+                    if (currentVal > 0 && currentVal <= seenVal) {
+                        badge.style.display = 'none';
+                    }
+                }
+            }
+        });
+
         applyNotifVisibility();
 
         let defaultTab = 'plots';
