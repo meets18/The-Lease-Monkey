@@ -72,13 +72,6 @@ def buyer_login(request):
 
         if user is not None:
             if user.role == User.BUYER:
-                if user.is_deleted:
-                    from datetime import timedelta
-                    if user.deleted_at and (timezone.now() - user.deleted_at) > timedelta(hours=24):
-                        user.delete()
-                    messages.error(request, 'Your account has been deleted and can no longer be used. Please contact support if you believe this was a mistake.')
-                    return render(request, 'accounts/buyer_login.html')
-
                 if user.status == User.ACTIVE:
                     if not user.is_verified:
                         # Send fresh OTP and redirect to verification
@@ -196,12 +189,6 @@ def landowner_login(request):
 
         if user is not None:
             if user.role == User.LAND_OWNER:
-                if user.is_deleted:
-                    from datetime import timedelta
-                    if user.deleted_at and (timezone.now() - user.deleted_at) > timedelta(hours=24):
-                        user.delete()
-                    messages.error(request, 'Your account has been deleted and can no longer be used. Please contact support if you believe this was a mistake.')
-                    return render(request, 'accounts/landowner_login.html')
                 if user.status == User.ACTIVE:
                     login(request, user)
                     return redirect('landowner_dashboard')
@@ -393,9 +380,6 @@ def admin_dashboard(request):
     from apps.lands.models import Land, LandRegistrationRequest
     from apps.core.models import Notification
 
-    # Purge soft-deleted user accounts older than 24 hours
-    purge_expired_deleted_users()
-
     # Auto-discard draft lands that never progressed past boundary plotting, unless linked to a request
     for land in Land.objects.select_related('owner').all():
         has_boundary = bool(land.boundary_coordinates and len(land.boundary_coordinates) >= 3)
@@ -409,8 +393,8 @@ def admin_dashboard(request):
         land.display_location = land.location or '-'
         land.display_plot_price_lakhs = _format_price_lakhs(land.average_plot_price)
 
-    landowners = User.objects.filter(role=User.LAND_OWNER, is_deleted=False)
-    buyers = User.objects.filter(role=User.BUYER, is_deleted=False)
+    landowners = User.objects.filter(role=User.LAND_OWNER)
+    buyers = User.objects.filter(role=User.BUYER)
     notifications = Notification.objects.filter(recipient=request.user)
     unread_count  = notifications.filter(is_read=False).count()
 
@@ -1328,35 +1312,24 @@ def delete_account(request):
         if otp_record.is_expired():
             return JsonResponse({'error': 'OTP has expired.'}, status=400)
             
-        # OTP is correct! Mark used and soft-delete user
+        # OTP is correct! Mark used and delete user
         otp_record.is_used = True
         otp_record.save()
         
         user = request.user
         logout(request)
         if user.role == User.LAND_OWNER:
-            _soft_delete_landowner(user, reason='User self-deleted account')
+            _delete_landowner(user, reason='User self-deleted account')
         else:
-            _soft_delete_buyer(user, reason='User self-deleted account')
+            _delete_buyer(user, reason='User self-deleted account')
         
-        return JsonResponse({'status': 'deleted', 'message': 'Your account has been scheduled for deletion (24-hour retention period).'})
+        return JsonResponse({'status': 'deleted', 'message': 'Your account has been deleted permanently.'})
     except Exception as e:
         return JsonResponse({'error': f'Failed to delete account: {e}'}, status=500)
 
 
-def purge_expired_deleted_users():
-    """Permanently purges users soft-deleted more than 24 hours ago."""
-    from datetime import timedelta
-    cutoff = timezone.now() - timedelta(hours=24)
-    expired_users = User.objects.filter(is_deleted=True, deleted_at__lte=cutoff)
-    count = expired_users.count()
-    for user in expired_users:
-        user.delete()
-    return count
-
-
-def _soft_delete_buyer(buyer, reason='Buyer account deleted', admin_user=None, message=''):
-    """Soft-deletes a buyer account (retained for up to 24h before permanent purging).
+def _delete_buyer(buyer, reason='Buyer account deleted', admin_user=None, message=''):
+    """Permanently deletes a buyer account.
     Sets held plot status to 'reserved', logs lease registry entry, notifies landowner, and emails buyer.
     """
     from apps.lands.models import OccupancyRecord, PlotLeaseLog
@@ -1398,29 +1371,23 @@ def _soft_delete_buyer(buyer, reason='Buyer account deleted', admin_user=None, m
                 recipient=owner,
                 sender=admin_user,
                 notif_type='buyer_deleted',
-                title=f"Buyer {buyer.username} scheduled for deletion",
+                title=f"Buyer {buyer.username} deleted",
                 message=(
-                    f"The buyer {buyer.username} account has been scheduled for deletion. "
+                    f"The buyer {buyer.username} account has been deleted. "
                     f"Plot {occ.plot_number} in {occ.land.name} has been set to reserved."
                 ),
                 land_slug=occ.land.slug,
                 plot_number=occ.plot_number,
             )
 
-    buyer.is_deleted = True
-    buyer.deleted_at = timezone.now()
-    buyer.is_active = False
-    buyer.status = User.DELETED
-    buyer.save(update_fields=['is_deleted', 'deleted_at', 'is_active', 'status'])
-
     try:
         send_mail(
             subject='[Lease Monkey] Your buyer account deletion notice',
             message=(
                 f'Hello {buyer_name},\n\n'
-                f'Your buyer account has been scheduled for deletion.\n\n'
-                f'{message or "Your account data will be retained for 24 hours before permanent removal."}\n\n'
-                f'Any plots held have been marked as reserved. If you wish to cancel this deletion and restore your account, log back in within 24 hours.\n\n'
+                f'Your buyer account has been deleted.\n\n'
+                f'{message or "Your account has been permanently deleted."}\n\n'
+                f'Any plots held have been marked as reserved.\n\n'
                 f'— The Lease Monkey Team'
             ),
             from_email=settings.EMAIL_HOST_USER,
@@ -1430,34 +1397,23 @@ def _soft_delete_buyer(buyer, reason='Buyer account deleted', admin_user=None, m
     except Exception:
         pass
 
+    buyer.delete()
     return freed_count
 
 
-def _soft_delete_landowner(landowner, reason='Landowner account deleted', admin_user=None, message=''):
-    """Soft-deletes a landowner account (retained for up to 24h before permanent purging).
-    Makes lands offline, sets held plots to 'reserved', logs lease registry, and emails landowner.
+def _delete_landowner(landowner, reason='Landowner account deleted', admin_user=None, message=''):
+    """Permanently deletes a landowner account and their lands.
+    Logs lease registry vacate events before deletion so history survives.
     """
-    from apps.lands.models import Land, OccupancyRecord, PlotLeaseLog
+    from apps.lands.models import OccupancyRecord, PlotLeaseLog
 
     landowner_name = landowner.get_full_name() or landowner.username
-
-    # Landowner's lands are made offline on deletion
-    Land.objects.filter(owner=landowner).update(is_live=False)
 
     active_occ = OccupancyRecord.objects.filter(
         land__owner=landowner, status='active'
     ).select_related('land', 'buyer')
     freed_count = 0
     for occ in active_occ:
-        plot = occ.land.plots.filter(plot_number=occ.plot_number).first()
-        if plot:
-            plot.status = 'reserved'
-            plot.save(update_fields=['status'])
-        occ.status = 'terminated'
-        occ.deallotted_at = timezone.now()
-        occ.deallotment_reason = reason
-        occ.save(update_fields=['status', 'deallotted_at', 'deallotment_reason'])
-
         PlotLeaseLog.objects.create(
             land_name=occ.land.name,
             land_slug=occ.land.slug or '',
@@ -1470,21 +1426,13 @@ def _soft_delete_landowner(landowner, reason='Landowner account deleted', admin_
         )
         freed_count += 1
 
-    landowner.is_deleted = True
-    landowner.deleted_at = timezone.now()
-    landowner.is_active = False
-    landowner.status = User.DELETED
-    landowner.save(update_fields=['is_deleted', 'deleted_at', 'is_active', 'status'])
-
     try:
         send_mail(
             subject='[Lease Monkey] Your landowner account deletion notice',
             message=(
                 f'Hello {landowner_name},\n\n'
-                f'Your landowner account has been scheduled for deletion.\n\n'
-                f'{message or "Your account data will be retained for 24 hours before permanent removal."}\n\n'
-                f'Your lands have been taken offline and allotted plots set to reserved. '
-                f'If you wish to cancel this deletion and restore your account, log back in within 24 hours.\n\n'
+                f'Your landowner account has been deleted.\n\n'
+                f'{message or "Your account and lands have been permanently deleted."}\n\n'
                 f'— The Lease Monkey Team'
             ),
             from_email=settings.EMAIL_HOST_USER,
@@ -1494,12 +1442,13 @@ def _soft_delete_landowner(landowner, reason='Landowner account deleted', admin_
     except Exception:
         pass
 
+    landowner.delete()
     return freed_count
 
 
 @login_required
 def admin_delete_buyer(request, username):
-    """Allows administrators to delete registered buyer accounts (24h soft retention)."""
+    """Allows administrators to permanently delete registered buyer accounts."""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required.'}, status=400)
 
@@ -1507,7 +1456,7 @@ def admin_delete_buyer(request, username):
         return JsonResponse({'error': 'Permission denied.'}, status=403)
 
     try:
-        buyer = User.objects.filter(username=username, role=User.BUYER, is_deleted=False).first()
+        buyer = User.objects.filter(username=username, role=User.BUYER).first()
         if not buyer:
             return JsonResponse({'error': 'Buyer not found.'}, status=404)
 
@@ -1517,7 +1466,7 @@ def admin_delete_buyer(request, username):
             data = {}
         message = (data.get('message') or '').strip()
 
-        freed_count = _soft_delete_buyer(
+        freed_count = _delete_buyer(
             buyer,
             reason='Buyer account deleted by admin',
             admin_user=request.user,
@@ -1526,7 +1475,7 @@ def admin_delete_buyer(request, username):
 
         return JsonResponse({
             'status': 'deleted',
-            'message': f'Buyer account {username} scheduled for deletion (24h retention policy). {freed_count} plot(s) set to reserved.'
+            'message': f'Buyer account {username} deleted permanently. {freed_count} plot(s) set to reserved.'
         })
     except Exception as e:
         return JsonResponse({'error': f'Failed to delete buyer: {e}'}, status=500)
@@ -2192,7 +2141,7 @@ def onboarding_landowner(request):
 
 @login_required
 def admin_delete_landowner(request, username):
-    """Allows administrators to soft-delete registered landowner accounts (24h retention policy)."""
+    """Allows administrators to permanently delete registered landowner accounts (and their lands)."""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required.'}, status=400)
 
@@ -2200,7 +2149,7 @@ def admin_delete_landowner(request, username):
         return JsonResponse({'error': 'Permission denied.'}, status=403)
 
     try:
-        landowner = User.objects.filter(username=username, role=User.LAND_OWNER, is_deleted=False).first()
+        landowner = User.objects.filter(username=username, role=User.LAND_OWNER).first()
         if not landowner:
             return JsonResponse({'error': 'Landowner not found.'}, status=404)
 
@@ -2210,7 +2159,7 @@ def admin_delete_landowner(request, username):
             data = {}
         message = (data.get('message') or '').strip()
 
-        freed_count = _soft_delete_landowner(
+        freed_count = _delete_landowner(
             landowner,
             reason='Landowner account deleted by admin',
             admin_user=request.user,
@@ -2219,7 +2168,7 @@ def admin_delete_landowner(request, username):
 
         return JsonResponse({
             'status': 'deleted',
-            'message': f'Landowner account for {username} scheduled for deletion (24h retention policy). Lands made offline and {freed_count} plot(s) set to reserved.'
+            'message': f'Landowner account for {username} deleted permanently. Lands and {freed_count} allotted plot(s) removed.'
         })
     except Exception as e:
         return JsonResponse({'error': f'Failed to delete landowner: {e}'}, status=500)

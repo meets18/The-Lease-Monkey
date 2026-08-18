@@ -12,6 +12,8 @@ urlpatterns = [
     path('notification/<int:notification_id>/action/', views.handle_notification_action, name='handle_notification_action'),
     path('notification/<int:notification_id>/read/',   views.mark_notification_read,     name='mark_notification_read'),
     path('notification/<int:notification_id>/delete/', views.delete_notification,        name='delete_notification'),
+    path('notification/bulk/read/',   views.bulk_mark_notifications_read,   name='bulk_mark_notifications_read'),
+    path('notification/bulk/delete/', views.bulk_delete_notifications,      name='bulk_delete_notifications'),
 
     # Contact form
     path('contact/submit/', views.submit_contact, name='submit_contact'),

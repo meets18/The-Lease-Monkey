@@ -136,6 +136,12 @@ class PurchaseRequest(models.Model):
         return timezone.now() >= self.meeting_datetime + timedelta(minutes=self.meeting_duration_mins)
 
     @property
+    def meeting_link_active(self):
+        if not self.meet_link:
+            return False
+        return not self.is_meeting_finished
+
+    @property
     def meeting_ends_at(self):
         if not self.meeting_datetime:
             return None

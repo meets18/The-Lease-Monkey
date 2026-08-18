@@ -392,6 +392,66 @@ class PurchaseRequestFormTests(TestCase):
         self.plot.refresh_from_db()
         self.assertEqual(self.plot.status, 'reserved')
 
+    def test_meeting_link_active_future_meeting(self):
+        from datetime import timedelta
+        future_meeting = timezone.now() + timedelta(hours=2)
+        pr = PurchaseRequest.objects.create(
+            buyer=self.buyer,
+            land=self.land,
+            plot_number="Plot101",
+            full_name='PR Buyer',
+            aadhaar_number='123456789012',
+            pan_number='ABCDE1234F',
+            email='pr_buyer@test.com',
+            phone_number='+919876543210',
+            proposed_amount=1450000,
+            status='meeting_scheduled',
+            meeting_datetime=future_meeting,
+            meeting_duration_mins=30,
+            meet_link='https://meet.google.com/abc-def-ghi',
+        )
+        self.assertTrue(pr.meeting_link_active)
+
+    def test_meeting_link_inactive_after_meeting_ends(self):
+        from datetime import timedelta
+        past_meeting = timezone.now() - timedelta(hours=2)
+        pr = PurchaseRequest.objects.create(
+            buyer=self.buyer,
+            land=self.land,
+            plot_number="Plot101",
+            full_name='PR Buyer',
+            aadhaar_number='123456789012',
+            pan_number='ABCDE1234F',
+            email='pr_buyer@test.com',
+            phone_number='+919876543210',
+            proposed_amount=1450000,
+            status='meeting_scheduled',
+            meeting_datetime=past_meeting,
+            meeting_duration_mins=30,
+            meet_link='https://meet.google.com/abc-def-ghi',
+        )
+        self.assertFalse(pr.meeting_link_active)
+
+    def test_meeting_link_inactive_without_link(self):
+        from datetime import timedelta
+        future_meeting = timezone.now() + timedelta(hours=2)
+        pr = PurchaseRequest.objects.create(
+            buyer=self.buyer,
+            land=self.land,
+            plot_number="Plot101",
+            full_name='PR Buyer',
+            aadhaar_number='123456789012',
+            pan_number='ABCDE1234F',
+            email='pr_buyer@test.com',
+            phone_number='+919876543210',
+            proposed_amount=1450000,
+            status='meeting_scheduled',
+            meeting_datetime=future_meeting,
+            meeting_duration_mins=30,
+            meet_link=None,
+        )
+        self.assertFalse(pr.meeting_link_active)
+
     def test_reject_blocked_before_meeting_concludes(self):
         # meeting is scheduled for a FUTURE time -> reject must be blocked
         from datetime import timedelta
@@ -742,5 +802,91 @@ class DocumentReuploadTests(TestCase):
         self.assertFalse(self.req.reupload_requested)
         self.assertEqual(self.req.reupload_document, '')
         self.assertIsNone(self.req.reupload_submitted_at)
+
+
+class BulkNotificationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.buyer = User.objects.create_user(
+            username='bulk_buyer',
+            email='bulk_buyer@test.com',
+            password='Password123!',
+            role='BUYER',
+            is_verified=True
+        )
+        self.notif1 = Notification.objects.create(
+            recipient=self.buyer, notif_type='purchase_request',
+            title='Request A', message='Msg A'
+        )
+        self.notif2 = Notification.objects.create(
+            recipient=self.buyer, notif_type='purchase_request',
+            title='Request B', message='Msg B'
+        )
+        self.notif3 = Notification.objects.create(
+            recipient=self.buyer, notif_type='purchase_request',
+            title='Request C', message='Msg C'
+        )
+        self.read_url = reverse('core:bulk_mark_notifications_read')
+        self.delete_url = reverse('core:bulk_delete_notifications')
+
+    def test_requires_login(self):
+        response = self.client.post(self.read_url, json.dumps({'ids': [self.notif1.id]}), content_type='application/json')
+        self.assertEqual(response.status_code, 302)
+
+    def test_bulk_mark_read(self):
+        self.client.login(username='bulk_buyer', password='Password123!')
+        response = self.client.post(
+            self.read_url,
+            json.dumps({'ids': [self.notif1.id, self.notif2.id]}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['status'] == 'ok')
+        self.assertEqual(response.json()['updated'], 2)
+        self.notif1.refresh_from_db()
+        self.notif2.refresh_from_db()
+        self.assertTrue(self.notif1.is_read)
+        self.assertTrue(self.notif2.is_read)
+        self.notif3.refresh_from_db()
+        self.assertFalse(self.notif3.is_read)
+
+    def test_bulk_delete(self):
+        self.client.login(username='bulk_buyer', password='Password123!')
+        response = self.client.post(
+            self.delete_url,
+            json.dumps({'ids': [self.notif2.id, self.notif3.id]}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['deleted'], 2)
+        self.assertFalse(Notification.objects.filter(id__in=[self.notif2.id, self.notif3.id]).exists())
+        self.assertTrue(Notification.objects.filter(id=self.notif1.id).exists())
+
+    def test_other_users_notifications_untouched(self):
+        other = User.objects.create_user(
+            username='bulk_other',
+            email='bulk_other@test.com',
+            password='Password123!',
+            role='BUYER',
+            is_verified=True
+        )
+        other_notif = Notification.objects.create(
+            recipient=other, notif_type='purchase_request',
+            title='Other', message='Other msg'
+        )
+        self.client.login(username='bulk_buyer', password='Password123!')
+        response = self.client.post(
+            self.delete_url,
+            json.dumps({'ids': [other_notif.id, self.notif1.id]}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.json()['deleted'], 1)
+        self.assertTrue(Notification.objects.filter(id=other_notif.id).exists())
+        self.assertFalse(Notification.objects.filter(id=self.notif1.id).exists())
+
+    def test_missing_ids_rejected(self):
+        self.client.login(username='bulk_buyer', password='Password123!')
+        response = self.client.post(self.read_url, json.dumps({}), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
 
 

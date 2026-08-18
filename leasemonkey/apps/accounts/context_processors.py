@@ -16,7 +16,8 @@ def nav_notifications(request):
     if not request.user.is_authenticated:
         return {'recent_notifs': [], 'unread_notifs_count': 0}
     from apps.core.models import Notification
+    qs = Notification.objects.filter(recipient=request.user)
     return {
-        'recent_notifs': Notification.objects.filter(recipient=request.user, is_read=False).order_by('-created_at')[:5],
-        'unread_notifs_count': Notification.objects.filter(recipient=request.user, is_read=False).count(),
+        'recent_notifs': qs.filter(is_read=False).order_by('-created_at')[:5],
+        'unread_notifs_count': qs.filter(is_read=False).count(),
     }

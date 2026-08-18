@@ -400,7 +400,7 @@
                             {% endif %}
                         </div>
                     </div>
-                    {% if req.status == 'meeting_scheduled' and req.meet_link %}
+                    {% if req.status == 'meeting_scheduled' and req.meeting_link_active %}
                     <div class="ad-meet-box">
                         <i class="bi bi-camera-video me-2 text-primary"></i>
                         <a href="{{ req.meet_link }}" target="_blank" class="fw-bold text-decoration-none">Join Google Meet</a>

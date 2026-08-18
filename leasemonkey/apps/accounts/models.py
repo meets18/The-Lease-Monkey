@@ -57,19 +57,15 @@ class User(AbstractUser):
     PENDING = 'PENDING'
     ACTIVE = 'ACTIVE'
     SUSPENDED = 'SUSPENDED'
-    DELETED = 'DELETED'
     
     STATUS_CHOICES = [
         (PENDING, 'Pending'),
         (ACTIVE, 'Active'),
         (SUSPENDED, 'Suspended'),
-        (DELETED, 'Soft Deleted'),
     ]
     
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=BUYER)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=ACTIVE)
-    is_deleted = models.BooleanField(default=False)
-    deleted_at = models.DateTimeField(null=True, blank=True)
     is_verified = models.BooleanField(default=False)
     is_first_login = models.BooleanField(default=True)
     date_of_birth = models.DateField(null=True, blank=True)

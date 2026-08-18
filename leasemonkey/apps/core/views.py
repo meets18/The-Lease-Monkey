@@ -340,6 +340,48 @@ def delete_notification(request, notification_id):
         return JsonResponse({'error': 'Not found.'}, status=404)
 
 
+def _parse_notif_ids(request):
+    """Extract a list of notification ids from the POST JSON body."""
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+    except (ValueError, AttributeError):
+        return None
+    ids = data.get('ids')
+    if not isinstance(ids, list) or not ids:
+        return None
+    return ids
+
+
+@login_required
+def bulk_mark_notifications_read(request):
+    """Marks multiple notifications as read for the current user."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+    ids = _parse_notif_ids(request)
+    if not ids:
+        return JsonResponse({'error': 'No notification ids provided.'}, status=400)
+    updated = Notification.objects.filter(
+        recipient=request.user, id__in=ids, is_read=False
+    ).update(is_read=True)
+    unread = Notification.objects.filter(recipient=request.user, is_read=False).count()
+    return JsonResponse({'status': 'ok', 'updated': updated, 'unread': unread})
+
+
+@login_required
+def bulk_delete_notifications(request):
+    """Deletes multiple notifications for the current user."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+    ids = _parse_notif_ids(request)
+    if not ids:
+        return JsonResponse({'error': 'No notification ids provided.'}, status=400)
+    deleted = Notification.objects.filter(
+        recipient=request.user, id__in=ids
+    ).delete()[0]
+    unread = Notification.objects.filter(recipient=request.user, is_read=False).count()
+    return JsonResponse({'status': 'ok', 'deleted': deleted, 'unread': unread})
+
+
 import os
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404

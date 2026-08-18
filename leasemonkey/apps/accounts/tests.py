@@ -350,10 +350,8 @@ class AccountDeletionAndAdminTests(TestCase):
         payload = {'username': 'delete_buyer', 'otp': '987654'}
         response = self.client.post(reverse('delete_account'), json.dumps(payload), content_type='application/json')
         self.assertEqual(response.status_code, 200)
-        deleted = User.objects.filter(username='delete_buyer').first()
-        self.assertIsNotNone(deleted)
-        self.assertTrue(deleted.is_deleted)
-        self.assertFalse(deleted.is_active)
+        # Account is permanently deleted
+        self.assertFalse(User.objects.filter(username='delete_buyer').exists())
 
     def test_admin_delete_buyer(self):
         # Non-admin try to delete
@@ -365,11 +363,8 @@ class AccountDeletionAndAdminTests(TestCase):
         self.client.login(username='admin_user', password='AdminPassword123!')
         response = self.client.post(reverse('admin_delete_buyer', kwargs={'username': 'delete_buyer'}))
         self.assertEqual(response.status_code, 200)
-        deleted = User.objects.filter(username='delete_buyer').first()
-        self.assertIsNotNone(deleted)
-        self.assertTrue(deleted.is_deleted)
-        self.assertFalse(deleted.is_active)
-        self.assertEqual(deleted.status, User.DELETED)
+        # Account is permanently deleted
+        self.assertFalse(User.objects.filter(username='delete_buyer').exists())
 
     def test_admin_delete_buyer_frees_plots_notifies_owner_and_emails(self):
         from django.core import mail
@@ -403,12 +398,10 @@ class AccountDeletionAndAdminTests(TestCase):
             content_type='application/json'
         )
         self.assertEqual(response.status_code, 200)
-        deleted = User.objects.filter(username='delete_buyer').first()
-        self.assertIsNotNone(deleted)
-        self.assertTrue(deleted.is_deleted)
-        self.assertFalse(deleted.is_active)
+        # Account is permanently deleted
+        self.assertFalse(User.objects.filter(username='delete_buyer').exists())
 
-        # Plot set to reserved (not available) per retention policy
+        # Plot set to reserved (not available) on deletion
         plot.refresh_from_db()
         self.assertEqual(plot.status, 'reserved')
 
@@ -707,9 +700,9 @@ class LandownerOnboardingAndManagementTests(TestCase):
         self.assertIn('Green Valley Extension', mail.outbox[0].body)
 
     def test_admin_delete_landowner_cascades(self):
-        """Verify admin can soft-delete landowner; lands go offline and held plots set to reserved."""
+        """Verify admin can permanently delete a landowner; lands and allotted plots are removed, registry history survives."""
         from django.core import mail
-        from apps.lands.models import Land, Plot, OccupancyRecord, PlotLeaseLog
+        from apps.lands.models import Land, Plot, PlotLeaseLog
 
         land = Land.objects.create(
             name='Green Farms',
@@ -729,6 +722,7 @@ class LandownerOnboardingAndManagementTests(TestCase):
             aadhaar_number='111122223333', pan_number='ABCDE1234F', email='farms_buyer@test.com',
             phone_number='9999999999', proposed_amount=500000.00, status='approved'
         )
+        from apps.lands.models import OccupancyRecord
         OccupancyRecord.objects.create(land=land, plot_number='P1', buyer=buyer, status='active')
 
         # Log in as Admin
@@ -743,19 +737,12 @@ class LandownerOnboardingAndManagementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'deleted')
 
-        # Check user is soft-deleted (retained for 24h retention policy)
-        deleted_owner = User.objects.filter(username=self.landowner.username).first()
-        self.assertIsNotNone(deleted_owner)
-        self.assertTrue(deleted_owner.is_deleted)
-        self.assertFalse(deleted_owner.is_active)
+        # Landowner account is permanently deleted
+        self.assertFalse(User.objects.filter(username=self.landowner.username).exists())
 
-        # Land is taken offline (not deleted) per retention policy
-        land.refresh_from_db()
-        self.assertFalse(land.is_live)
-
-        # Plot held by the buyer is set to reserved
-        plot.refresh_from_db()
-        self.assertEqual(plot.status, 'reserved')
+        # Lands and their plots are cascade-deleted
+        self.assertFalse(Land.objects.filter(pk=land.pk).exists())
+        self.assertFalse(Plot.objects.filter(pk=plot.pk).exists())
 
         # Registry log survives with the vacated event recorded before deletion
         logs = PlotLeaseLog.objects.filter(event='vacated', land_name='Green Farms', plot_number='P1')

@@ -217,7 +217,7 @@
                             data-status="{{ req.status }}"
                             data-date="{{ req.created_at|date:'M d, Y' }}"
                             data-rejection="{{ req.rejection_reason|default:'' }}"
-                            data-meetlink="{{ req.meet_link|default:'' }}"
+                            data-meetlink="{% if req.meeting_link_active %}{{ req.meet_link }}{% endif %}"
                             data-meetingdt="{% if req.meeting_datetime %}{{ req.meeting_datetime|date:'M d, Y, h:i A' }}{% endif %}"
                             data-meetingdur="{% if req.meeting_duration_mins %}{{ req.meeting_duration_mins }} mins{% endif %}"
                             onclick="openRequestDetail(this)">
@@ -228,7 +228,7 @@
                                 <span class="badge bg-warning text-dark">Pending</span>
                                 {% elif req.status == 'meeting_scheduled' %}
                                 <span class="badge" style="background-color: #fd7e14; color: white;">Meeting Scheduled</span>
-                                {% if req.meet_link %}
+                                {% if req.meeting_link_active %}
                                 <div class="mt-1">
                                     <a href="{{ req.meet_link }}" target="_blank" class="btn btn-sm btn-outline-info text-white fs-12 px-2 py-05 mt-1 d-inline-flex align-items-center">
                                         <i class="bi bi-camera-video me-1"></i> Join Meet
@@ -324,6 +324,26 @@
             </div>
 
             {% if notifications %}
+            <!-- Bulk Action Toolbar -->
+            <div id="notifBulkToolbar" class="d-none align-items-center justify-content-between gap-3 mb-3 p-3 rounded-3 border"
+                 style="background:rgba(249,109,0,0.06); border-color:rgba(249,109,0,0.2) !important;">
+                <div class="d-flex align-items-center gap-3">
+                    <label class="d-flex align-items-center gap-2 fs-13 fw-bold text-white-50" style="cursor:pointer;">
+                        <input type="checkbox" id="notifSelectAll" class="form-check-input m-0 notif-select-check"
+                               style="width:16px; height:16px; cursor:pointer; accent-color:#F96D00;">
+                        Select all
+                    </label>
+                    <span class="fs-13 text-muted-glow" id="notifBulkCount">0 selected</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-notif-action btn-notif-read" id="notifBulkReadBtn" disabled>
+                        <i class="bi bi-check2-circle"></i> Mark as Read
+                    </button>
+                    <button type="button" class="btn btn-sm btn-notif-action btn-notif-delete" id="notifBulkDeleteBtn" disabled>
+                        <i class="bi bi-trash3-fill"></i> Delete
+                    </button>
+                </div>
+            </div>
             <div class="d-flex flex-column gap-3" id="buyerNotifContainer">
                 {% for notif in notifications %}
                 <div class="notif-card p-3 rounded-3 border bg-dark-glow d-flex align-items-start gap-3 shadow-sm transition-all"
@@ -333,11 +353,14 @@
                      onmouseover="this.style.transform='scale(1.008)';"
                      onmouseout="this.style.transform='scale(1)';"
                      onclick="showNotifDetail('{{ notif.id }}', '{{ notif.title|escapejs }}', '{{ notif.message|escapejs }}', '{{ notif.created_at|date:'M d, Y H:i' }}', {{ notif.is_read|yesno:'true,false' }}, this);">
+                    <input type="checkbox" class="form-check-input mt-1 flex-shrink-0 notif-select-check" value="{{ notif.id }}"
+                           style="width:16px; height:16px; cursor:pointer; accent-color:#F96D00;"
+                           onclick="event.stopPropagation(); updateNotifBulkBar();">
                     <div class="mt-1">
                         {% if notif.notif_type == 'purchase_request' %}
                         <i class="bi bi-envelope-open text-primary-glow fs-4"></i>
                         {% else %}
-                        <i class="bi bi-info-circle text-cyan-glow fs-4"></i>
+                        <i class="bi bi-bell-fill text-cyan-glow fs-4"></i>
                         {% endif %}
                     </div>
                     <div class="flex-grow-1">
@@ -684,7 +707,80 @@
         });
     }
 
+    // ── Bulk notification management (select + mark read / delete) ──
+    function updateNotifBulkBar() {
+        const checks = document.querySelectorAll('#buyerNotifContainer .notif-select-check');
+        const selAll = document.getElementById('notifSelectAll');
+        const bar = document.getElementById('notifBulkToolbar');
+        const countEl = document.getElementById('notifBulkCount');
+        const selected = Array.from(checks).filter(function (c) { return c.checked; });
+        if (bar) {
+            bar.classList.toggle('d-none', selected.length === 0);
+            bar.classList.toggle('d-flex', selected.length > 0);
+        }
+        if (countEl) countEl.textContent = selected.length + ' selected';
+        if (selAll) selAll.checked = checks.length > 0 && selected.length === checks.length;
+        const readBtn = document.getElementById('notifBulkReadBtn');
+        const delBtn = document.getElementById('notifBulkDeleteBtn');
+        if (readBtn) readBtn.disabled = selected.length === 0;
+        if (delBtn) delBtn.disabled = selected.length === 0;
+    }
+
+    function notifBulkAction(action) {
+        const checks = document.querySelectorAll('#buyerNotifContainer .notif-select-check:checked');
+        const ids = Array.from(checks).map(function (c) { return parseInt(c.value, 10); });
+        if (!ids.length) return;
+        if (action === 'delete' && !confirm('Delete ' + ids.length + ' notification(s)?')) return;
+        const url = action === 'read'
+            ? "{% url 'core:bulk_mark_notifications_read' %}"
+            : "{% url 'core:bulk_delete_notifications' %}";
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+            body: JSON.stringify({ ids: ids })
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            if (data.status === 'ok') {
+                checks.forEach(function (c) {
+                    const card = c.closest('.notif-card');
+                    if (action === 'delete') {
+                        if (card) card.remove();
+                    } else {
+                        if (card) {
+                            card.setAttribute('data-is-read', 'true');
+                            const dot = card.querySelector('.unread-dot');
+                            if (dot) dot.remove();
+                            card.classList.add('opacity-65');
+                            const readBtn = card.querySelector('.btn-notif-read');
+                            if (readBtn) readBtn.remove();
+                        }
+                    }
+                });
+                updateNotifBulkBar();
+                applyNotifVisibility();
+                const badge = document.querySelector('.notif-badge');
+                if (badge) {
+                    badge.innerText = data.unread;
+                    if (data.unread <= 0) badge.remove();
+                }
+            }
+        }).catch(function () { alert('Failed to update notifications.'); });
+    }
+
     let currentNotifFilter = 'unread'; // default
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const selAll = document.getElementById('notifSelectAll');
+        if (selAll) {
+            selAll.addEventListener('change', function () {
+                document.querySelectorAll('#buyerNotifContainer .notif-select-check').forEach(function (c) { c.checked = selAll.checked; });
+                updateNotifBulkBar();
+            });
+        }
+        const readBtn = document.getElementById('notifBulkReadBtn');
+        if (readBtn) readBtn.addEventListener('click', function () { notifBulkAction('read'); });
+        const delBtn = document.getElementById('notifBulkDeleteBtn');
+        if (delBtn) delBtn.addEventListener('click', function () { notifBulkAction('delete'); });
+    });
 
     function setNotifFilter(type) {
         currentNotifFilter = type;
