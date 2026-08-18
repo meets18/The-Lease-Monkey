@@ -36,6 +36,7 @@ urlpatterns = [
     # ── Purchase Requests ─────────────────────────────────────────────────────
     path('plots/<slug:slug>/request/<str:plot_number>/', views.purchase_request_form, name='purchase_request_form'),
     path('plots/<slug:slug>/request/<str:plot_number>/submit/', views.submit_purchase_request, name='submit_purchase_request'),
+    path('purchase-request/check-identity/', views.check_purchase_identity, name='check_purchase_identity'),
     path('purchase-request/send-otp/', views.send_otp, name='send_otp'),
     path('purchase-request/verify-otp/', views.verify_otp, name='verify_otp'),
     path('purchase-request/<int:request_id>/action/', views.purchase_request_action, name='purchase_request_action'),

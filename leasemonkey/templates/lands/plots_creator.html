@@ -2853,7 +2853,7 @@ html, body { overflow: hidden; height: 100%; }
                         document.body.classList.remove('modal-open');
                         document.body.style.overflow = '';
                         document.body.style.paddingRight = '';
-                        window.location.href = result.data.redirect_url || '/accounts/dashboard/';
+                        window.location.href = result.data.redirect_url || "{% url 'admin_dashboard' %}";
                     } else {
                         alert('Error: ' + (result.data.error || 'Failed to finalize registration.'));
                         if (submitBtn) {

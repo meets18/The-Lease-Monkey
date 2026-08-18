@@ -1301,6 +1301,34 @@ from django.core.mail import send_mail
 from django.conf import settings
 
 @login_required
+@login_required
+def check_purchase_identity(request):
+    """Pre-submit check: reject identity details that already belong to a
+    landowner (non-REJECTED application). Used by the purchase request form
+    when advancing from Step 1 to Step 2."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required.'}, status=400)
+    if request.user.role != 'BUYER':
+        return JsonResponse({'error': 'Only buyers can raise purchase requests.'}, status=403)
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except Exception:
+        data = {}
+    aadhaar_number = data.get('aadhaar_number', '').strip()
+    pan_number = data.get('pan_number', '').strip().upper()
+
+    from apps.accounts.models import LandownerApplication
+    errors = []
+    if aadhaar_number and LandownerApplication.objects.filter(aadhaar_number=aadhaar_number).exclude(status='REJECTED').exists():
+        errors.append('This Aadhaar number is already registered to a landowner account. The same identity cannot be used for both a landowner registration and a buyer purchase request.')
+    if pan_number and LandownerApplication.objects.filter(pan_number=pan_number).exclude(status='REJECTED').exists():
+        errors.append('This PAN is already registered to a landowner account. The same identity cannot be used for both a landowner registration and a buyer purchase request.')
+    if errors:
+        return JsonResponse({'status': 'conflict', 'errors': errors}, status=200)
+    return JsonResponse({'status': 'ok'})
+
+
+@login_required
 def send_otp(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required.'}, status=400)
@@ -1467,6 +1495,19 @@ def submit_purchase_request(request, slug, plot_number):
         
         if not (full_name and aadhaar_number and pan_number and email and phone_number and proposed_amount):
             return JsonResponse({'error': 'All fields are required.'}, status=400)
+
+        # Aadhaar and PAN documents are mandatory for a purchase request.
+        if not aadhaar_file:
+            return JsonResponse({'error': 'Aadhaar document upload is required.'}, status=400)
+        if not pan_file:
+            return JsonResponse({'error': 'PAN document upload is required.'}, status=400)
+
+        # Reject if these credentials already belong to a landowner identity.
+        from apps.accounts.models import LandownerApplication
+        if LandownerApplication.objects.filter(aadhaar_number=aadhaar_number).exclude(status='REJECTED').exists():
+            return JsonResponse({'error': 'This Aadhaar number is already registered to a landowner account. The same identity cannot be used for both a landowner registration and a buyer purchase request.'}, status=400)
+        if LandownerApplication.objects.filter(pan_number=pan_number).exclude(status='REJECTED').exists():
+            return JsonResponse({'error': 'This PAN is already registered to a landowner account. The same identity cannot be used for both a landowner registration and a buyer purchase request.'}, status=400)
             
         # Verify OTP was used or verify provided OTP code.
         # A submission MUST be backed by a valid, recently-verified OTP for this
@@ -2781,7 +2822,7 @@ def admin_finish_registration(request, req_id):
     )
 
     messages.success(request, f"Registration layout for '{req.property_name}' finalized successfully.")
-    return JsonResponse({'status': 'success', 'redirect_url': '/accounts/dashboard/'})
+    return JsonResponse({'status': 'success', 'redirect_url': reverse('admin_dashboard')})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

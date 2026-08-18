@@ -2,8 +2,10 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.core.files.uploadedfile import SimpleUploadedFile
 from apps.core.models import EmailOTP, PurchaseRequest, DeallotmentRequest, Notification
 from apps.lands.models import Land, Plot, OccupancyRecord, PlotLeaseLog
+from apps.accounts.models import LandownerApplication
 import json
 
 User = get_user_model()
@@ -197,10 +199,12 @@ class DeallotmentRequestTests(TestCase):
             'email': 'deallot_buyer@test.com',
             'phone_number': '+919876543210',
             'proposed_amount': 1450000,
-            'otp_code': '654321'
+            'otp_code': '654321',
+            'aadhaar_document': SimpleUploadedFile("aadhaar.jpg", b"file_content", content_type="image/jpeg"),
+            'pan_document': SimpleUploadedFile("pan.jpg", b"file_content", content_type="image/jpeg"),
         }
         url = reverse('lands:submit_purchase_request', kwargs={'slug': 'deallot-land', 'plot_number': 'P1'})
-        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        response = self.client.post(url, payload)
         self.assertEqual(response.status_code, 400)
         self.assertIn('24 hours', response.json()['error'])
 
@@ -257,10 +261,12 @@ class PurchaseRequestFormTests(TestCase):
             'full_name': 'PR Buyer',
             'aadhaar_number': '123456789012',
             'pan_number': 'ABCDE1234F',
-            'proposed_amount': 1500000
+            'proposed_amount': 1500000,
+            'aadhaar_document': SimpleUploadedFile("aadhaar.jpg", b"file_content", content_type="image/jpeg"),
+            'pan_document': SimpleUploadedFile("pan.jpg", b"file_content", content_type="image/jpeg"),
         }
         url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
-        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        response = self.client.post(url, payload)
         self.assertEqual(response.status_code, 400)
         self.assertIn('OTP is required', response.json()['error'])
 
@@ -275,10 +281,12 @@ class PurchaseRequestFormTests(TestCase):
             'aadhaar_number': '123456789012',
             'pan_number': 'ABCDE1234F',
             'proposed_amount': 1450000,
-            'otp_code': '123456'
+            'otp_code': '123456',
+            'aadhaar_document': SimpleUploadedFile("aadhaar.jpg", b"file_content", content_type="image/jpeg"),
+            'pan_document': SimpleUploadedFile("pan.jpg", b"file_content", content_type="image/jpeg"),
         }
         url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
-        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        response = self.client.post(url, payload)
         self.assertEqual(response.status_code, 200)
         
         # Verify created request attributes (should pull email/phone from logged in buyer user)
@@ -286,6 +294,199 @@ class PurchaseRequestFormTests(TestCase):
         self.assertEqual(pr.email, 'pr_buyer@test.com')
         self.assertEqual(pr.phone_number, '+919876543210')
         self.assertEqual(pr.proposed_amount, 1450000)
+
+    def test_check_identity_reports_conflict_when_aadhaar_matches_landowner(self):
+        self.client.login(username='pr_buyer', password='Password123!')
+
+        dummy_file = SimpleUploadedFile("dummy.jpg", b"file_content", content_type="image/jpeg")
+        LandownerApplication.objects.create(
+            first_name='Some',
+            last_name='Owner',
+            email='landowner_identity@test.com',
+            mobile_number='+919999999999',
+            aadhaar_number='123456789012',
+            pan_number='XYZAB9876C',
+            land_name='Their Land',
+            land_address='Somewhere',
+            state='Rajasthan',
+            district='Jaipur',
+            pincode='302001',
+            ownership_details='Owned',
+            aadhaar_document=dummy_file,
+            pan_document=dummy_file,
+            ownership_document=dummy_file,
+            status='APPROVED',
+        )
+
+        url = reverse('lands:check_purchase_identity')
+        response = self.client.post(url, json.dumps({
+            'aadhaar_number': '123456789012',
+            'pan_number': 'ZZZZZ9999Z',
+        }), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'conflict')
+        self.assertTrue(any('Aadhaar' in e for e in data['errors']))
+
+    def test_check_identity_reports_conflict_when_pan_matches_landowner(self):
+        self.client.login(username='pr_buyer', password='Password123!')
+
+        dummy_file = SimpleUploadedFile("dummy.jpg", b"file_content", content_type="image/jpeg")
+        LandownerApplication.objects.create(
+            first_name='Some',
+            last_name='Owner',
+            email='landowner_identity@test.com',
+            mobile_number='+919999999999',
+            aadhaar_number='987654321098',
+            pan_number='ABCDE1234F',
+            land_name='Their Land',
+            land_address='Somewhere',
+            state='Rajasthan',
+            district='Jaipur',
+            pincode='302001',
+            ownership_details='Owned',
+            aadhaar_document=dummy_file,
+            pan_document=dummy_file,
+            ownership_document=dummy_file,
+            status='PENDING',
+        )
+
+        url = reverse('lands:check_purchase_identity')
+        response = self.client.post(url, json.dumps({
+            'aadhaar_number': '123456789012',
+            'pan_number': 'ABCDE1234F',
+        }), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'conflict')
+        self.assertTrue(any('PAN' in e for e in data['errors']))
+
+    def test_check_identity_ok_when_no_match(self):
+        self.client.login(username='pr_buyer', password='Password123!')
+
+        url = reverse('lands:check_purchase_identity')
+        response = self.client.post(url, json.dumps({
+            'aadhaar_number': '999999999999',
+            'pan_number': 'ZZZZZ9999Z',
+        }), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'ok')
+
+    def test_submit_purchase_request_blocked_when_aadhaar_matches_landowner(self):
+        self.client.login(username='pr_buyer', password='Password123!')
+
+        dummy_file = SimpleUploadedFile("dummy.jpg", b"file_content", content_type="image/jpeg")
+        LandownerApplication.objects.create(
+            first_name='Some',
+            last_name='Owner',
+            email='landowner_identity@test.com',
+            mobile_number='+919999999999',
+            aadhaar_number='123456789012',
+            pan_number='XYZAB9876C',
+            land_name='Their Land',
+            land_address='Somewhere',
+            state='Rajasthan',
+            district='Jaipur',
+            pincode='302001',
+            ownership_details='Owned',
+            aadhaar_document=dummy_file,
+            pan_document=dummy_file,
+            ownership_document=dummy_file,
+            status='APPROVED',
+        )
+
+        EmailOTP.objects.create(email='pr_buyer@test.com', otp_code='123456', is_used=True)
+
+        payload = {
+            'full_name': 'PR Buyer',
+            'aadhaar_number': '123456789012',
+            'pan_number': 'ABCDE1234F',
+            'proposed_amount': 1450000,
+            'otp_code': '123456',
+            'aadhaar_document': SimpleUploadedFile("aadhaar.jpg", b"file_content", content_type="image/jpeg"),
+            'pan_document': SimpleUploadedFile("pan.jpg", b"file_content", content_type="image/jpeg"),
+        }
+        url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
+        response = self.client.post(url, payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('already registered to a landowner', response.json()['error'])
+
+    def test_submit_purchase_request_blocked_when_pan_matches_landowner(self):
+        self.client.login(username='pr_buyer', password='Password123!')
+
+        dummy_file = SimpleUploadedFile("dummy.jpg", b"file_content", content_type="image/jpeg")
+        LandownerApplication.objects.create(
+            first_name='Some',
+            last_name='Owner',
+            email='landowner_identity@test.com',
+            mobile_number='+919999999999',
+            aadhaar_number='987654321098',
+            pan_number='ABCDE1234F',
+            land_name='Their Land',
+            land_address='Somewhere',
+            state='Rajasthan',
+            district='Jaipur',
+            pincode='302001',
+            ownership_details='Owned',
+            aadhaar_document=dummy_file,
+            pan_document=dummy_file,
+            ownership_document=dummy_file,
+            status='PENDING',
+        )
+
+        EmailOTP.objects.create(email='pr_buyer@test.com', otp_code='123456', is_used=True)
+
+        payload = {
+            'full_name': 'PR Buyer',
+            'aadhaar_number': '123456789012',
+            'pan_number': 'ABCDE1234F',
+            'proposed_amount': 1450000,
+            'otp_code': '123456',
+            'aadhaar_document': SimpleUploadedFile("aadhaar.jpg", b"file_content", content_type="image/jpeg"),
+            'pan_document': SimpleUploadedFile("pan.jpg", b"file_content", content_type="image/jpeg"),
+        }
+        url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
+        response = self.client.post(url, payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('already registered to a landowner', response.json()['error'])
+
+    def test_submit_purchase_request_allowed_when_landowner_app_rejected(self):
+        self.client.login(username='pr_buyer', password='Password123!')
+
+        dummy_file = SimpleUploadedFile("dummy.jpg", b"file_content", content_type="image/jpeg")
+        LandownerApplication.objects.create(
+            first_name='Some',
+            last_name='Owner',
+            email='landowner_identity@test.com',
+            mobile_number='+919999999999',
+            aadhaar_number='123456789012',
+            pan_number='ABCDE1234F',
+            land_name='Their Land',
+            land_address='Somewhere',
+            state='Rajasthan',
+            district='Jaipur',
+            pincode='302001',
+            ownership_details='Owned',
+            aadhaar_document=dummy_file,
+            pan_document=dummy_file,
+            ownership_document=dummy_file,
+            status='REJECTED',
+        )
+
+        EmailOTP.objects.create(email='pr_buyer@test.com', otp_code='123456', is_used=True)
+
+        payload = {
+            'full_name': 'PR Buyer',
+            'aadhaar_number': '123456789012',
+            'pan_number': 'ABCDE1234F',
+            'proposed_amount': 1450000,
+            'otp_code': '123456',
+            'aadhaar_document': SimpleUploadedFile("aadhaar.jpg", b"file_content", content_type="image/jpeg"),
+            'pan_document': SimpleUploadedFile("pan.jpg", b"file_content", content_type="image/jpeg"),
+        }
+        url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
+        response = self.client.post(url, payload)
+        self.assertEqual(response.status_code, 200)
 
     def test_submit_purchase_request_with_wrong_otp(self):
         self.client.login(username='pr_buyer', password='Password123!')
@@ -298,12 +499,50 @@ class PurchaseRequestFormTests(TestCase):
             'aadhaar_number': '123456789012',
             'pan_number': 'ABCDE1234F',
             'proposed_amount': 1450000,
-            'otp_code': '999999'
+            'otp_code': '999999',
+            'aadhaar_document': SimpleUploadedFile("aadhaar.jpg", b"file_content", content_type="image/jpeg"),
+            'pan_document': SimpleUploadedFile("pan.jpg", b"file_content", content_type="image/jpeg"),
         }
         url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
-        response = self.client.post(url, json.dumps(payload), content_type='application/json')
+        response = self.client.post(url, payload)
         self.assertEqual(response.status_code, 400)
         self.assertIn('OTP', response.json()['error'])
+
+    def test_submit_purchase_request_requires_aadhaar_document(self):
+        self.client.login(username='pr_buyer', password='Password123!')
+
+        EmailOTP.objects.create(email='pr_buyer@test.com', otp_code='123456', is_used=True)
+
+        payload = {
+            'full_name': 'PR Buyer',
+            'aadhaar_number': '123456789012',
+            'pan_number': 'ABCDE1234F',
+            'proposed_amount': 1450000,
+            'otp_code': '123456',
+            'pan_document': SimpleUploadedFile("pan.jpg", b"file_content", content_type="image/jpeg"),
+        }
+        url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
+        response = self.client.post(url, payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Aadhaar document upload is required', response.json()['error'])
+
+    def test_submit_purchase_request_requires_pan_document(self):
+        self.client.login(username='pr_buyer', password='Password123!')
+
+        EmailOTP.objects.create(email='pr_buyer@test.com', otp_code='123456', is_used=True)
+
+        payload = {
+            'full_name': 'PR Buyer',
+            'aadhaar_number': '123456789012',
+            'pan_number': 'ABCDE1234F',
+            'proposed_amount': 1450000,
+            'otp_code': '123456',
+            'aadhaar_document': SimpleUploadedFile("aadhaar.jpg", b"file_content", content_type="image/jpeg"),
+        }
+        url = reverse('lands:submit_purchase_request', kwargs={'slug': 'test-land', 'plot_number': 'Plot101'})
+        response = self.client.post(url, payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('PAN document upload is required', response.json()['error'])
 
     def test_cancel_purchase_request(self):
         self.client.login(username='pr_buyer', password='Password123!')

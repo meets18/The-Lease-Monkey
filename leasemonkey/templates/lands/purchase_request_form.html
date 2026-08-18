@@ -600,25 +600,25 @@
 
                         <div class="row mb-3">
                             <div class="col-md-6 mb-3 mb-md-0">
-                                <label class="form-label">Aadhaar Document (Optional — for verification)</label>
+                                <label class="form-label">Aadhaar Document <span class="text-danger">*</span></label>
                                 <div class="file-upload-wrapper text-center border-dashed rounded p-3 position-relative"
                                     style="border: 2px dashed rgba(255,255,255,0.15); background: rgba(0,0,0,0.2); cursor: pointer;"
                                     onclick="document.getElementById('aadhaarFileUpload').click();">
                                     <i class="bi bi-person-vcard fs-3 text-cyan-glow mb-1 d-block"></i>
                                     <span class="fs-12 fw-bold text-white d-block mb-1" id="aadhaarUploadLabel">Upload Aadhaar</span>
                                     <span class="fs-10 text-white-50 d-block">PDF, JPG, PNG (Max 10MB)</span>
-                                    <input type="file" id="aadhaarFileUpload" accept=".pdf, .jpg, .jpeg, .png" class="d-none" onchange="updatePurchaseFileLabel(this, 'aadhaarUploadLabel');">
+                                    <input type="file" id="aadhaarFileUpload" accept=".pdf, .jpg, .jpeg, .png" class="d-none" required onchange="updatePurchaseFileLabel(this, 'aadhaarUploadLabel');">
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">PAN Document (Optional — for verification)</label>
+                                <label class="form-label">PAN Document <span class="text-danger">*</span></label>
                                 <div class="file-upload-wrapper text-center border-dashed rounded p-3 position-relative"
                                     style="border: 2px dashed rgba(255,255,255,0.15); background: rgba(0,0,0,0.2); cursor: pointer;"
                                     onclick="document.getElementById('panFileUpload').click();">
                                     <i class="bi bi-credit-card-2-front-fill fs-3 text-amber-glow mb-1 d-block"></i>
                                     <span class="fs-12 fw-bold text-white d-block mb-1" id="panUploadLabel">Upload PAN</span>
                                     <span class="fs-10 text-white-50 d-block">PDF, JPG, PNG (Max 10MB)</span>
-                                    <input type="file" id="panFileUpload" accept=".pdf, .jpg, .jpeg, .png" class="d-none" onchange="updatePurchaseFileLabel(this, 'panUploadLabel');">
+                                    <input type="file" id="panFileUpload" accept=".pdf, .jpg, .jpeg, .png" class="d-none" required onchange="updatePurchaseFileLabel(this, 'panUploadLabel');">
                                 </div>
                             </div>
                         </div>
@@ -843,6 +843,7 @@
     function updatePurchaseFileLabel(input, labelId) {
         const label = document.getElementById(labelId);
         if (!label) return;
+        const wrapper = input ? input.closest('.file-upload-wrapper') : null;
         if (input.files && input.files.length > 0) {
             label.innerText = input.files[0].name;
             label.style.color = '#38BDF8';
@@ -850,6 +851,7 @@
             label.innerText = labelId === 'aadhaarUploadLabel' ? 'Upload Aadhaar' : 'Upload PAN';
             label.style.color = '#FFFFFF';
         }
+        if (wrapper) wrapper.style.borderColor = '';
     }
 
     function validateStep1() {
@@ -889,16 +891,29 @@
             panNumber.classList.remove('is-invalid');
         }
 
-        // Optionally validate uploaded files (PDF / JPG / PNG) if present
-        [aadhaarFile, panFile].forEach(function (input) {
+        // Aadhaar + PAN documents are mandatory
+        [['aadhaarFileUpload', 'aadhaarUploadLabel'], ['panFileUpload', 'panUploadLabel']].forEach(function (pair) {
+            const input = document.getElementById(pair[0]);
+            const label = document.getElementById(pair[1]);
+            const wrapper = input ? input.closest('.file-upload-wrapper') : null;
+            let valid = false;
             if (input && input.files && input.files.length > 0) {
                 const ext = input.files[0].name.substring(input.files[0].name.lastIndexOf('.')).toLowerCase();
-                if (['.pdf', '.jpg', '.jpeg', '.png'].indexOf(ext) === -1) {
-                    input.classList.add('is-invalid');
-                    isValid = false;
-                } else {
-                    input.classList.remove('is-invalid');
-                }
+                valid = ['.pdf', '.jpg', '.jpeg', '.png'].indexOf(ext) !== -1;
+            }
+            if (input) {
+                input.classList.toggle('is-invalid', !valid);
+            }
+            if (wrapper) {
+                wrapper.style.borderColor = valid ? '' : 'rgba(255, 77, 79, 0.6)';
+            }
+            if (label) {
+                label.innerText = valid
+                    ? (input && input.files && input.files[0] ? input.files[0].name : label.innerText)
+                    : (input && input.files && input.files.length > 0 ? 'Invalid file type' : 'Upload required');
+            }
+            if (!valid) {
+                isValid = false;
             }
         });
 
@@ -908,32 +923,78 @@
     function nextStep(currentStep) {
         if (currentStep === 1) {
             if (!validateStep1()) return;
-            
-            const step1Page = document.getElementById('step1Page');
-            const step2Page = document.getElementById('step2Page');
-            
-            // Un-collapse Step 2 page before sliding
-            step2Page.classList.remove('inactive-page');
 
-            // Trigger OTP send when moving to Step 2 for the first time
-            if (!otpAlreadyTriggered) {
-                sendOtp(true);
-                otpAlreadyTriggered = true;
+            // Server-side identity conflict check (aadhaar/PAN already used by a landowner)
+            const btnNext = document.getElementById('btnNext1');
+            const aadhaarNum = document.getElementById('aadhaarNumber');
+            const panNum = document.getElementById('panNumber');
+            const url = "{% url 'lands:check_purchase_identity' %}";
+            if (btnNext) {
+                btnNext.disabled = true;
+                btnNext.innerHTML = 'Checking <span class="spinner-border spinner-border-sm ms-1"></span>';
             }
-
-            // Smooth Slide to Step 2
-            document.getElementById('wizardSlider').style.transform = 'translateX(-50%)';
-            document.getElementById('indicator1').classList.add('completed');
-            document.getElementById('indicator2').classList.add('active');
-            
-            // Display OTP banner on Step 2
-            document.getElementById('otpBanner').style.display = 'flex';
-
-            // Collapse Step 1 page after slide transition completes
-            setTimeout(() => {
-                step1Page.classList.add('inactive-page');
-            }, 400);
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    aadhaar_number: aadhaarNum.value.trim(),
+                    pan_number: panNum.value.trim().toUpperCase()
+                })
+            })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (btnNext) {
+                    btnNext.disabled = false;
+                    btnNext.innerHTML = 'Next <i class="bi bi-arrow-right ms-1"></i>';
+                }
+                if (data.status === 'conflict') {
+                    showAlert(data.errors.join(' '));
+                    return;
+                }
+                if (data.status !== 'ok') {
+                    showAlert(data.error || 'Could not verify identity details. Please try again.');
+                    return;
+                }
+                proceedToStep2();
+            })
+            .catch(function () {
+                if (btnNext) {
+                    btnNext.disabled = false;
+                    btnNext.innerHTML = 'Next <i class="bi bi-arrow-right ms-1"></i>';
+                }
+                showAlert('Could not verify identity details. Please try again.');
+            });
         }
+    }
+
+    function proceedToStep2() {
+        const step1Page = document.getElementById('step1Page');
+        const step2Page = document.getElementById('step2Page');
+        
+        // Un-collapse Step 2 page before sliding
+        step2Page.classList.remove('inactive-page');
+
+        // Trigger OTP send when moving to Step 2 for the first time
+        if (!otpAlreadyTriggered) {
+            sendOtp(true);
+            otpAlreadyTriggered = true;
+        }
+
+        // Smooth Slide to Step 2
+        document.getElementById('wizardSlider').style.transform = 'translateX(-50%)';
+        document.getElementById('indicator1').classList.add('completed');
+        document.getElementById('indicator2').classList.add('active');
+        
+        // Display OTP banner on Step 2
+        document.getElementById('otpBanner').style.display = 'flex';
+
+        // Collapse Step 1 page after slide transition completes
+        setTimeout(() => {
+            step1Page.classList.add('inactive-page');
+        }, 400);
     }
 
     function prevStep(currentStep) {
