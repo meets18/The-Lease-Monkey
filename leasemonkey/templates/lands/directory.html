@@ -61,7 +61,7 @@
             {% endwith %}
           </div>
           <div class="land-card-body">
-            <div class="land-card-badge">Active</div>
+            <div class="land-card-badge {% if not land.is_live %}land-card-badge-draft{% endif %}">{% if land.is_live %}Active{% else %}Draft{% endif %}</div>
             <h3 class="land-card-title">{{ land.name }}</h3>
             <p class="land-card-location"><i class="bi bi-geo-alt"></i> {{ land.location }}</p>
           </div>
@@ -90,7 +90,7 @@
       <div class="land-modal-hero-info">
         <div class="land-modal-hero-info-left">
           <h2 id="landModalTitle"></h2>
-          <span class="land-modal-badge">Active</span>
+          <span class="land-modal-badge" id="landModalStatusBadge">Active</span>
         </div>
         <a href="#" class="btn-explore-plots" id="btnExplorePlots">
           Explore Plots <i class="bi bi-arrow-right"></i>
@@ -140,7 +140,7 @@
             </div>
             <div class="detail-item">
               <span class="detail-label">Status</span>
-              <span class="detail-value"><span class="land-modal-badge">Active</span></span>
+              <span class="detail-value"><span class="land-modal-badge" id="landModalStatusDetail">Active</span></span>
             </div>
           </div>
         </div>
@@ -477,6 +477,19 @@
   [data-theme="light"] .land-card-badge {
     background: #DCFCE7;
     color: #166534;
+  }
+
+  /* ── Draft (offline) badge ───────────────────── */
+  [data-theme="dark"] .land-card-badge-draft,
+  [data-theme="dark"] .land-modal-badge-draft {
+    background: rgba(245, 158, 11, 0.18);
+    color: #FBBF24;
+  }
+
+  [data-theme="light"] .land-card-badge-draft,
+  [data-theme="light"] .land-modal-badge-draft {
+    background: #FEF3C7;
+    color: #B45309;
   }
 
   /* ── Empty State ─────────────────────────────── */
@@ -1121,6 +1134,8 @@
   const detailDescription = document.getElementById('detailDescription');
   const descriptionSection = document.getElementById('descriptionSection');
   const btnExplore = document.getElementById('btnExplorePlots');
+  const landModalStatusBadge = document.getElementById('landModalStatusBadge');
+  const landModalStatusDetail = document.getElementById('landModalStatusDetail');
   const cards = document.querySelectorAll('.land-card');
 
   let currentLand = null;
@@ -1188,6 +1203,18 @@
       descriptionSection.style.display = 'block';
     } else {
       descriptionSection.style.display = 'none';
+    }
+
+    // Live/Draft status badges
+    const isLive = !!land.is_live;
+    const statusText = isLive ? 'Active' : 'Draft';
+    if (landModalStatusBadge) {
+      landModalStatusBadge.textContent = statusText;
+      landModalStatusBadge.classList.toggle('land-modal-badge-draft', !isLive);
+    }
+    if (landModalStatusDetail) {
+      landModalStatusDetail.textContent = statusText;
+      landModalStatusDetail.classList.toggle('land-modal-badge-draft', !isLive);
     }
 
     // Open

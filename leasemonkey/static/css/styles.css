@@ -1449,6 +1449,45 @@ h6,
     }
 }
 
+/* Mobile Dashboard Tab Bar (visible below lg breakpoint) */
+.mobile-tab-bar {
+    display: none;
+    position: sticky;
+    -webkit-overflow-scrolling: touch;
+}
+
+.mobile-tab-bar::-webkit-scrollbar {
+    display: none;
+}
+
+.mobile-tab-btn {
+    border: 1px solid rgba(148, 163, 184, 0.25) !important;
+    background: rgba(148, 163, 184, 0.08) !important;
+    color: #94A3B8 !important;
+    border-radius: 999px !important;
+    padding: 4px 14px !important;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.mobile-tab-btn:hover {
+    border-color: var(--accent-orange) !important;
+    color: #ffffff !important;
+}
+
+.mobile-tab-btn.active {
+    background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+    border-color: transparent !important;
+    color: #ffffff !important;
+}
+
+@media (max-width: 991px) {
+    .mobile-tab-bar {
+        display: flex;
+        flex-wrap: nowrap;
+    }
+}
+
 /* Contact Info & Forms */
 .contact-input {
     background-color: var(--bg-card) !important;

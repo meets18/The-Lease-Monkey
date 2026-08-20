@@ -1,0 +1,84 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<p style="margin:0 0 16px 0;">{% if user_name %}Hello {{ user_name }},{% else %}Hello,{% endif %}</p>
+
+{% if stage == 'submitted' %}
+<p style="margin:0 0 12px 0;">A new land registration request has been submitted and is ready for your review.</p>
+<div style="margin:0 0 20px 0; padding:16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+  <p style="margin:0 0 6px 0;"><strong>Property:</strong> {{ property_name }}</p>
+  <p style="margin:0 0 6px 0;"><strong>Location:</strong> {{ location }}</p>
+  {% if owner_name %}<p style="margin:0 0 6px 0;"><strong>Landowner:</strong> {{ owner_name }}</p>{% endif %}
+  {% if email %}<p style="margin:0 0 6px 0;"><strong>Email:</strong> {{ email }}</p>{% endif %}
+  {% if phone %}<p style="margin:0;"><strong>Phone:</strong> {{ phone }}</p>{% endif %}
+</div>
+<p style="margin:0; color:#64748b;">Please log in to the admin dashboard to review it.</p>
+
+{% elif stage == 'submitted_ack' %}
+<p style="margin:0 0 12px 0;">Your land registration request for <strong>{{ property_name }}</strong> has been submitted successfully.</p>
+<p style="margin:0; color:#64748b;">Our team will review your request and notify you of the decision. This process typically takes 2-3 business days.</p>
+
+{% elif stage == 'payment_required' %}
+<p style="margin:0 0 12px 0;">Your land registration for <strong>{{ property_name }}</strong> has been approved!</p>
+<p style="margin:0 0 12px 0;">Next step: please pay the <strong>{{ payment_amount }}</strong>/month hosting fee before the deadline.</p>
+<div style="margin:0 0 20px 0; padding:16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+  <p style="margin:0 0 6px 0;"><strong>Monthly Hosting Fee:</strong> {{ payment_amount }}</p>
+  <p style="margin:0;"><strong>Payment Deadline:</strong> {{ payment_deadline }}</p>
+</div>
+<p style="margin:0; color:#64748b;">Once payment is confirmed, our team will digitize your plot layout and publish your property live.</p>
+
+{% elif stage == 'approved_offline' %}
+<p style="margin:0 0 12px 0;">Your property <strong>{{ property_name }}</strong> has been successfully digitized and approved.</p>
+<p style="margin:0; color:#64748b;">It is currently saved as an offline property and will become visible to buyers once an administrator publishes it.</p>
+
+{% elif stage == 'approved' %}
+<p style="margin:0 0 12px 0;">Congratulations! Your landowner registration for <strong>{{ property_name }}</strong> has been approved.</p>
+{% if username %}
+<p style="margin:0 0 12px 0;">Your login credentials:</p>
+<div style="margin:0 0 20px 0; padding:16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+  <p style="margin:0 0 6px 0;"><strong>Username:</strong> {{ username }}</p>
+  <p style="margin:0;"><strong>Password:</strong> {{ password }}</p>
+</div>
+{% if login_url %}<p style="margin:0 0 12px 0;">Log in at: <a href="{{ login_url }}" style="color:#2563eb;">{{ login_url }}</a></p>{% endif %}
+<p style="margin:0; color:#64748b;">We recommend changing your password after your first login.</p>
+{% else %}
+<p style="margin:0; color:#64748b;">You can now log in to your landowner dashboard to register your properties.</p>
+{% endif %}
+
+{% elif stage == 'rejected' %}
+<p style="margin:0 0 12px 0;">We're sorry — your land registration request for <strong>{{ property_name }}</strong> was rejected.</p>
+{% if reason %}<p style="margin:0 0 12px 0;"><strong>Reason:</strong> {{ reason }}</p>{% endif %}
+<p style="margin:0; color:#64748b;">You can reach out to our support team for more details or to re-submit.</p>
+
+{% elif stage == 'info_required' %}
+<p style="margin:0 0 12px 0;">The administrator has sent a message regarding your land registration request for <strong>{{ property_name }}</strong>:</p>
+<div style="margin:0 0 20px 0; padding:16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+  <p style="margin:0; white-space:pre-line;">"{{ admin_message }}"</p>
+</div>
+<p style="margin:0; color:#64748b;">Please review and respond from your landowner dashboard.</p>
+
+{% elif stage == 'reupload_requested' %}
+<p style="margin:0 0 12px 0;">We need an updated <strong>{{ doc_label }}</strong> for your land registration request for <strong>{{ property_name }}</strong>.</p>
+{% if note %}<p style="margin:0 0 12px 0;"><strong>Note:</strong> {{ note }}</p>{% endif %}
+<p style="margin:0; color:#64748b;">Please re-upload the document from your landowner dashboard.</p>
+
+{% elif stage == 'reupload_closed' %}
+<p style="margin:0 0 12px 0;">The re-upload window for your land registration request for <strong>{{ property_name }}</strong> has been closed.</p>
+<p style="margin:0; color:#64748b;">Contact support if you have questions.</p>
+
+{% elif stage == 'reupload_submitted' %}
+<p style="margin:0 0 12px 0;">The landowner has re-uploaded the <strong>{{ doc_label }}</strong> for <strong>{{ property_name }}</strong>.</p>
+<p style="margin:0; color:#64748b;">Please review it in the admin dashboard.</p>
+
+{% elif stage == 'live' %}
+<p style="margin:0 0 12px 0;">Congratulations! Your property <strong>{{ property_name }}</strong> is now LIVE on {{ app_name }}.</p>
+<p style="margin:0; color:#64748b;">Buyers can now view your plots and submit requests.</p>
+
+{% elif stage == 'layout_deleted' %}
+<p style="margin:0 0 12px 0;">The layout for <strong>{{ property_name }}</strong> has been deleted.</p>
+<p style="margin:0; color:#64748b;">If this was unexpected, please contact support.</p>
+
+{% else %}
+<p style="margin:0;">{{ message|safe }}</p>
+{% endif %}
+{% endblock %}

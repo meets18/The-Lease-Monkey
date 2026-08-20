@@ -31,7 +31,7 @@
                 {% if req.status == 'pending' %}
                     <span class="badge bg-warning text-dark fs-12 px-3 py-1.5 text-uppercase" style="border-radius: var(--radius-badge);">Pending</span>
                 {% elif req.status == 'payment_pending' %}
-                    <span class="badge text-white fs-12 px-3 py-1.5 text-uppercase" style="background-color:#F59E0B; border-radius: var(--radius-badge);">⏳ Payment Pending (24h)</span>
+                    <span class="badge text-white fs-12 px-3 py-1.5 text-uppercase" style="background-color:#F59E0B; border-radius: var(--radius-badge);">⏳ Payment Pending</span>
                 {% elif req.status == 'payment_completed' %}
                     <span class="badge text-white fs-12 px-3 py-1.5 text-uppercase" style="background-color:#8B5CF6; border-radius: var(--radius-badge);">💳 Payment Received</span>
                 {% elif req.status == 'being_added' %}
@@ -305,8 +305,23 @@
             
             <div class="d-flex flex-wrap gap-3">
                 {% if req.status == 'pending' %}
-                    <form method="POST" action="{% url 'lands:admin_register_land' req.id %}" style="margin: 0;">
+                    <form method="POST" action="{% url 'lands:admin_register_land' req.id %}" style="margin: 0; width: 100%;">
                         {% csrf_token %}
+                        <div class="w-100 p-3 rounded-3 border mb-3" style="background:#FFFBEB; border-color:rgba(245,158,11,0.35) !important;">
+                            <h6 class="fs-12 text-uppercase tracking-wider fw-bold mb-3" style="color:#92400E;"><i class="bi bi-sliders me-1"></i> Set Monthly Hosting Fee &amp; Payment Deadline</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="paymentAmount" class="form-label fs-12 fw-bold text-muted text-uppercase tracking-wider">Monthly Hosting Fee (₹)</label>
+                                    <input type="number" id="paymentAmount" name="payment_amount" class="form-control bg-white text-dark fs-14 border border-light-glow" min="1" step="0.01" required value="{% if req.payment_amount %}{{ req.payment_amount }}{% else %}200{% endif %}">
+                                    <div class="form-text fs-11">The exact amount the landowner must pay each month (no GST).</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="paymentDeadline" class="form-label fs-12 fw-bold text-muted text-uppercase tracking-wider">Payment Deadline</label>
+                                    <input type="datetime-local" id="paymentDeadline" name="payment_deadline" class="form-control bg-white text-dark fs-14 border border-light-glow" required>
+                                    <div class="form-text fs-11">The request auto-rejects if payment is not completed by this time.</div>
+                                </div>
+                            </div>
+                        </div>
                         <button type="submit" class="btn text-white fs-12 fw-bold text-uppercase py-2.5 px-4" style="background-color: var(--color-success); border-radius: var(--radius-btn); border: none;">
                             ✅ Approve &amp; Request Payment
                         </button>
@@ -318,6 +333,7 @@
                     <div class="w-100 p-3 rounded-3 border d-flex justify-content-between align-items-center flex-wrap gap-2" style="background:#FFFBEB; border-color:rgba(245,158,11,0.35) !important;">
                         <div>
                             <p class="fs-13 fw-bold mb-0" style="color:#92400E;">⏳ Waiting for Landowner Payment</p>
+                            <p class="fs-12 text-muted mb-0">Monthly fee: <strong>₹{{ req.payment_amount }}</strong> (no GST)</p>
                             {% if req.payment_deadline %}
                             <p class="fs-12 text-muted mb-0">Deadline: {{ req.payment_deadline|date:"d M Y, h:i A" }}</p>
                             {% endif %}
@@ -443,6 +459,18 @@
         document.getElementById('rejectReason').value = '';
         modal.show();
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Prefill the payment deadline with a sensible default (3 days from now)
+        const deadlineInput = document.getElementById('paymentDeadline');
+        if (deadlineInput && !deadlineInput.value) {
+            const dt = new Date();
+            dt.setDate(dt.getDate() + 3);
+            dt.setSeconds(0, 0);
+            const pad = n => String(n).padStart(2, '0');
+            deadlineInput.value = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+        }
+    });
 
     document.addEventListener('DOMContentLoaded', function () {
         const form = document.getElementById('rejectForm');

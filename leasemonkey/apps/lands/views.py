@@ -56,8 +56,17 @@ def serialize_building(building):
     }
 
 def lands_directory(request):
-    """Renders the catalog list of available land properties."""
-    lands_qs = Land.objects.filter(is_live=True).prefetch_related('images', 'plots')
+    """Renders the catalog list of available land properties.
+
+    Live lands are public. Offline (draft) lands are only shown to admins
+    and superusers so they can preview layouts before publishing.
+    """
+    is_admin = request.user.is_authenticated and (request.user.role == 'ADMIN' or request.user.is_superuser)
+    if is_admin:
+        lands_qs = Land.objects.all()
+    else:
+        lands_qs = Land.objects.filter(is_live=True)
+    lands_qs = lands_qs.prefetch_related('images', 'plots')
     lands = [land for land in lands_qs if land.boundary_coordinates and len(land.boundary_coordinates) >= 3]
 
     lands_data = []
@@ -73,6 +82,7 @@ def lands_directory(request):
             'location': land.location,
             'description': land.description,
             'plots_count': land.plots.count(),
+            'is_live': land.is_live,
             'first_image_url': images[0].image.url if images else None,
             'images': [{'url': img.image.url, 'caption': img.caption} for img in images],
         })
@@ -80,6 +90,7 @@ def lands_directory(request):
     return render(request, 'lands/directory.html', {
         'lands': lands,
         'lands_json': json.dumps(lands_data),
+        'is_admin': is_admin,
     })
 
 def plot_viewer(request, slug):
@@ -275,41 +286,37 @@ def handle_land_deletion(land):
     """
     req = getattr(land, 'registration_request', None)
     if req:
-        from apps.core.models import Notification
-        from django.core.mail import send_mail
-        from django.conf import settings
-        from django.utils import timezone
+            from apps.core.models import Notification
+            from apps.core.emails import send_templated_email
+            from django.utils import timezone
 
-        req.status = 'rejected'
-        req.rejection_reason = f"The digitized land layout/draft for '{req.property_name}' was deleted or discarded by the administrator."
-        req.reviewed_at = timezone.now()
-        req.save(update_fields=['status', 'rejection_reason', 'reviewed_at'])
+            req.status = 'rejected'
+            req.rejection_reason = f"The digitized land layout/draft for '{req.property_name}' was deleted or discarded by the administrator."
+            req.reviewed_at = timezone.now()
+            req.save(update_fields=['status', 'rejection_reason', 'reviewed_at'])
 
-        # Notify landowner
-        Notification.objects.create(
-            recipient=req.owner,
-            sender=req.owner,
-            notif_type='land_request_rejected',
-            title='❌ Land Layout Deleted',
-            message=f"Your land registration request for '{req.property_name}' was rejected because the digitized land layout was deleted by the administrator."
-        )
+            # Notify landowner
+            Notification.objects.create(
+                recipient=req.owner,
+                sender=req.owner,
+                notif_type='land_request_rejected',
+                title='❌ Land Layout Deleted',
+                message=f"Your land registration request for '{req.property_name}' was rejected because the digitized land layout was deleted by the administrator."
+            )
 
-        # Email
-        subject = f"Lease Monkey: Land Registration Layout Deleted — {req.property_name}"
-        email_body = (
-            f"Hello {req.owner.get_full_name() or req.owner.username},\n\n"
-            f"We are writing to inform you that your land registration request for '{req.property_name}' has been rejected "
-            f"because the digitized land layout draft was deleted/discarded by the administrator.\n\n"
-            f"Please log in to your dashboard to resubmit or update your request.\n\n"
-            f"— The Lease Monkey Team"
-        )
-        send_mail(
-            subject=subject,
-            message=email_body,
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[req.owner.email],
-            fail_silently=True
-        )
+            # Email
+            subject = f"Lease Monkey: Land Registration Layout Deleted — {req.property_name}"
+            send_templated_email(
+                subject=subject,
+                to=[req.owner.email],
+                template='land_registration_email.html',
+                context={
+                    'stage': 'layout_deleted',
+                    'user_name': req.owner.get_full_name() or req.owner.username,
+                    'property_name': req.property_name,
+                },
+                fail_silently=True
+            )
 
 
 @login_required
@@ -674,8 +681,7 @@ def perform_deallotment(land, plot_number, reason, actor):
     fulfilled buyer vacate requests. Returns (ok, error_message)."""
     from django.utils import timezone
     from apps.core.models import PurchaseRequest, Notification
-    from django.core.mail import send_mail
-    from django.conf import settings as django_settings
+    from apps.core.emails import send_templated_email
 
     reason = (reason or '').strip()
     if not reason:
@@ -731,11 +737,18 @@ def perform_deallotment(land, plot_number, reason, actor):
     )
 
     try:
-        send_mail(
+        send_templated_email(
             subject=f'[Lease Monkey] Plot {plot_number} De-allocation Notice',
-            message=f'Hello {pr.buyer.username},\n\nWe regret to inform you that your allotment for Plot {plot_number} in {land.name} has been cancelled by the landowner.\n\nReason for de-allocation: {reason}\n\nIf you have any questions, please contact the landowner or our support team.\n\n— The Lease Monkey Team',
-            from_email=django_settings.EMAIL_HOST_USER,
-            recipient_list=[pr.buyer.email],
+            to=[pr.buyer.email],
+            template='purchase_request_email.html',
+            context={
+                'stage': 'deallotment_notice',
+                'user_name': pr.buyer.username,
+                'plot_number': plot_number,
+                'land_name': land.name,
+                'buyer_name': pr.buyer.username,
+                'reason': reason,
+            },
             fail_silently=True,
         )
     except Exception:
@@ -787,8 +800,7 @@ def request_deallotment(request, slug, plot_number):
     """Buyer-initiated 'Vacate Plot' request. Sends a pending de-allotment
     request to the landowner, who must approve it before the plot is freed."""
     from apps.core.models import PurchaseRequest, DeallotmentRequest, Notification
-    from django.core.mail import send_mail
-    from django.conf import settings as django_settings
+    from apps.core.emails import send_templated_email
     from django.utils import timezone
 
     if request.user.role != 'BUYER' and not request.user.is_superuser:
@@ -838,11 +850,18 @@ def request_deallotment(request, slug, plot_number):
         )
 
     try:
-        send_mail(
+        send_templated_email(
             subject=f'[Lease Monkey] Vacate Request — Plot {plot_number}',
-            message=f'Hello {land.owner.username},\n\n{request.user.username} has requested to vacate Plot {plot_number} in {land.name}.\n\nReason: {reason}\n\nYou can approve or decline this request from your dashboard under the Buyers tab.\n\n— The Lease Monkey Team',
-            from_email=django_settings.EMAIL_HOST_USER,
-            recipient_list=[land.owner.email],
+            to=[land.owner.email],
+            template='purchase_request_email.html',
+            context={
+                'stage': 'vacate_request',
+                'user_name': land.owner.username,
+                'buyer_name': request.user.username,
+                'plot_number': plot_number,
+                'land_name': land.name,
+                'reason': reason,
+            },
             fail_silently=True,
         )
     except Exception:
@@ -856,9 +875,7 @@ def request_deallotment(request, slug, plot_number):
 def decide_deallotment(request, slug, request_id):
     """Landowner approves or declines a buyer's vacate (de-allotment) request."""
     from apps.core.models import DeallotmentRequest, Notification
-    from django.core.mail import send_mail
-    from django.conf import settings as django_settings
-    from django.utils import timezone
+    from apps.core.emails import send_templated_email
 
     land = get_object_or_404(Land, slug=slug)
     if request.user != land.owner and not request.user.is_superuser:
@@ -896,11 +913,16 @@ def decide_deallotment(request, slug, request_id):
             plot_number=deallot.plot_number,
         )
         try:
-            send_mail(
+            send_templated_email(
                 subject=f'[Lease Monkey] Vacate Approved — Plot {deallot.plot_number}',
-                message=f'Hello {deallot.buyer.username},\n\nYour request to vacate Plot {deallot.plot_number} in {land.name} has been approved by the landowner. The plot has been freed and your allotment is cancelled.\n\n— The Lease Monkey Team',
-                from_email=django_settings.EMAIL_HOST_USER,
-                recipient_list=[deallot.buyer.email],
+                to=[deallot.buyer.email],
+                template='purchase_request_email.html',
+                context={
+                    'stage': 'vacate_approved',
+                    'user_name': deallot.buyer.username,
+                    'plot_number': deallot.plot_number,
+                    'land_name': land.name,
+                },
                 fail_silently=True,
             )
         except Exception:
@@ -922,11 +944,16 @@ def decide_deallotment(request, slug, request_id):
             plot_number=deallot.plot_number,
         )
         try:
-            send_mail(
+            send_templated_email(
                 subject=f'[Lease Monkey] Vacate Declined — Plot {deallot.plot_number}',
-                message=f'Hello {deallot.buyer.username},\n\nYour request to vacate Plot {deallot.plot_number} in {land.name} was declined by the landowner. Your allotment remains active.\n\n— The Lease Monkey Team',
-                from_email=django_settings.EMAIL_HOST_USER,
-                recipient_list=[deallot.buyer.email],
+                to=[deallot.buyer.email],
+                template='purchase_request_email.html',
+                context={
+                    'stage': 'vacate_declined',
+                    'user_name': deallot.buyer.username,
+                    'plot_number': deallot.plot_number,
+                    'land_name': land.name,
+                },
                 fail_silently=True,
             )
         except Exception:
@@ -1167,8 +1194,8 @@ def request_land_deletion(request, slug):
         return JsonResponse({'error': 'Land not found.'}, status=404)
 
     from apps.core.models import Notification, PurchaseRequest
-    from django.core.mail import send_mail
-    from django.conf import settings as django_settings
+    from apps.core.emails import send_templated_email
+    from django.conf import settings
 
     if PurchaseRequest.objects.filter(land=land, status__in=['approved', 'lease_active']).exists():
         return JsonResponse({'error': 'Cannot delete land. Some plots are allotted to buyers. Please de-allot them first.'}, status=400)
@@ -1192,22 +1219,20 @@ def request_land_deletion(request, slug):
             land_slug=land.slug,
         )
         # Send email to this admin
-        admin_email = django_settings.ADMIN_EMAIL or admin.email
+        admin_email = settings.ADMIN_EMAIL or admin.email
         if admin_email:
             try:
-                send_mail(
+                send_templated_email(
                     subject=f"[Lease Monkey] Deletion Request — Land \"{land.name}\"",
-                    message=(
-                        f"Hello {admin.username},\n\n"
-                        f"Landowner '{request.user.username}' has submitted a deletion request for:\n\n"
-                        f"  Land: {land.name}\n"
-                        f"  Location: {land.location}\n"
-                        f"  Slug: {land.slug}\n\n"
-                        f"Please log in to your dashboard and review the Notifications tab to approve or reject this request.\n\n"
-                        f"— The Lease Monkey System"
-                    ),
-                    from_email=django_settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[admin_email],
+                    to=[admin_email],
+                    template='purchase_request_email.html',
+                    context={
+                        'stage': 'deletion_request',
+                        'user_name': admin.username,
+                        'item_label': f'Land: {land.name}',
+                        'land_name': land.name,
+                        'requested_by': request.user.username,
+                    },
                     fail_silently=True,
                 )
             except Exception:
@@ -1244,8 +1269,8 @@ def request_plot_deletion(request, slug, plot_number):
         return JsonResponse({'error': f'{item_label} not found in land {land.name}.'}, status=404)
 
     from apps.core.models import Notification, PurchaseRequest
-    from django.core.mail import send_mail
-    from django.conf import settings as django_settings
+    from apps.core.emails import send_templated_email
+    from django.conf import settings
 
     if kind == 'plot':
         if PurchaseRequest.objects.filter(land=land, plot_number=plot_number, status__in=['approved', 'lease_active']).exists():
@@ -1270,21 +1295,20 @@ def request_plot_deletion(request, slug, plot_number):
             plot_number=plot_number,
             plot_kind=kind,
         )
-        admin_email = django_settings.ADMIN_EMAIL or admin.email
+        admin_email = settings.ADMIN_EMAIL or admin.email
         if admin_email:
             try:
-                send_mail(
+                send_templated_email(
                     subject=f"[Lease Monkey] Deletion Request — {item_label} in \"{land.name}\"",
-                    message=(
-                        f"Hello {admin.username},\n\n"
-                        f"Landowner '{request.user.username}' has submitted a deletion request for:\n\n"
-                        f"  {item_label} in Land: {land.name}\n"
-                        f"  Land Slug: {land.slug}\n\n"
-                        f"Please log in to your dashboard and review the Notifications tab to approve or reject this request.\n\n"
-                        f"— The Lease Monkey System"
-                    ),
-                    from_email=django_settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[admin_email],
+                    to=[admin_email],
+                    template='purchase_request_email.html',
+                    context={
+                        'stage': 'deletion_request',
+                        'user_name': admin.username,
+                        'item_label': f'{item_label} in {land.name}',
+                        'land_name': land.name,
+                        'requested_by': request.user.username,
+                    },
                     fail_silently=True,
                 )
             except Exception:
@@ -1297,8 +1321,6 @@ def request_plot_deletion(request, slug, plot_number):
 import random
 from django.utils import timezone
 from apps.core.models import EmailOTP, PurchaseRequest, Notification, PurchaseRequestOCRValidation
-from django.core.mail import send_mail
-from django.conf import settings
 
 @login_required
 @login_required
@@ -1350,12 +1372,13 @@ def send_otp(request):
         otp = f"{random.randint(100000, 999999)}"
         EmailOTP.objects.create(email=email, otp_code=otp)
         
-        # Send OTP via email using EMAIL_HOST_USER
-        send_mail(
+        # Send OTP via email
+        from apps.core.emails import send_templated_email
+        send_templated_email(
             subject='[Lease Monkey] Your Verification Code',
-            message=f'Hello,\n\nYour randomly generated OTP for verifying your email is: {otp}\n\nThis OTP is valid for 5 minutes.\n\n— The Lease Monkey Team',
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[email],
+            to=[email],
+            template='otp_email.html',
+            context={'otp': otp, 'validity_minutes': 5},
             fail_silently=False,
         )
             
@@ -1615,25 +1638,35 @@ def submit_purchase_request(request, slug, plot_number):
         
         # Send emails
         try:
-            email_msg = f'Hello {land.owner.username},\n\nYou have a new purchase request from {full_name} for Plot {plot_number}.\nProposed Amount: ₹{proposed_amount}\nPhone: {phone_number}\n'
-            if buyer_message:
-                email_msg += f'Buyer Message: {buyer_message}\n'
-            email_msg += '\nPlease check your dashboard.\n\n— The Lease Monkey Team'
-
+            from apps.core.emails import send_templated_email
             # Landowner email
-            send_mail(
+            send_templated_email(
                 subject=f'[Lease Monkey] New Purchase Request — Plot {plot_number} in {land.name}',
-                message=email_msg,
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[land.owner.email],
+                to=[land.owner.email],
+                template='purchase_request_email.html',
+                context={
+                    'stage': 'new_request',
+                    'user_name': land.owner.username,
+                    'buyer_name': full_name,
+                    'plot_number': plot_number,
+                    'land_name': land.name,
+                    'amount': proposed_amount,
+                    'phone': phone_number,
+                    'buyer_message': buyer_message or None,
+                },
                 fail_silently=False,
             )
             # Buyer email
-            send_mail(
+            send_templated_email(
                 subject=f'[Lease Monkey] Your Purchase Request has been submitted',
-                message=f'Hello {full_name},\n\nYour purchase request for Plot {plot_number} in {land.name} has been successfully submitted to the landowner. You will be notified when they respond.\n\n— The Lease Monkey Team',
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[email],
+                to=[email],
+                template='purchase_request_email.html',
+                context={
+                    'stage': 'submitted_ack',
+                    'user_name': full_name,
+                    'plot_number': plot_number,
+                    'land_name': land.name,
+                },
                 fail_silently=False,
             )
         except Exception as e:
@@ -1692,16 +1725,18 @@ def cancel_purchase_request(request, request_id):
     )
 
     try:
-        send_mail(
+        from apps.core.emails import send_templated_email
+        send_templated_email(
             subject=f'[Lease Monkey] Purchase Request Cancelled — Plot {pr.plot_number}',
-            message=(
-                f'Hello {pr.land.owner.username},\n\n'
-                f'Buyer {request.user.username} has cancelled their purchase request '
-                f'for Plot {pr.plot_number} in {pr.land.name}.\n\n'
-                f'— The Lease Monkey Team'
-            ),
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[pr.land.owner.email],
+            to=[pr.land.owner.email],
+            template='purchase_request_email.html',
+            context={
+                'stage': 'cancelled',
+                'user_name': pr.land.owner.username,
+                'buyer_name': request.user.username,
+                'plot_number': pr.plot_number,
+                'land_name': pr.land.name,
+            },
             fail_silently=True,
         )
     except Exception:
@@ -1817,21 +1852,21 @@ def purchase_request_action(request, request_id):
 
             # --- Email to buyer & landowner ---
             try:
-                meet_line = f'\n\nJoin Google Meet: {meet_link}' if meet_link else ''
+                from apps.core.emails import send_templated_email
                 recipients = list(set(filter(None, [pr.email, request.user.email])))
-                send_mail(
+                send_templated_email(
                     subject=f'[Lease Monkey] Meeting Scheduled — Plot {pr.plot_number}',
-                    message=(
-                        f'Hello,\n\n'
-                        f'A Google Meet meeting has been scheduled for purchase request on Plot {pr.plot_number} in {pr.land.name}.\n\n'
-                        f'📅 Date & Time: {meeting_dt_display}\n'
-                        f'⏱ Duration: {duration_minutes} minutes\n'
-                        f'🏡 Property: Plot {pr.plot_number} in {pr.land.name}'
-                        f'{meet_line}\n\n'
-                        f'— The Lease Monkey Team'
-                    ),
-                    from_email=settings.EMAIL_HOST_USER,
-                    recipient_list=recipients,
+                    to=recipients,
+                    template='purchase_request_email.html',
+                    context={
+                        'stage': 'meeting_scheduled',
+                        'user_name': pr.buyer.username,
+                        'plot_number': pr.plot_number,
+                        'land_name': pr.land.name,
+                        'meeting_dt': meeting_dt_display,
+                        'duration': duration_minutes,
+                        'meet_link': meet_link or None,
+                    },
                     fail_silently=True,
                 )
             except Exception:
@@ -1916,11 +1951,17 @@ def purchase_request_action(request, request_id):
             )
             
             try:
-                send_mail(
+                from apps.core.emails import send_templated_email
+                send_templated_email(
                     subject=f'[Lease Monkey] Purchase Request Approved! — Plot {pr.plot_number}',
-                    message=f'Hello {pr.full_name},\n\nCongratulations! The landowner has approved your purchase request for Plot {pr.plot_number} in {pr.land.name}.\n\n— The Lease Monkey Team',
-                    from_email=settings.EMAIL_HOST_USER,
-                    recipient_list=[pr.email],
+                    to=[pr.email],
+                    template='purchase_request_email.html',
+                    context={
+                        'stage': 'approved',
+                        'user_name': pr.full_name,
+                        'plot_number': pr.plot_number,
+                        'land_name': pr.land.name,
+                    },
                     fail_silently=False,
                 )
             except Exception:
@@ -1966,11 +2007,18 @@ def purchase_request_action(request, request_id):
             )
             
             try:
-                send_mail(
+                from apps.core.emails import send_templated_email
+                send_templated_email(
                     subject=f'[Lease Monkey] Purchase Request Rejected — Plot {pr.plot_number}',
-                    message=f'Hello {pr.full_name},\n\nYour purchase request for Plot {pr.plot_number} in {pr.land.name} has been rejected.\nReason: {reason}\n\n— The Lease Monkey Team',
-                    from_email=settings.EMAIL_HOST_USER,
-                    recipient_list=[pr.email],
+                    to=[pr.email],
+                    template='purchase_request_email.html',
+                    context={
+                        'stage': 'rejected',
+                        'user_name': pr.full_name,
+                        'plot_number': pr.plot_number,
+                        'land_name': pr.land.name,
+                        'reason': reason,
+                    },
                     fail_silently=False,
                 )
             except Exception:
@@ -2165,7 +2213,7 @@ def submit_land_request(request):
         phone_str = app.mobile_number if app else "N/A"
 
         from apps.core.models import Notification
-        from django.core.mail import send_mail
+        from apps.core.emails import send_templated_email
         from django.conf import settings
 
         admin_users = User.objects.filter(role='ADMIN')
@@ -2186,24 +2234,20 @@ def submit_land_request(request):
                     f'Please review it from the admin dashboard.'
                 )
             )
-        send_mail(
+        send_templated_email(
             subject=f'New Land Registration Request — {property_name}',
-            message=(
-                f'Hello Admin,\n\n'
-                f'A new land registration request has been submitted.\n\n'
-                f'Property Name : {property_name}\n'
-                f'Location      : {location}\n\n'
-                f'--- LANDOWNER PROFILE ---\n'
-                f'Name          : {request.user.get_full_name() or request.user.username}\n'
-                f'Email         : {request.user.email}\n'
-                f'Phone         : {phone_str}\n'
-                f'Aadhaar Number: {aadhaar_str}\n'
-                f'PAN Number    : {pan_str}\n\n'
-                f'Please log in to the admin dashboard to review it.\n\n'
-                f'— Lease Monkey System'
-            ),
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[settings.EMAIL_HOST_USER],
+            to=[settings.EMAIL_HOST_USER],
+            template='land_registration_email.html',
+            context={
+                'stage': 'submitted',
+                'property_name': property_name,
+                'location': location,
+                'owner_name': request.user.get_full_name() or request.user.username,
+                'email': request.user.email,
+                'phone': phone_str,
+                'aadhaar': aadhaar_str,
+                'pan': pan_str,
+            },
             fail_silently=True,
         )
 
@@ -2290,9 +2334,10 @@ def admin_register_land_from_request(request, req_id):
     """
     Admin approves a land registration request. New workflow:
     1. Creates draft Land record (is_live=False).
-    2. Sets status -> 'payment_pending' with a 24-hour deadline.
-    3. Notifies landowner to pay from their Payments tab.
-    4. If payment is already completed, opens the Plot Creator directly.
+    2. Sets status -> 'payment_pending' with a deadline chosen by admin.
+    3. Stores the admin-set monthly hosting fee (payment_amount).
+    4. Notifies landowner to pay from their Payments tab.
+    5. If payment is already completed, opens the Plot Creator directly.
     """
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=400)
@@ -2301,9 +2346,9 @@ def admin_register_land_from_request(request, req_id):
 
     from apps.lands.models import LandRegistrationRequest
     from apps.core.models import Notification
-    from django.core.mail import send_mail
-    from django.conf import settings
+    from apps.core.emails import send_templated_email
     from django.utils import timezone
+    from django.utils.dateparse import parse_datetime
     import datetime
 
     req = get_object_or_404(LandRegistrationRequest, pk=req_id)
@@ -2324,6 +2369,28 @@ def admin_register_land_from_request(request, req_id):
     if req.status == 'payment_pending':
         deadline_str = req.payment_deadline.strftime('%d %b %Y, %I:%M %p') if req.payment_deadline else 'N/A'
         messages.info(request, f"Already approved. Waiting for landowner to complete payment by {deadline_str}.")
+        return redirect('lands:admin_land_request_detail', req_id=req_id)
+
+    # Parse and validate admin-set amount + deadline
+    payment_amount_raw = request.POST.get('payment_amount', '').strip()
+    payment_deadline_raw = request.POST.get('payment_deadline', '').strip()
+
+    try:
+        payment_amount = float(payment_amount_raw)
+    except (TypeError, ValueError):
+        payment_amount = None
+    if payment_amount is None or payment_amount <= 0:
+        messages.error(request, "Please enter a valid monthly hosting fee greater than 0.")
+        return redirect('lands:admin_land_request_detail', req_id=req_id)
+
+    deadline = None
+    if payment_deadline_raw:
+        deadline = parse_datetime(payment_deadline_raw)
+        if deadline is None or deadline.tzinfo is None:
+            import pytz
+            deadline = pytz.timezone('Asia/Kolkata').localize(deadline) if deadline else None
+    if deadline is None or deadline <= timezone.now():
+        messages.error(request, "Please choose a payment deadline in the future.")
         return redirect('lands:admin_land_request_detail', req_id=req_id)
 
     # Create draft Land record if not yet created
@@ -2374,42 +2441,41 @@ def admin_register_land_from_request(request, req_id):
             except Exception:
                 continue
 
-    # Set 24-hour payment deadline
-    deadline = timezone.now() + datetime.timedelta(hours=24)
+    # Set admin-set payment deadline
     req.status = 'payment_pending'
+    req.payment_amount = payment_amount
     req.payment_deadline = deadline
     req.reviewed_at = timezone.now()
-    req.save(update_fields=['status', 'land', 'payment_deadline', 'reviewed_at'])
+    req.save(update_fields=['status', 'land', 'payment_amount', 'payment_deadline', 'reviewed_at'])
 
     deadline_str = deadline.strftime('%d %b %Y, %I:%M %p')
+    amount_display = f"₹{payment_amount:,.0f}" if payment_amount == int(payment_amount) else f"₹{payment_amount:,.2f}"
 
     # In-app notification to landowner
     Notification.objects.create(
         recipient=req.owner,
         sender=request.user,
         notif_type='lo_registration_request',
-        title="✅ Land Registration Approved — Complete Payment Within 24 Hours",
+        title="✅ Land Registration Approved — Complete Payment Before Deadline",
         message=(
             f"Your registration for '{req.property_name}' has been approved! "
-            f"Please complete the ₹200/month hosting fee payment from your Payments tab "
+            f"Please complete the {amount_display}/month hosting fee payment from your Payments tab "
             f"by {deadline_str}. Once paid, admin will digitize your plot layout and make it live."
         )
     )
 
     # Email notification to landowner
-    send_mail(
+    send_templated_email(
         subject=f"Lease Monkey: Payment Required — '{req.property_name}' Approved",
-        message=(
-            f"Hello {req.owner.get_full_name() or req.owner.username},\n\n"
-            f"Your land registration for '{req.property_name}' has been approved!\n\n"
-            f"Next Step: Please pay the ₹200/month hosting fee (+ GST) within 24 hours "
-            f"(deadline: {deadline_str}) from the Payments tab in your Landowner Dashboard.\n\n"
-            f"Once payment is confirmed, our team will digitize your plot layout and publish "
-            f"your property live for buyers to browse.\n\n"
-            f"— The Lease Monkey Team"
-        ),
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[req.owner.email],
+        to=[req.owner.email],
+        template='land_registration_email.html',
+        context={
+            'stage': 'payment_required',
+            'user_name': req.owner.get_full_name() or req.owner.username,
+            'property_name': req.property_name,
+            'payment_amount': amount_display,
+            'payment_deadline': deadline_str,
+        },
         fail_silently=True
     )
 
@@ -2432,8 +2498,6 @@ def admin_update_request_message(request, req_id):
 
     from apps.lands.models import LandRegistrationRequest
     from apps.core.models import Notification
-    from django.core.mail import send_mail
-    from django.conf import settings
 
     req = get_object_or_404(LandRegistrationRequest, pk=req_id)
     message = request.POST.get('admin_message', '').strip()
@@ -2451,19 +2515,17 @@ def admin_update_request_message(request, req_id):
     )
 
     # Send Email
-    subject = f"Lease Monkey: Information required for {req.property_name}"
-    email_body = (
-        f"Hello {req.owner.get_full_name() or req.owner.username},\n\n"
-        f"The administrator has sent a message or requested more information regarding your land registration request for '{req.property_name}':\n\n"
-        f"Message:\n\"{message}\"\n\n"
-        f"Please review this and make necessary improvements or respond accordingly.\n\n"
-        f"— The Lease Monkey Team"
-    )
-    send_mail(
-        subject=subject,
-        message=email_body,
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[req.owner.email],
+    from apps.core.emails import send_templated_email
+    send_templated_email(
+        subject=f"Lease Monkey: Information required for {req.property_name}",
+        to=[req.owner.email],
+        template='land_registration_email.html',
+        context={
+            'stage': 'info_required',
+            'user_name': req.owner.get_full_name() or req.owner.username,
+            'property_name': req.property_name,
+            'admin_message': message,
+        },
         fail_silently=True
     )
 
@@ -2481,8 +2543,7 @@ def admin_request_reupload(request, req_id):
 
     from apps.lands.models import LandRegistrationRequest
     from apps.core.models import Notification
-    from django.core.mail import send_mail
-    from django.conf import settings
+    from apps.core.emails import send_templated_email
     from django.utils import timezone
 
     req = get_object_or_404(LandRegistrationRequest, pk=req_id)
@@ -2523,18 +2584,19 @@ def admin_request_reupload(request, req_id):
         )
     )
 
-    subject = f"Lease Monkey: Please re-upload {doc_label} — {req.property_name}"
-    email_body = (
-        f"Hello {req.owner.get_full_name() or req.owner.username},\n\n"
-        f"The administrator has requested you to re-upload the following document for your land "
-        f"registration request '{req.property_name}':\n\n"
-        f"Document: {doc_label}\n"
-        f"Note: {note or 'Please upload a corrected version of this document.'}\n\n"
-        f"You can re-upload it from your land registration request page on Lease Monkey.\n\n"
-        f"— The Lease Monkey Team"
+    send_templated_email(
+        subject=f"Lease Monkey: Please re-upload {doc_label} — {req.property_name}",
+        to=[req.owner.email],
+        template='land_registration_email.html',
+        context={
+            'stage': 'reupload_requested',
+            'user_name': req.owner.get_full_name() or req.owner.username,
+            'property_name': req.property_name,
+            'doc_label': doc_label,
+            'note': note or 'Please upload a corrected version of this document.',
+        },
+        fail_silently=True
     )
-    send_mail(subject=subject, message=email_body, from_email=settings.EMAIL_HOST_USER,
-              recipient_list=[req.owner.email], fail_silently=True)
 
     messages.success(request, f"Re-upload of '{doc_label}' requested from the landowner.")
     return redirect('lands:admin_land_request_detail', req_id=req_id)
@@ -2550,8 +2612,7 @@ def admin_disable_reupload(request, req_id):
 
     from apps.lands.models import LandRegistrationRequest
     from apps.core.models import Notification
-    from django.core.mail import send_mail
-    from django.conf import settings
+    from apps.core.emails import send_templated_email
 
     req = get_object_or_404(LandRegistrationRequest, pk=req_id)
 
@@ -2576,16 +2637,15 @@ def admin_disable_reupload(request, req_id):
             f"closed the re-upload request. No further action is needed."
         )
     )
-    send_mail(
+    send_templated_email(
         subject=f"Lease Monkey: Re-upload request closed — {req.property_name}",
-        message=(
-            f"Hello {req.owner.get_full_name() or req.owner.username},\n\n"
-            f"The administrator has received the corrected document for your land registration request "
-            f"'{req.property_name}' and closed the re-upload request.\n\n"
-            f"— The Lease Monkey Team"
-        ),
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[req.owner.email],
+        to=[req.owner.email],
+        template='land_registration_email.html',
+        context={
+            'stage': 'reupload_closed',
+            'user_name': req.owner.get_full_name() or req.owner.username,
+            'property_name': req.property_name,
+        },
         fail_silently=True
     )
 
@@ -2602,7 +2662,7 @@ def landowner_reupload_document(request, req_id):
 
     from apps.lands.models import LandRegistrationRequest
     from apps.core.models import Notification
-    from django.core.mail import send_mail
+    from apps.core.emails import send_templated_email
     from django.conf import settings
     from django.utils import timezone
 
@@ -2668,16 +2728,16 @@ def landowner_reupload_document(request, req_id):
             )
         )
 
-    send_mail(
+    send_templated_email(
         subject=f"Lease Monkey: {doc_label} re-uploaded — {req.property_name}",
-        message=(
-            f"Hello Admin,\n\n"
-            f"The landowner {request.user.get_full_name() or request.user.username} has re-uploaded the "
-            f"'{doc_label}' for property '{req.property_name}'.\n\n"
-            f"Please review the corrected document and close the re-upload request from the admin dashboard."
-        ),
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[settings.EMAIL_HOST_USER],
+        to=[settings.EMAIL_HOST_USER],
+        template='land_registration_email.html',
+        context={
+            'stage': 'reupload_submitted',
+            'property_name': req.property_name,
+            'doc_label': doc_label,
+            'owner_name': request.user.get_full_name() or request.user.username,
+        },
         fail_silently=True
     )
 
@@ -2695,8 +2755,7 @@ def admin_reject_land_request(request, req_id):
 
     from apps.lands.models import LandRegistrationRequest
     from apps.core.models import Notification
-    from django.core.mail import send_mail
-    from django.conf import settings
+    from apps.core.emails import send_templated_email
     from django.utils import timezone
 
     req = get_object_or_404(LandRegistrationRequest, pk=req_id)
@@ -2729,19 +2788,16 @@ def admin_reject_land_request(request, req_id):
         )
 
     if send_email:
-        send_mail(
+        send_templated_email(
             subject=f'Land Registration Request Rejected — {req.property_name}',
-            message=(
-                f'Hello {req.owner.get_full_name() or req.owner.username},\n\n'
-                f'Your land registration request for the property:\n\n'
-                f'  {req.property_name}\n\n'
-                f'has been reviewed and rejected by our team.\n\n'
-                f'Reason: {reason or "No reason provided."}\n\n'
-                f'You may submit a new request with corrected information from your landowner dashboard.\n\n'
-                f'— The Lease Monkey Team'
-            ),
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[req.owner.email],
+            to=[req.owner.email],
+            template='land_registration_email.html',
+            context={
+                'stage': 'rejected',
+                'user_name': req.owner.get_full_name() or req.owner.username,
+                'property_name': req.property_name,
+                'reason': reason or 'No reason provided.',
+            },
             fail_silently=True,
         )
 
@@ -2763,8 +2819,7 @@ def admin_finish_registration(request, req_id):
 
     from apps.lands.models import LandRegistrationRequest
     from apps.core.models import Notification
-    from django.core.mail import send_mail
-    from django.conf import settings
+    from apps.core.emails import send_templated_email
     from django.utils import timezone
 
     req = get_object_or_404(LandRegistrationRequest, pk=req_id)
@@ -2788,22 +2843,10 @@ def admin_finish_registration(request, req_id):
         notif_title = 'Property Now Live'
         notif_msg = f'Your property "{req.property_name}" is now live on Lease Monkey.'
         email_subject = f'Your property is now live — {req.property_name}'
-        email_body = (
-            f'Hello {req.owner.get_full_name() or req.owner.username},\n\n'
-            f'Your property has been successfully digitized and is now live on Lease Monkey. '
-            f'Buyers can now discover and request your plots.\n\n'
-            f'— The Lease Monkey Team'
-        )
     else:
         notif_title = 'Registration Approved'
         notif_msg = f'Your property "{req.property_name}" has been approved and saved offline.'
         email_subject = f'Registration Approved — {req.property_name}'
-        email_body = (
-            f'Hello {req.owner.get_full_name() or req.owner.username},\n\n'
-            f'Your property has been successfully digitized and approved. '
-            f'It has been saved as an offline property and will become visible once an administrator publishes it.\n\n'
-            f'— The Lease Monkey Team'
-        )
 
     Notification.objects.create(
         recipient=req.owner,
@@ -2813,11 +2856,15 @@ def admin_finish_registration(request, req_id):
         message=notif_msg
     )
 
-    send_mail(
+    send_templated_email(
         subject=email_subject,
-        message=email_body,
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[req.owner.email],
+        to=[req.owner.email],
+        template='land_registration_email.html',
+        context={
+            'stage': 'live' if make_live else 'approved_offline',
+            'user_name': req.owner.get_full_name() or req.owner.username,
+            'property_name': req.property_name,
+        },
         fail_silently=True
     )
 
@@ -2901,8 +2948,7 @@ def toggle_land_live(request, slug):
         raise PermissionDenied
 
     from apps.core.models import Notification
-    from django.core.mail import send_mail
-    from django.conf import settings
+    from apps.core.emails import send_templated_email
 
     land = get_object_or_404(Land, slug=slug)
     land.is_live = not land.is_live
@@ -2929,16 +2975,15 @@ def toggle_land_live(request, slug):
                     f'Buyers can now view your plots and submit requests.'
                 )
             )
-            send_mail(
+            send_templated_email(
                 subject=f'Your property is now live — {land.name}',
-                message=(
-                    f'Hello {land.owner.get_full_name() or land.owner.username},\n\n'
-                    f'Great news! Your property "{land.name}" is now live on Lease Monkey.\n\n'
-                    f'Buyers can browse available plots and submit requests.\n\n'
-                    f'— The Lease Monkey Team'
-                ),
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[land.owner.email],
+                to=[land.owner.email],
+                template='land_registration_email.html',
+                context={
+                    'stage': 'live',
+                    'user_name': land.owner.get_full_name() or land.owner.username,
+                    'property_name': land.name,
+                },
                 fail_silently=True,
             )
         msg = f"'{land.name}' is now LIVE." + (" Landowner notified." if notify else "")

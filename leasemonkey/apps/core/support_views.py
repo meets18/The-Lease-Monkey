@@ -4,7 +4,6 @@ from django.utils import timezone
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.core.mail import send_mail, EmailMessage
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -33,52 +32,43 @@ def _get_next_ticket_id():
 
 
 def _send_ticket_created_emails(ticket):
+    from apps.core.emails import send_templated_email, send_templated_email_with_attachment
     admin_emails = _get_admin_emails()
     attachment_path = ticket.attachment.path if ticket.attachment else None
 
     try:
-        admin_msg = (
-            f"Hello Admin,\n\n"
-            f"A new support ticket has been created.\n\n"
-            f"Ticket ID: {ticket.ticket_id}\n"
-            f"User: {ticket.user.username}\n"
-            f"Role: {ticket.role}\n"
-            f"Email: {ticket.user.email}\n"
-            f"Subject: {ticket.subject}\n"
-            f"Category: {ticket.get_category_display()}\n"
-            f"Description:\n{ticket.description}\n\n"
-            f"Please review and respond at your earliest convenience.\n\n"
-            f"— The Lease Monkey Support System"
-        )
-        email = EmailMessage(
+        send_templated_email_with_attachment(
             subject=f'[Lease Monkey] New Support Ticket — {ticket.ticket_id}',
-            body=admin_msg,
-            from_email=settings.DEFAULT_FROM_EMAIL,
             to=admin_emails,
+            template='support_email.html',
+            context={
+                'stage': 'ticket_admin',
+                'ticket_id': ticket.ticket_id,
+                'user_name': ticket.user.username,
+                'role': ticket.role,
+                'email': ticket.user.email,
+                'subject': ticket.subject,
+                'category': ticket.get_category_display(),
+                'description': ticket.description,
+            },
+            attachment_path=attachment_path,
+            fail_silently=True,
         )
-        if attachment_path:
-            email.attach_file(attachment_path)
-        email.send(fail_silently=True)
     except Exception as e:
         logger.error(f"Failed to send admin email for ticket {ticket.ticket_id}: {e}")
 
     try:
-        user_msg = (
-            f"Hello {ticket.user.username},\n\n"
-            f"Your support request has been received successfully.\n\n"
-            f"Ticket ID: {ticket.ticket_id}\n"
-            f"Subject: {ticket.subject}\n"
-            f"Category: {ticket.get_category_display()}\n\n"
-            f"Our support team will respond shortly.\n\n"
-            f"You can monitor the ticket from your dashboard.\n\n"
-            f"Thank you,\n"
-            f"Lease Monkey Support"
-        )
-        send_mail(
+        send_templated_email(
             subject='Support Ticket Received',
-            message=user_msg,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[ticket.user.email],
+            to=[ticket.user.email],
+            template='support_email.html',
+            context={
+                'stage': 'ticket_ack',
+                'ticket_id': ticket.ticket_id,
+                'user_name': ticket.user.username,
+                'subject': ticket.subject,
+                'category': ticket.get_category_display(),
+            },
             fail_silently=True,
         )
     except Exception as e:
@@ -86,44 +76,34 @@ def _send_ticket_created_emails(ticket):
 
 
 def _send_ticket_reply_emails(ticket, reply, is_admin_reply=True):
+    from apps.core.emails import send_templated_email
+
     if is_admin_reply:
-        recipient_list = [ticket.user.email]
+        recipients = [ticket.user.email]
         subject = f'Update on your Lease Monkey Support Ticket ({ticket.ticket_id})'
-        body = (
-            f"Hello {ticket.user.username},\n\n"
-            f"Our support team has replied to your support request.\n\n"
-            f"Ticket ID\n\n"
-            f"{ticket.ticket_id}\n\n"
-            f"Reply\n"
-            f"{'─' * 40}\n"
-            f"{reply.message}\n"
-            f"{'─' * 40}\n\n"
-            f"You can continue the conversation from:\n\n"
-            f"Dashboard\n"
-            f"  → Help & Support\n"
-            f"  → My Tickets\n\n"
-            f"Thank you,\n"
-            f"Lease Monkey Support"
-        )
+        context = {
+            'stage': 'ticket_reply_user',
+            'user_name': ticket.user.username,
+            'ticket_id': ticket.ticket_id,
+            'reply_message': reply.message,
+        }
     else:
-        admin_emails = _get_admin_emails()
-        recipient_list = admin_emails
+        recipients = _get_admin_emails()
         subject = f'[Lease Monkey] User replied to ticket — {ticket.ticket_id}'
-        body = (
-            f"Hello Admin,\n\n"
-            f"{ticket.user.username} has replied to support ticket {ticket.ticket_id}.\n\n"
-            f"Subject: {ticket.subject}\n"
-            f"Message:\n{reply.message}\n\n"
-            f"Please log in to the admin dashboard to respond.\n\n"
-            f"— The Lease Monkey Support System"
-        )
+        context = {
+            'stage': 'ticket_reply_admin',
+            'user_name': ticket.user.username,
+            'ticket_id': ticket.ticket_id,
+            'subject': ticket.subject,
+            'reply_message': reply.message,
+        }
 
     try:
-        send_mail(
+        send_templated_email(
             subject=subject,
-            message=body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=recipient_list,
+            to=recipients,
+            template='support_email.html',
+            context=context,
             fail_silently=True,
         )
     except Exception as e:
@@ -373,17 +353,18 @@ def update_ticket_status_ajax(request, ticket_id):
     )
 
     try:
-        send_mail(
+        from apps.core.emails import send_templated_email
+        send_templated_email(
             subject=f'[Lease Monkey] Ticket {ticket.ticket_id} status updated',
-            message=f'Hello {ticket.user.username},\n\n'
-                    f'Your support ticket status has been updated.\n\n'
-                    f'Ticket ID: {ticket.ticket_id}\n'
-                    f'Subject: {ticket.subject}\n'
-                    f'Status: {dict(Ticket.STATUS_CHOICES)[new_status]}\n\n'
-                    f'Log in to your dashboard to view the details.\n\n'
-                    f'— The Lease Monkey Support',
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[ticket.user.email],
+            to=[ticket.user.email],
+            template='support_email.html',
+            context={
+                'stage': 'ticket_status',
+                'user_name': ticket.user.username,
+                'ticket_id': ticket.ticket_id,
+                'status': dict(Ticket.STATUS_CHOICES)[new_status],
+                'status_message': f'Your ticket "{ticket.subject}" status changed from {dict(Ticket.STATUS_CHOICES)[old_status]} to {dict(Ticket.STATUS_CHOICES)[new_status]}.',
+            },
             fail_silently=True,
         )
     except Exception as e:

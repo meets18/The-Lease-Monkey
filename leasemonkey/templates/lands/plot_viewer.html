@@ -2343,5 +2343,21 @@ body {
 [data-theme="light"] #navbar .text-white-50 {
     color: #64748B !important;
 }
+
+/* Mobile responsiveness for the interactive map viewer */
+@media (max-width: 575px) {
+    .map-sidebar#detailsPanel {
+        top: 70px !important;
+        left: 10px !important;
+        width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+    }
+    .control-dock {
+        left: 10px !important;
+        right: 10px !important;
+        bottom: 12px !important;
+        width: auto !important;
+    }
+}
 </style>
 {% endblock %}

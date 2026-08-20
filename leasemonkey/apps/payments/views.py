@@ -103,6 +103,47 @@ def check_and_send_expiry_notifications():
             )
 
 
+def expire_overdue_payment_deadlines():
+    """
+    Rejects land registration requests whose admin-set payment_deadline has passed
+    while they are still in 'payment_pending'. Called on dashboard loads and by the
+    expire_payment_deadlines management command. Returns the number expired.
+    """
+    from apps.lands.models import LandRegistrationRequest
+    from apps.core.models import Notification
+
+    now = timezone.now()
+    overdue = LandRegistrationRequest.objects.filter(
+        status='payment_pending',
+        payment_deadline__lt=now
+    )
+    count = overdue.count()
+    if count == 0:
+        return 0
+
+    for req in overdue:
+        req.status = 'rejected'
+        req.rejection_reason = (
+            f'Payment deadline missed. The ₹{req.payment_amount} hosting fee was not paid '
+            f'by the deadline ({req.payment_deadline.strftime("%d %b %Y, %I:%M %p")}). '
+            f'Please resubmit your land registration request.'
+        )
+        req.save(update_fields=['status', 'rejection_reason'])
+
+        Notification.objects.create(
+            recipient=req.owner,
+            notif_type='system',
+            title='⚠️ Payment Deadline Missed — Registration Expired',
+            message=(
+                f'Your land registration approval for "{req.property_name}" has expired '
+                f'because the ₹{req.payment_amount} hosting fee was not paid by the deadline '
+                f'({req.payment_deadline.strftime("%d %b %Y, %I:%M %p")}). '
+                f'Please resubmit your registration request to start fresh.'
+            )
+        )
+    return count
+
+
 def check_and_expire_subscriptions():
     """
     Checks active subscriptions whose end_date has passed.
@@ -170,16 +211,39 @@ def activate_or_renew_subscription(sub):
 
 # ─── Cashfree Order Creation ──────────────────────────────────────────────────
 
+def resolve_hosting_amount(land):
+    """
+    Resolve the monthly hosting fee for a land.
+    - First payment (registration payment_pending): use the admin-set
+      payment_amount on the LandRegistrationRequest.
+    - Renewals / other cases: reuse the amount on the existing LandSubscription
+      (which was set by admin on first approval).
+    Returns the monthly amount (Decimal) and the LandSubscription (or None).
+    """
+    req = LandRegistrationRequest.objects.filter(land=land).first()
+    sub = LandSubscription.objects.filter(land=land).first()
+
+    if req and req.status == 'payment_pending' and req.payment_amount:
+        return req.payment_amount, sub
+
+    if sub and sub.amount:
+        return sub.amount, sub
+
+    return 200.00, sub
+
+
 @login_required
 @require_POST
 def create_cashfree_order(request, slug):
     """
-    Creates a Cashfree Sandbox order for ₹200/month hosting fee + 18% GST = ₹236.
+    Creates a Cashfree Sandbox order for the admin-set monthly hosting fee.
+    No GST is applied — the exact admin-set amount is charged.
     Returns payment_session_id to trigger Cashfree JS SDK checkout.
     """
     land = get_object_or_404(Land, slug=slug)
 
-    amount = 236.00  # ₹200 + 18% GST
+    monthly_amount, existing_sub = resolve_hosting_amount(land)
+    amount = float(monthly_amount)
     order_id = f"order_lm_{uuid.uuid4().hex[:12]}"
     cust_id = f"cust_{request.user.pk}"
     cust_name = request.user.get_full_name() or request.user.username
@@ -219,11 +283,14 @@ def create_cashfree_order(request, slug):
             sub, _ = LandSubscription.objects.get_or_create(
                 land=land, user=request.user,
                 defaults={
-                    'amount': 200.00, 'status': 'pending',
+                    'amount': monthly_amount, 'status': 'pending',
                     'start_date': now,
                     'end_date': now + datetime.timedelta(days=30)
                 }
             )
+            if sub.amount != monthly_amount:
+                sub.amount = monthly_amount
+                sub.save(update_fields=['amount'])
             PaymentTransaction.objects.create(
                 subscription=sub, user=request.user,
                 transaction_id=order_id, order_id=order_id,
@@ -236,6 +303,7 @@ def create_cashfree_order(request, slug):
                 'success': True,
                 'payment_session_id': payment_session_id,
                 'order_id': order_id,
+                'amount': str(amount),
                 'environment': getattr(settings, 'CASHFREE_ENVIRONMENT', 'SANDBOX').lower()
             })
         else:
@@ -365,24 +433,30 @@ def cashfree_webhook(request):
 def process_demo_payment(request, slug):
     """
     Simulated payment for testing (fallback when Cashfree gateway is unreachable).
+    Charges the exact admin-set monthly hosting fee (no GST).
     """
     land = get_object_or_404(Land, slug=slug)
     now = timezone.now()
 
+    monthly_amount, existing_sub = resolve_hosting_amount(land)
+
     sub, created = LandSubscription.objects.get_or_create(
         land=land, user=request.user,
         defaults={
-            'amount': 200.00, 'status': 'active',
+            'amount': monthly_amount, 'status': 'active',
             'start_date': now, 'end_date': now + datetime.timedelta(days=30)
         }
     )
+    if sub.amount != monthly_amount:
+        sub.amount = monthly_amount
+        sub.save(update_fields=['amount'])
     sub = activate_or_renew_subscription(sub)
 
     tx = PaymentTransaction.objects.create(
         subscription=sub, user=request.user,
         transaction_id=f"LM-PAY-{uuid.uuid4().hex[:8].upper()}",
         order_id=f"demo_{uuid.uuid4().hex[:10]}",
-        amount=236.00,
+        amount=float(monthly_amount),
         payment_method=get_payment_method_label(request),
         status='success'
     )

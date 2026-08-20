@@ -1,0 +1,53 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<p style="margin:0 0 16px 0;">{% if user_name %}Hello {{ user_name }},{% else %}Hello,{% endif %}</p>
+
+{% if stage == 'ticket_admin' %}
+<p style="margin:0 0 12px 0;">A new support ticket has been created.</p>
+<div style="margin:0 0 20px 0; padding:16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+  <p style="margin:0 0 6px 0;"><strong>Ticket ID:</strong> {{ ticket_id }}</p>
+  <p style="margin:0 0 6px 0;"><strong>User:</strong> {{ user_name }}</p>
+  <p style="margin:0 0 6px 0;"><strong>Role:</strong> {{ role }}</p>
+  <p style="margin:0 0 6px 0;"><strong>Email:</strong> {{ email }}</p>
+  <p style="margin:0 0 6px 0;"><strong>Subject:</strong> {{ subject }}</p>
+  <p style="margin:0 0 6px 0;"><strong>Category:</strong> {{ category }}</p>
+  <p style="margin:0; white-space:pre-line;"><strong>Description:</strong> {{ description }}</p>
+</div>
+<p style="margin:0; color:#64748b;">Please review and respond at your earliest convenience.</p>
+
+{% elif stage == 'ticket_ack' %}
+<p style="margin:0 0 12px 0;">Your support request has been received successfully.</p>
+<div style="margin:0 0 20px 0; padding:16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+  <p style="margin:0 0 6px 0;"><strong>Ticket ID:</strong> {{ ticket_id }}</p>
+  <p style="margin:0 0 6px 0;"><strong>Subject:</strong> {{ subject }}</p>
+  <p style="margin:0;"><strong>Category:</strong> {{ category }}</p>
+</div>
+<p style="margin:0; color:#64748b;">Our support team will respond shortly. You can monitor the ticket from your dashboard.</p>
+
+{% elif stage == 'ticket_reply_user' %}
+<p style="margin:0 0 12px 0;">Our support team has replied to your support request.</p>
+<div style="margin:0 0 20px 0; padding:16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+  <p style="margin:0 0 6px 0;"><strong>Ticket ID:</strong> {{ ticket_id }}</p>
+  <p style="margin:0 0 6px 0;"><strong>Reply:</strong></p>
+  <p style="margin:0; white-space:pre-line;">{{ reply_message }}</p>
+</div>
+<p style="margin:0; color:#64748b;">You can continue the conversation from Help &amp; Support in your dashboard.</p>
+
+{% elif stage == 'ticket_reply_admin' %}
+<p style="margin:0 0 12px 0;">A user has replied to support ticket <strong>{{ ticket_id }}</strong>.</p>
+<div style="margin:0 0 20px 0; padding:16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+  <p style="margin:0 0 6px 0;"><strong>Subject:</strong> {{ subject }}</p>
+  <p style="margin:0; white-space:pre-line;">{{ reply_message }}</p>
+</div>
+<p style="margin:0; color:#64748b;">Please log in to the admin dashboard to respond.</p>
+
+{% elif stage == 'ticket_status' %}
+<p style="margin:0 0 12px 0;">The status of your support ticket <strong>{{ ticket_id }}</strong> has been updated.</p>
+{% if status %}<p style="margin:0 0 12px 0;"><strong>New Status:</strong> {{ status }}</p>{% endif %}
+{% if status_message %}<p style="margin:0; white-space:pre-line;">{{ status_message }}</p>{% endif %}
+
+{% else %}
+<p style="margin:0;">{{ message|safe }}</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<p style="margin:0 0 16px 0;">Hello,</p>
+
+<p style="margin:0 0 12px 0;">A new contact message has been submitted through the {{ app_name }} website.</p>
+
+<div style="margin:0 0 20px 0; padding:16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+  <p style="margin:0 0 6px 0;"><strong>Name:</strong> {{ name }}</p>
+  <p style="margin:0 0 6px 0;"><strong>Email:</strong> {{ email }}</p>
+  {% if phone %}<p style="margin:0 0 6px 0;"><strong>Phone:</strong> {{ phone }}</p>{% endif %}
+  <p style="margin:0 0 6px 0;"><strong>Subject:</strong> {{ subject }}</p>
+  <p style="margin:0; white-space:pre-line;"><strong>Message:</strong> {{ message }}</p>
+</div>
+
+<p style="margin:0; color:#64748b;">Please respond to the sender at your earliest convenience.</p>
+{% endblock %}

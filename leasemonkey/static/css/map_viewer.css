@@ -379,3 +379,15 @@ div[style*="z-index: 1000000"],
     align-items: center;
     justify-content: center;
 }
+
+/* Mobile responsiveness for the interactive map viewer */
+@media (max-width: 575px) {
+    .map-sidebar {
+        left: 10px !important;
+        width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+    }
+    .info-panel-inner {
+        max-width: calc(100vw - 20px) !important;
+    }
+}

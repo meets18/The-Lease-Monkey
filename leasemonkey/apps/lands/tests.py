@@ -2,6 +2,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from datetime import timedelta
 from django.core.files.uploadedfile import SimpleUploadedFile
 from apps.core.models import EmailOTP, PurchaseRequest, DeallotmentRequest, Notification
 from apps.lands.models import Land, Plot, OccupancyRecord, PlotLeaseLog
@@ -210,9 +211,9 @@ class DeallotmentRequestTests(TestCase):
 
     def test_buyer_can_rerequest_after_24h_cooldown(self):
         dr = self._approve_vacate()
-        dr.decided_at = timezone.now() - timezone.timedelta(hours=25)
+        dr.decided_at = timezone.now() - timedelta(hours=25)
         dr.save(update_fields=['decided_at'])
-        self.pr.rejected_at = timezone.now() - timezone.timedelta(hours=25)
+        self.pr.rejected_at = timezone.now() - timedelta(hours=25)
         self.pr.save(update_fields=['rejected_at'])
 
         self.client.login(username='deallot_buyer', password='Password123!')
@@ -1127,5 +1128,91 @@ class BulkNotificationTests(TestCase):
         self.client.login(username='bulk_buyer', password='Password123!')
         response = self.client.post(self.read_url, json.dumps({}), content_type='application/json')
         self.assertEqual(response.status_code, 400)
+
+
+class AdminPaymentApprovalTests(TestCase):
+    """Admin-set payment amount + deadline on land registration approval."""
+
+    def setUp(self):
+        self.client = Client()
+        self.landowner = User.objects.create_user(
+            username='pay_owner',
+            email='pay_owner@test.com',
+            password='Password123!',
+            role='LAND_OWNER',
+            is_verified=True
+        )
+        self.admin = User.objects.create_user(
+            username='pay_admin',
+            email='pay_admin@test.com',
+            password='Password123!',
+            role='ADMIN',
+            is_superuser=True,
+            is_verified=True
+        )
+        self.req = LandRegistrationRequest.objects.create(
+            owner=self.landowner,
+            property_name='Pay Greenfields',
+            state='Rajasthan',
+            district='Jaipur',
+            city_village='Jaipur',
+            pin_code='302001',
+            location='26.9, 75.8',
+            average_plot_price=2000000,
+            status='pending'
+        )
+
+    def _post_approve(self, amount, deadline_str):
+        self.client.login(username='pay_admin', password='Password123!')
+        return self.client.post(
+            reverse('lands:admin_register_land', kwargs={'req_id': self.req.id}),
+            {'payment_amount': amount, 'payment_deadline': deadline_str},
+            follow=True
+        )
+
+    def test_approve_sets_custom_amount_and_deadline(self):
+        deadline = timezone.now() + timedelta(days=5)
+        deadline_str = deadline.strftime('%Y-%m-%dT%H:%M')
+        response = self._post_approve('300', deadline_str)
+        self.assertEqual(response.status_code, 200)
+
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'payment_pending')
+        self.assertEqual(float(self.req.payment_amount), 300.00)
+        self.assertIsNotNone(self.req.payment_deadline)
+        # Deadline is localized to IST on the server, so allow the +5:30 offset
+        import pytz
+        expected = pytz.timezone('Asia/Kolkata').localize(deadline.replace(tzinfo=None))
+        self.assertLess(abs((self.req.payment_deadline - expected).total_seconds()), 120)
+
+    def test_approve_rejects_invalid_amount(self):
+        deadline = timezone.now() + timedelta(days=2)
+        deadline_str = deadline.strftime('%Y-%m-%dT%H:%M')
+        response = self._post_approve('0', deadline_str)
+        self.assertEqual(response.status_code, 200)
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'pending')
+
+    def test_approve_rejects_past_deadline(self):
+        deadline = timezone.now() - timedelta(days=1)
+        deadline_str = deadline.strftime('%Y-%m-%dT%H:%M')
+        response = self._post_approve('200', deadline_str)
+        self.assertEqual(response.status_code, 200)
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'pending')
+
+    def test_default_amount_when_not_supplied(self):
+        # Amount is required; if missing, approval must be rejected
+        deadline = timezone.now() + timedelta(days=2)
+        deadline_str = deadline.strftime('%Y-%m-%dT%H:%M')
+        self.client.login(username='pay_admin', password='Password123!')
+        response = self.client.post(
+            reverse('lands:admin_register_land', kwargs={'req_id': self.req.id}),
+            {'payment_deadline': deadline_str},
+            follow=True
+        )
+        self.assertEqual(response.status_code, 200)
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'pending')
 
 

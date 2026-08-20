@@ -75,6 +75,23 @@
         </div>
     </aside>
 
+    <!-- Mobile Tab Bar (d-lg-none) -->
+    <nav class="d-lg-none mobile-tab-bar bg-dark-glow border-bottom border-secondary-glow px-2 py-2"
+         style="top:56px; z-index:1030; overflow-x:auto; scrollbar-width:none;">
+        <div class="d-flex gap-2" style="min-width:max-content;">
+            <button type="button" class="btn btn-sm mobile-tab-btn active fw-bold text-uppercase" data-tab="plots" onclick="switchTab('plots');">My Plots</button>
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="requests" onclick="switchTab('requests');">Requests</button>
+            {% if purchased_plots %}
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="deallot" onclick="switchTab('deallot');">De-Allot</button>
+            {% endif %}
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="notifs" onclick="switchTab('notifs');">Notifs{% if unread_count %}<span class="notif-badge ms-1">{{ unread_count }}</span>{% endif %}</button>
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="saved" onclick="switchTab('saved');">Saved</button>
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="tickets" onclick="switchTab('tickets');">Tickets</button>
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="support" onclick="switchTab('support');">Support</button>
+            <a href="{% url 'profile' %}" class="btn btn-sm btn-outline-secondary fw-bold text-uppercase text-decoration-none">Profile</a>
+        </div>
+    </nav>
+
     <!-- Main Content Area -->
     <main class="flex-grow-1 p-4 p-md-5">
         {% if messages %}
@@ -539,6 +556,10 @@
                         localStorage.setItem('buyer_badge_seen_' + t, badge.textContent.trim());
                     }
                 }
+            }
+            const mobileBtn = document.querySelector(`.mobile-tab-btn[data-tab="${t}"]`);
+            if (mobileBtn) {
+                mobileBtn.classList.toggle('active', t === tabName);
             }
         });
         sessionStorage.setItem('buyer_active_tab', tabName);

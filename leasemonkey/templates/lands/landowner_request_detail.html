@@ -287,8 +287,8 @@
                     <i class="bi bi-credit-card-2-front" style="color: #D97706;"></i>
                 </div>
                 <div>
-                    <strong class="fw-bold d-block mb-0.5" style="color: #B45309;">Payment Required — Complete Within 24 Hours</strong>
-                    <span>Your registration request has been approved! Please complete the <strong>₹200/month hosting fee (+ GST = ₹236)</strong> to get your property digitized and published live.</span>
+                    <strong class="fw-bold d-block mb-0.5" style="color: #B45309;">Payment Required — Complete Before Deadline</strong>
+                    <span>Your registration request has been approved! Please complete the <strong>₹{{ req.payment_amount }}/month hosting fee</strong> to get your property digitized and published live.</span>
                     {% if req.payment_deadline %}
                     <div class="mt-1 fs-12" style="color: #B45309;">Payment deadline: <strong>{{ req.payment_deadline|date:"d M Y at h:i A" }}</strong></div>
                     {% endif %}
@@ -296,8 +296,8 @@
                     <button type="button" id="btnPayRequest-{{ req.id }}"
                         class="btn mt-3 py-2 px-4 fs-13 fw-bold text-uppercase text-white border-0"
                         style="background-color: #F96D00; border-radius: 8px;"
-                        onclick="openPaymentModal('{{ req.property_name|escapejs }}', '{{ req.land.slug }}');">
-                        <i class="bi bi-credit-card me-1"></i> Make Payment ₹236
+                        onclick="openPaymentModal('{{ req.property_name|escapejs }}', '{{ req.land.slug }}', '{{ req.payment_amount }}');">
+                        <i class="bi bi-credit-card me-1"></i> Make Payment ₹{{ req.payment_amount }}
                     </button>
                     {% endif %}
                 </div>

@@ -91,6 +91,22 @@
         </div>
     </aside>
 
+    <!-- Mobile Tab Bar (d-lg-none) -->
+    <nav class="d-lg-none mobile-tab-bar bg-dark-glow border-bottom border-secondary-glow px-2 py-2"
+         style="top:56px; z-index:1030; overflow-x:auto; scrollbar-width:none;">
+        <div class="d-flex gap-2" style="min-width:max-content;">
+            <button type="button" class="btn btn-sm mobile-tab-btn active fw-bold text-uppercase" data-tab="lands" onclick="switchTab('lands');">Lands</button>
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="owners" onclick="switchTab('owners');">Owners</button>
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="buyers" onclick="switchTab('buyers');">Buyers</button>
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="registry" onclick="switchTab('registry');">Registry</button>
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="layouts" onclick="switchTab('layouts');">Land Requests</button>
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="tickets" onclick="switchTab('tickets');">Tickets</button>
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="notifs" onclick="switchTab('notifs');">Notifs{% if unread_count %}<span class="admin-notif-badge ms-1">{{ unread_count }}</span>{% endif %}</button>
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="payments" onclick="switchTab('payments');">Payments</button>
+            <button type="button" class="btn btn-sm mobile-tab-btn fw-bold text-uppercase" data-tab="applications" onclick="switchTab('applications');">Registrations</button>
+        </div>
+    </nav>
+
     <!-- Main Content Area -->
     <main class="flex-grow-1 p-4 p-md-5">
         <!-- Success/Error Alerts -->
@@ -1104,6 +1120,10 @@
                         localStorage.setItem('admin_badge_seen_' + t, badge.textContent.trim());
                     }
                 }
+            }
+            const mobileBtn = document.querySelector(`.mobile-tab-btn[data-tab="${t}"]`);
+            if (mobileBtn) {
+                mobileBtn.classList.toggle('active', t === tabName);
             }
         });
         sessionStorage.setItem('admin_active_tab', tabName);

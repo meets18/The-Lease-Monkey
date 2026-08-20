@@ -10,9 +10,9 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.utils import timezone
-from django.core.mail import send_mail
 from django.conf import settings
 from .models import User
+from apps.core.emails import send_templated_email
 from apps.core.models import EmailOTP
 from apps.accounts.utils import (
     validate_password_strength,
@@ -78,11 +78,11 @@ def buyer_login(request):
                         otp = f"{random.randint(100000, 999999)}"
                         EmailOTP.objects.create(email=user.email, otp_code=otp)
                         try:
-                            send_mail(
+                            send_templated_email(
                                 subject='[Lease Monkey] Verify Your Email Address',
-                                message=f'Welcome back! Verify your account using OTP: {otp}\n\nThis OTP is valid for 5 minutes.\n\n— The Lease Monkey Team',
-                                from_email=settings.EMAIL_HOST_USER,
-                                recipient_list=[user.email],
+                                to=[user.email],
+                                template='otp_email.html',
+                                context={'otp': otp, 'purpose': 'verify your email address', 'user_name': user.first_name or user.username},
                                 fail_silently=True,
                             )
                         except Exception:
@@ -296,13 +296,14 @@ def landowner_dashboard(request):
     ]
 
     from apps.payments.models import PaymentTransaction, LandSubscription
-    from apps.payments.views import check_and_expire_subscriptions, check_and_send_expiry_notifications
+    from apps.payments.views import check_and_expire_subscriptions, check_and_send_expiry_notifications, expire_overdue_payment_deadlines
     import datetime
     from django.utils import timezone
 
     try:
         check_and_expire_subscriptions()
         check_and_send_expiry_notifications()
+        expire_overdue_payment_deadlines()
     except Exception:
         pass
 
@@ -422,6 +423,13 @@ def admin_dashboard(request):
     payment_transactions = PaymentTransaction.objects.select_related(
         'user', 'subscription__land'
     ).all().order_by('-created_at')[:200]
+
+    # Auto-reject land registration requests whose admin-set payment deadline passed
+    try:
+        from apps.payments.views import expire_overdue_payment_deadlines
+        expire_overdue_payment_deadlines()
+    except Exception:
+        pass
 
     # Buyer ownership counts (active allotments per buyer)
     from apps.lands.models import OccupancyRecord, PlotLeaseLog
@@ -674,18 +682,15 @@ def send_profile_otp(request):
         request.session['profile_change_password_verified'] = False
 
         subject = '[Lease Monkey] OTP for Password Change'
-        message = (
-            f'Hello {request.user.first_name or request.user.username},\n\n'
-            f'We received a request to change your password on your account. '
-            f'Your OTP for password change is: {otp}\n\n'
-            f'This OTP is valid for 5 minutes.\n\n'
-            f'— The Lease Monkey Team'
-        )
-        send_mail(
+        send_templated_email(
             subject=subject,
-            message=message,
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[email],
+            to=[email],
+            template='password_email.html',
+            context={
+                'otp': otp,
+                'action': 'change your password',
+                'user_name': request.user.first_name or request.user.username,
+            },
             fail_silently=True,
         )
 
@@ -870,17 +875,11 @@ def buyer_register(request):
             EmailOTP.objects.create(email=email, otp_code=otp)
             
             # Send Email
-            send_mail(
+            send_templated_email(
                 subject='[Lease Monkey] Verify Your Email Address',
-                message=(
-                    f'Hello {first_name},\n\n'
-                    f'Thank you for registering with Lease Monkey. Your email verification OTP is:\n\n'
-                    f'🔑 {otp}\n\n'
-                    f'This OTP is valid for 5 minutes.\n\n'
-                    f'— The Lease Monkey Team'
-                ),
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[email],
+                to=[email],
+                template='otp_email.html',
+                context={'otp': otp, 'purpose': 'verify your email address', 'user_name': first_name},
                 fail_silently=True,
             )
             
@@ -933,17 +932,11 @@ def resend_registration_otp(request):
 
     otp = f"{random.randint(100000, 999999)}"
     EmailOTP.objects.create(email=email, otp_code=otp)
-    send_mail(
+    send_templated_email(
         subject='[Lease Monkey] Resend: Verify Your Email Address',
-        message=(
-            f'Hello,\n\n'
-            f'Your new email verification OTP is:\n\n'
-            f'🔑 {otp}\n\n'
-            f'This OTP is valid for 5 minutes.\n\n'
-            f'— The Lease Monkey Team'
-        ),
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[email],
+        to=[email],
+        template='otp_email.html',
+        context={'otp': otp, 'purpose': 'verify your email address'},
         fail_silently=True,
     )
     messages.success(request, 'A new OTP has been sent to your email.')
@@ -1101,17 +1094,15 @@ def forgot_password(request):
         
         # Send mail
         try:
-            send_mail(
+            send_templated_email(
                 subject='[Lease Monkey] Password Reset Request Verification Code',
-                message=(
-                    f'Hello {user.first_name or user.username},\n\n'
-                    f'We received a request to reset your password. Use the verification code below to process the change:\n\n'
-                    f'🔑 {otp}\n\n'
-                    f'This code is valid for 5 minutes.\n\n'
-                    f'— The Lease Monkey Team'
-                ),
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[email],
+                to=[email],
+                template='password_email.html',
+                context={
+                    'otp': otp,
+                    'action': 'reset your password',
+                    'user_name': user.first_name or user.username,
+                },
                 fail_silently=True,
             )
         except Exception:
@@ -1191,17 +1182,11 @@ def forgot_password_resend_otp(request):
 
     otp = f"{random.randint(100000, 999999)}"
     EmailOTP.objects.create(email=email, otp_code=otp)
-    send_mail(
+    send_templated_email(
         subject='[Lease Monkey] Resend: Password Reset Verification Code',
-        message=(
-            f'Hello,\n\n'
-            f'Your new password reset verification code is:\n\n'
-            f'🔑 {otp}\n\n'
-            f'This code is valid for 5 minutes.\n\n'
-            f'— The Lease Monkey Team'
-        ),
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[email],
+        to=[email],
+        template='password_email.html',
+        context={'otp': otp, 'action': 'reset your password'},
         fail_silently=True,
     )
     messages.success(request, 'A new verification code has been sent to your email.')
@@ -1271,18 +1256,15 @@ def send_delete_otp(request):
         otp = f"{random.randint(100000, 999999)}"
         EmailOTP.objects.create(email=user.email, otp_code=otp)
         
-        send_mail(
+        send_templated_email(
             subject='[Lease Monkey] OTP to Delete Your Account',
-            message=(
-                f'Hello {user.first_name or user.username},\n\n'
-                f'We received a request to permanently delete your Lease Monkey account. '
-                f'Your verification OTP is:\n\n'
-                f'🔑 {otp}\n\n'
-                f'This OTP is valid for 5 minutes. If you did not request this, please secure your account immediately.\n\n'
-                f'— The Lease Monkey Team'
-            ),
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[user.email],
+            to=[user.email],
+            template='otp_email.html',
+            context={
+                'otp': otp,
+                'purpose': 'confirm the permanent deletion of your account',
+                'user_name': user.first_name or user.username,
+            },
             fail_silently=False,
         )
         return JsonResponse({'status': 'sent', 'message': 'OTP sent to your registered email.'})
@@ -1381,17 +1363,11 @@ def _delete_buyer(buyer, reason='Buyer account deleted', admin_user=None, messag
             )
 
     try:
-        send_mail(
+        send_templated_email(
             subject='[Lease Monkey] Your buyer account deletion notice',
-            message=(
-                f'Hello {buyer_name},\n\n'
-                f'Your buyer account has been deleted.\n\n'
-                f'{message or "Your account has been permanently deleted."}\n\n'
-                f'Any plots held have been marked as reserved.\n\n'
-                f'— The Lease Monkey Team'
-            ),
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[buyer.email],
+            to=[buyer.email],
+            template='account_deletion_email.html',
+            context={'stage': 'buyer_deleted', 'user_name': buyer_name, 'reason': message or 'Your account has been permanently deleted.'},
             fail_silently=True,
         )
     except Exception:
@@ -1427,16 +1403,11 @@ def _delete_landowner(landowner, reason='Landowner account deleted', admin_user=
         freed_count += 1
 
     try:
-        send_mail(
+        send_templated_email(
             subject='[Lease Monkey] Your landowner account deletion notice',
-            message=(
-                f'Hello {landowner_name},\n\n'
-                f'Your landowner account has been deleted.\n\n'
-                f'{message or "Your account and lands have been permanently deleted."}\n\n'
-                f'— The Lease Monkey Team'
-            ),
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[landowner.email],
+            to=[landowner.email],
+            template='account_deletion_email.html',
+            context={'stage': 'landowner_deleted', 'user_name': landowner_name, 'reason': message or 'Your account and lands have been permanently deleted.'},
             fail_silently=True,
         )
     except Exception:
@@ -1740,18 +1711,11 @@ def landowner_register_send_otp(request):
     otp = f"{random.randint(100000, 999999)}"
     EmailOTP.objects.create(email=email, otp_code=otp)
 
-    send_mail(
+    send_templated_email(
         subject='[Lease Monkey] Verify Your Email – Landowner Registration',
-        message=(
-            f'Hello {lo_data.get("first_name", "")},\n\n'
-            f'Thank you for registering as a Landowner with Lease Monkey.\n'
-            f'Your email verification OTP is:\n\n'
-            f'{otp}\n\n'
-            f'This OTP is valid for 5 minutes.\n\n'
-            f'— The Lease Monkey Team'
-        ),
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[email],
+        to=[email],
+        template='otp_email.html',
+        context={'otp': otp, 'purpose': 'verify your email address for landowner registration', 'user_name': lo_data.get('first_name', '')},
         fail_silently=True,
     )
 
@@ -1894,36 +1858,33 @@ def landowner_register_submit(request):
         detail_url = request.build_absolute_uri(
             reverse('admin_landowner_application_detail', args=[app.pk])
         )
-        send_mail(
+        send_templated_email(
             subject='[Lease Monkey] New Landowner Registration Received',
-            message=(
-                f'A new landowner registration application has been received.\n\n'
-                f'Applicant: {app.first_name} {app.last_name}\n'
-                f'Email: {app.email}\n'
-                f'Phone: {app.mobile_number}\n'
-                f'Land Name: {app.land_name}\n'
-                f'Submitted: {app.created_at.strftime("%d %b %Y at %H:%M")}\n\n'
-                f'Review this application: {detail_url}\n\n'
-                f'— The Lease Monkey System'
-            ),
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=admin_emails,
+            to=admin_emails,
+            template='land_registration_email.html',
+            context={
+                'stage': 'submitted',
+                'user_name': 'Admin',
+                'property_name': app.land_name,
+                'location': f'{app.land_address}, {app.district}, {app.state} {app.pincode}',
+                'owner_name': f'{app.first_name} {app.last_name}',
+                'email': app.email,
+                'phone': app.mobile_number,
+                'review_url': detail_url,
+            },
             fail_silently=True,
         )
 
     # Send confirmation email to applicant
-    send_mail(
+    send_templated_email(
         subject='[Lease Monkey] Landowner Application Submitted',
-        message=(
-            f'Dear {app.first_name},\n\n'
-            f'Your landowner registration application has been submitted successfully.\n'
-            f'Application ID: #{app.pk}\n\n'
-            f'Our team will review your application and notify you of the decision.\n'
-            f'This process typically takes 2-3 business days.\n\n'
-            f'— The Lease Monkey Team'
-        ),
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[app.email],
+        to=[app.email],
+        template='land_registration_email.html',
+        context={
+            'stage': 'submitted_ack',
+            'user_name': app.first_name,
+            'property_name': app.land_name,
+        },
         fail_silently=True,
     )
 
@@ -2061,21 +2022,18 @@ def admin_landowner_approve(request, app_id):
     )
 
     # Send email with credentials
-    send_mail(
+    send_templated_email(
         subject='[Lease Monkey] Landowner Registration Approved',
-        message=(
-            f'Dear {app.first_name},\n\n'
-            f'Congratulations! Your landowner registration has been approved.\n\n'
-            f'Application ID: #{app.pk}\n'
-            f'Your login credentials:\n'
-            f'Username: {user.username}\n'
-            f'Password: {password}\n\n'
-            f'Please log in at: {request.build_absolute_uri("/")}accounts/login/landowner/\n\n'
-            f'We recommend changing your password after your first login.\n\n'
-            f'— The Lease Monkey Team'
-        ),
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[app.email],
+        to=[app.email],
+        template='land_registration_email.html',
+        context={
+            'stage': 'approved',
+            'user_name': app.first_name,
+            'property_name': app.land_name,
+            'username': user.username,
+            'password': password,
+            'login_url': request.build_absolute_uri('/') + 'accounts/login/landowner/',
+        },
         fail_silently=True,
     )
 
@@ -2105,18 +2063,16 @@ def admin_landowner_reject(request, app_id):
     applicant_email = app.email
     app.reject(admin_user=request.user, reason=reason)
 
-    send_mail(
+    send_templated_email(
         subject='[Lease Monkey] Landowner Registration Update',
-        message=(
-            f'Dear {applicant_name},\n\n'
-            f'Thank you for your interest in registering as a Landowner with Lease Monkey.\n\n'
-            f'After reviewing your application (ID: #{app.pk}), we regret to inform you that it has been rejected.\n\n'
-            f'Reason: {reason}\n\n'
-            f'If you believe this decision was made in error, please contact our support team.\n\n'
-            f'— The Lease Monkey Team'
-        ),
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[applicant_email],
+        to=[applicant_email],
+        template='land_registration_email.html',
+        context={
+            'stage': 'rejected',
+            'user_name': applicant_name,
+            'property_name': app.land_name,
+            'reason': reason,
+        },
         fail_silently=True,
     )
 

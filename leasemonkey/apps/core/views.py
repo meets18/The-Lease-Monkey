@@ -1,7 +1,6 @@
 import json
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.core.mail import send_mail
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -127,11 +126,17 @@ def submit_contact(request):
             f"Subject: {subject}\n"
             f"Message:\n{message}\n"
         )
-        send_mail(
+        from apps.core.emails import send_templated_email
+        send_templated_email(
             subject=f'[Lease Monkey Contact] {subject}',
-            message=full_message,
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=['the1leasemonkey@gmail.com'],
+            to=['the1leasemonkey@gmail.com'],
+            template='contact_email.html',
+            context={
+                'name': name,
+                'email': email,
+                'subject': subject,
+                'message': message,
+            },
             fail_silently=False,
         )
         return JsonResponse({'status': 'sent', 'message': 'Thank you for contacting us! We will get back to you shortly.'})
@@ -246,16 +251,16 @@ def _handle_approve(request, notif):
         landowner_email = settings.LANDOWNER_EMAIL or landowner.email
         if landowner_email:
             try:
-                send_mail(
+                from apps.core.emails import send_templated_email
+                send_templated_email(
                     subject=f"[Lease Monkey] Deletion Approved — {item_label}",
-                    message=(
-                        f"Hello {landowner.username},\n\n"
-                        f"Your deletion request for '{item_label}' has been approved by the admin.\n"
-                        f"The item has been permanently removed from the system.\n\n"
-                        f"— The Lease Monkey Team"
-                    ),
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[landowner_email],
+                    to=[landowner_email],
+                    template='purchase_request_email.html',
+                    context={
+                        'stage': 'deletion_approved',
+                        'user_name': landowner.username,
+                        'item_label': item_label,
+                    },
                     fail_silently=True,
                 )
             except Exception:
@@ -291,21 +296,21 @@ def _handle_reject(request, notif, rejection_message):
             plot_number=notif.plot_number,
         )
 
-        # Send rejection email to landowner
+# Send rejection email to landowner
         landowner_email = settings.LANDOWNER_EMAIL or landowner.email
         if landowner_email:
             try:
-                send_mail(
+                from apps.core.emails import send_templated_email
+                send_templated_email(
                     subject=f"[Lease Monkey] Deletion Request Rejected",
-                    message=(
-                        f"Hello {landowner.username},\n\n"
-                        f"Your deletion request for '{item_label}' has been reviewed and rejected by the admin.\n\n"
-                        f"Admin's message:\n{rejection_message}\n\n"
-                        f"If you believe this is an error, please contact the administrator.\n\n"
-                        f"— The Lease Monkey Team"
-                    ),
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[landowner_email],
+                    to=[landowner_email],
+                    template='purchase_request_email.html',
+                    context={
+                        'stage': 'deletion_rejected',
+                        'user_name': landowner.username,
+                        'item_label': item_label,
+                        'reason': rejection_message,
+                    },
                     fail_silently=True,
                 )
             except Exception:

@@ -1279,5 +1279,19 @@
 [data-theme="light"] #mapSearchSuggestions { background: rgba(255,255,255,0.97) !important; border-color: rgba(0,0,0,0.1) !important; }
 [data-theme="light"] #mapSearchSuggestions div { color: #374151 !important; border-bottom-color: rgba(0,0,0,0.06) !important; }
 [data-theme="light"] #mapSearchSuggestions div:hover { background: rgba(0,178,255,0.06) !important; }
+
+/* Mobile responsiveness for the boundary plotter workspace */
+@media (max-width: 575px) {
+    .creator-card {
+        top: 72px !important;
+        left: 10px !important;
+        width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+        max-height: calc(100vh - 150px) !important;
+    }
+    #mapSearchInput {
+        max-width: calc(100vw - 40px) !important;
+    }
+}
 </style>
 {% endblock %}

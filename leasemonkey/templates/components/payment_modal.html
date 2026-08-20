@@ -1,6 +1,6 @@
 <!-- ═══════════════════════════════════════════════════════════════════════
-     LAND HOSTING SUBSCRIPTION PAYMENT MODAL (UI DEMO)
-     ₹200/month per Live Land Listing
+     LAND HOSTING SUBSCRIPTION PAYMENT MODAL
+     Monthly fee set by admin per land listing
 ═══════════════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="hostingPaymentModal" tabindex="-1" aria-labelledby="paymentModalTitle" aria-hidden="true" data-no-loader>
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -33,9 +33,9 @@
                     <h4 class="font-ranade text-white fw-bold fs-20 mb-1">Payment Successful!</h4>
                     <p class="text-white-50 fs-13 mb-3">Hosting activated for <strong id="successLandName" class="text-white">Property</strong>. Valid for 30 days.</p>
                     <div class="p-3 rounded-3 mb-4 mx-auto style-summary-card" style="max-width:360px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);">
-                        <div class="d-flex justify-content-between fs-12 text-white-50 mb-1"><span>Transaction ID:</span><span class="text-white fw-semibold">LM-PAY-894021</span></div>
-                        <div class="d-flex justify-content-between fs-12 text-white-50 mb-1"><span>Amount Paid:</span><span class="text-success fw-bold">₹236.00</span></div>
-                        <div class="d-flex justify-content-between fs-12 text-white-50"><span>Next Renewal:</span><span class="text-white">22 Aug 2026</span></div>
+                        <div class="d-flex justify-content-between fs-12 text-white-50 mb-1"><span>Transaction ID:</span><span class="text-white fw-semibold" id="successTxId">LM-PAY-894021</span></div>
+                        <div class="d-flex justify-content-between fs-12 text-white-50 mb-1"><span>Amount Paid:</span><span class="text-success fw-bold" id="successAmount">₹200.00</span></div>
+                        <div class="d-flex justify-content-between fs-12 text-white-50"><span>Next Renewal:</span><span class="text-white" id="successRenewal">22 Aug 2026</span></div>
                     </div>
                     <button type="button" class="btn btn-get-started rounded-pill px-4 py-2 fs-13 fw-bold" data-bs-dismiss="modal" onclick="location.reload();">
                         Done & Return to Dashboard
@@ -49,7 +49,7 @@
                         <div class="p-3 rounded-3 mb-3" style="background:linear-gradient(135deg, rgba(245,158,11,0.12), rgba(217,119,6,0.05)); border:1px solid rgba(245,158,11,0.25);">
                             <span class="badge bg-warning text-dark fw-bold fs-10 text-uppercase tracking-wider mb-2">Monthly Listing Plan</span>
                             <div class="d-flex align-items-baseline gap-1">
-                                <span class="display-6 font-ranade fw-bold text-white">₹200</span>
+                                <span class="display-6 font-ranade fw-bold text-white" id="payMonthlyAmount">₹200</span>
                                 <span class="text-white-50 fs-13">/ month</span>
                             </div>
                             <p class="text-white-50 fs-11 mb-0 mt-1">Billed monthly per active property</p>
@@ -84,15 +84,11 @@
                         <div class="p-3 rounded-3 mb-3" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);">
                             <div class="d-flex justify-content-between fs-12 text-white-50 mb-1">
                                 <span>Monthly Hosting Fee:</span>
-                                <span class="text-white">₹200.00</span>
-                            </div>
-                            <div class="d-flex justify-content-between fs-12 text-white-50 mb-2">
-                                <span>GST (18%):</span>
-                                <span class="text-white">₹36.00</span>
+                                <span class="text-white" id="payFeeAmount">₹200.00</span>
                             </div>
                             <div class="d-flex justify-content-between fs-14 fw-bold text-white pt-2 border-top" style="border-color:rgba(255,255,255,0.08) !important;">
                                 <span>Total Payable Today:</span>
-                                <span class="text-amber-glow fs-15" style="color:#F59E0B;">₹236.00</span>
+                                <span class="text-amber-glow fs-15" style="color:#F59E0B;" id="payTotalAmount">₹200.00</span>
                             </div>
                         </div>
 
@@ -103,7 +99,7 @@
                             </button>
                             <button type="button" class="btn btn-get-started w-100 py-2.5 fw-bold fs-14 rounded-pill d-flex align-items-center justify-content-center gap-2"
                                     id="btnProcessPayment" onclick="processDemoPayment();">
-                                <span>Proceed to Pay ₹236.00</span>
+                                <span id="btnPayLabel">Proceed to Pay ₹200.00</span>
                                 <i class="bi bi-arrow-right"></i>
                             </button>
                         </div>
@@ -128,10 +124,22 @@ try {
     console.warn("Cashfree SDK initialization warning:", e);
 }
 
-function openPaymentModal(landName, landSlug) {
+function formatINR(amount) {
+    const num = Number(amount);
+    if (Number.isInteger(num)) return '₹' + num.toLocaleString('en-IN');
+    return '₹' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function openPaymentModal(landName, landSlug, amount) {
     window.currentPayLandSlug = landSlug;
+    const amt = (amount !== undefined && amount !== null) ? Number(amount) : 200;
+    window.currentPayAmount = amt;
     document.getElementById('payLandNameText').innerText = landName || 'Property';
     document.getElementById('successLandName').innerText = landName || 'Property';
+    document.getElementById('payMonthlyAmount').innerText = formatINR(amt);
+    document.getElementById('payFeeAmount').innerText = formatINR(amt);
+    document.getElementById('payTotalAmount').innerText = formatINR(amt);
+    document.getElementById('btnPayLabel').innerText = 'Proceed to Pay ' + formatINR(amt);
     document.getElementById('paymentSuccessState').style.display = 'none';
     document.getElementById('paymentFormState').style.display = 'flex';
     
@@ -157,6 +165,7 @@ function processDemoPayment() {
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Connecting to Cashfree Gateway…';
 
     const slug = window.currentPayLandSlug;
+    const amt = window.currentPayAmount || 200;
 
     if (!slug) {
         alert('Please select a land property to activate hosting.');
@@ -207,6 +216,11 @@ function processDemoPayment() {
             .then(res => res.json())
             .then(demoData => {
                 if (demoData.success) {
+                    document.getElementById('successTxId').innerText = demoData.transaction_id || 'LM-PAY-000000';
+                    document.getElementById('successAmount').innerText = formatINR(demoData.amount || amt);
+                    if (demoData.end_date) {
+                        document.getElementById('successRenewal').innerText = demoData.end_date;
+                    }
                     document.getElementById('paymentFormState').style.display = 'none';
                     document.getElementById('paymentSuccessState').style.display = 'block';
                 } else {
@@ -232,6 +246,11 @@ function processDemoPayment() {
         .then(res => res.json())
         .then(demoData => {
             if (demoData.success) {
+                document.getElementById('successTxId').innerText = demoData.transaction_id || 'LM-PAY-000000';
+                document.getElementById('successAmount').innerText = formatINR(demoData.amount || amt);
+                if (demoData.end_date) {
+                    document.getElementById('successRenewal').innerText = demoData.end_date;
+                }
                 document.getElementById('paymentFormState').style.display = 'none';
                 document.getElementById('paymentSuccessState').style.display = 'block';
             } else {

@@ -1,0 +1,19 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<p style="margin:0 0 16px 0;">{% if user_name %}Hello {{ user_name }},{% else %}Hello,{% endif %}</p>
+
+{% if stage == 'buyer_deleted' %}
+<p style="margin:0 0 12px 0;">Your buyer account with {{ app_name }} has been deleted.</p>
+{% if reason %}<p style="margin:0 0 12px 0;"><strong>Reason:</strong> {{ reason }}</p>{% endif %}
+<p style="margin:0; color:#64748b;">If you believe this was a mistake, please contact our support team.</p>
+
+{% elif stage == 'landowner_deleted' %}
+<p style="margin:0 0 12px 0;">Your landowner account with {{ app_name }} has been deleted.</p>
+{% if reason %}<p style="margin:0 0 12px 0;"><strong>Reason:</strong> {{ reason }}</p>{% endif %}
+<p style="margin:0; color:#64748b;">If you believe this was a mistake, please contact our support team.</p>
+
+{% else %}
+<p style="margin:0;">{{ message|safe }}</p>
+{% endif %}
+{% endblock %}

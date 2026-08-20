@@ -298,7 +298,7 @@ class LandRegistrationGalleryImage(models.Model):
 class LandRegistrationRequest(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
-        ('payment_pending', 'Payment Pending (24h)'),
+        ('payment_pending', 'Payment Pending'),
         ('payment_completed', 'Payment Received'),
         ('being_added', 'Being Added'),
         ('approved', 'Approved'),
@@ -348,7 +348,8 @@ class LandRegistrationRequest(models.Model):
 
     status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='pending')
     land = models.OneToOneField(Land, on_delete=models.SET_NULL, null=True, blank=True, related_name='registration_request')
-    payment_deadline = models.DateTimeField(null=True, blank=True, help_text="24-hour payment deadline set after admin approval")
+    payment_amount = models.DecimalField(max_digits=10, decimal_places=2, default=200.00, help_text="Monthly hosting fee set by admin")
+    payment_deadline = models.DateTimeField(null=True, blank=True, help_text="Payment deadline set by admin; request auto-rejects if missed")
     submitted_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
 

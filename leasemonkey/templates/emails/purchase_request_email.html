@@ -1,0 +1,78 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<p style="margin:0 0 16px 0;">{% if user_name %}Hello {{ user_name }},{% else %}Hello,{% endif %}</p>
+
+{% if stage == 'new_request' %}
+<p style="margin:0 0 12px 0;">You have a new purchase request from <strong>{{ buyer_name }}</strong>.</p>
+<div style="margin:0 0 20px 0; padding:16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+  <p style="margin:0 0 6px 0;"><strong>Property:</strong> Plot {{ plot_number }} in {{ land_name }}</p>
+  <p style="margin:0 0 6px 0;"><strong>Proposed Amount:</strong> {{ amount }}</p>
+  <p style="margin:0 0 6px 0;"><strong>Buyer Phone:</strong> {{ phone }}</p>
+  {% if buyer_message %}<p style="margin:0; white-space:pre-line;"><strong>Message:</strong> {{ buyer_message }}</p>{% endif %}
+</div>
+<p style="margin:0; color:#64748b;">Please check your dashboard to review and respond.</p>
+
+{% elif stage == 'submitted_ack' %}
+<p style="margin:0 0 12px 0;">Your purchase request for <strong>Plot {{ plot_number }} in {{ land_name }}</strong> has been submitted to the landowner.</p>
+<p style="margin:0; color:#64748b;">You will be notified when they respond.</p>
+
+{% elif stage == 'meeting_scheduled' %}
+<p style="margin:0 0 12px 0;">A Google Meet meeting has been scheduled for your purchase request on <strong>Plot {{ plot_number }}</strong> in <strong>{{ land_name }}</strong>.</p>
+<div style="margin:0 0 20px 0; padding:16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+  <p style="margin:0 0 6px 0;"><strong>Date &amp; Time:</strong> {{ meeting_dt }}</p>
+  <p style="margin:0 0 6px 0;"><strong>Duration:</strong> {{ duration }} minutes</p>
+  {% if meet_link %}<p style="margin:0;"><strong>Join:</strong> <a href="{{ meet_link }}" style="color:#2563eb;">{{ meet_link }}</a></p>{% endif %}
+</div>
+
+{% elif stage == 'approved' %}
+<p style="margin:0 0 12px 0;">Congratulations! Your purchase request for <strong>Plot {{ plot_number }}</strong> in <strong>{{ land_name }}</strong> has been approved.</p>
+<p style="margin:0; color:#64748b;">The plot has been allotted to you. Please complete any applicable payments from your dashboard.</p>
+
+{% elif stage == 'rejected' %}
+<p style="margin:0 0 12px 0;">Your purchase request for <strong>Plot {{ plot_number }}</strong> in <strong>{{ land_name }}</strong> was rejected.</p>
+{% if reason %}<p style="margin:0 0 12px 0;"><strong>Reason:</strong> {{ reason }}</p>{% endif %}
+<p style="margin:0; color:#64748b;">You can contact support for more details.</p>
+
+{% elif stage == 'cancelled' %}
+<p style="margin:0 0 12px 0;"><strong>{{ buyer_name }}</strong> has cancelled their purchase request for <strong>Plot {{ plot_number }}</strong> in <strong>{{ land_name }}</strong>.</p>
+<p style="margin:0; color:#64748b;">The plot has been returned to the available pool.</p>
+
+{% elif stage == 'vacate_request' %}
+<p style="margin:0 0 12px 0;"><strong>{{ buyer_name }}</strong> has requested to vacate <strong>Plot {{ plot_number }}</strong> in <strong>{{ land_name }}</strong>.</p>
+{% if reason %}<p style="margin:0 0 12px 0;"><strong>Reason:</strong> {{ reason }}</p>{% endif %}
+<p style="margin:0; color:#64748b;">You can approve or decline this request from your dashboard.</p>
+
+{% elif stage == 'vacate_approved' %}
+<p style="margin:0 0 12px 0;">Your request to vacate <strong>Plot {{ plot_number }}</strong> in <strong>{{ land_name }}</strong> has been approved.</p>
+<p style="margin:0; color:#64748b;">The plot has been freed and your allotment is cancelled.</p>
+
+{% elif stage == 'vacate_declined' %}
+<p style="margin:0 0 12px 0;">Your request to vacate <strong>Plot {{ plot_number }}</strong> in <strong>{{ land_name }}</strong> was declined.</p>
+<p style="margin:0; color:#64748b;">Your allotment remains active.</p>
+
+{% elif stage == 'deletion_request' %}
+<p style="margin:0 0 12px 0;">A new deletion request has been submitted for your review.</p>
+<div style="margin:0 0 20px 0; padding:16px 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+  <p style="margin:0 0 6px 0;"><strong>Item:</strong> {{ item_label }}</p>
+  <p style="margin:0 0 6px 0;"><strong>Land:</strong> {{ land_name }}</p>
+  <p style="margin:0;"><strong>Requested by:</strong> {{ requested_by }}</p>
+</div>
+<p style="margin:0; color:#64748b;">Please review it from the Notifications tab in your dashboard.</p>
+
+{% elif stage == 'deletion_approved' %}
+<p style="margin:0 0 12px 0;">Your deletion request for <strong>{{ item_label }}</strong> has been approved.</p>
+<p style="margin:0; color:#64748b;">The item has been removed.</p>
+
+{% elif stage == 'deletion_rejected' %}
+<p style="margin:0 0 12px 0;">Your deletion request was rejected.</p>
+<p style="margin:0; color:#64748b;">The item remains unchanged. Contact support for details.</p>
+
+{% elif stage == 'deallotment_notice' %}
+<p style="margin:0 0 12px 0;">Plot <strong>{{ plot_number }}</strong> in <strong>{{ land_name }}</strong> has been de-allocated from <strong>{{ buyer_name }}</strong>.</p>
+<p style="margin:0; color:#64748b;">The plot has been freed and returned to the available pool.</p>
+
+{% else %}
+<p style="margin:0;">{{ message|safe }}</p>
+{% endif %}
+{% endblock %}

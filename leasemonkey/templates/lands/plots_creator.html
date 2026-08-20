@@ -378,6 +378,24 @@ html, body { overflow: hidden; height: 100%; }
     background: rgba(239,68,68,0.25);
     box-shadow: 0 0 8px rgba(239,68,68,0.2);
 }
+
+/* Mobile responsiveness for the plot creator workspace */
+@media (max-width: 575px) {
+    .pcreator-card {
+        top: 72px !important;
+        left: 10px !important;
+        width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+        max-height: calc(100vh - 150px) !important;
+    }
+    .pcreator-csv-controls {
+        flex-wrap: wrap;
+    }
+    .pcreator-csv-controls .csv-search-input {
+        width: 100% !important;
+        margin-bottom: 6px;
+    }
+}
 </style>
 
 <!-- All Plots Dialog Overlay -->
@@ -473,7 +491,7 @@ html, body { overflow: hidden; height: 100%; }
         <!-- Fullscreen CSV Viewer Overlay -->
         <div id="fullscreenCsvViewer" class="fullscreen-viewer-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 14, 20, 0.95); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
             <!-- Controls Bar -->
-            <div class="viewer-controls d-flex gap-3 mb-3 text-white justify-content-center align-items-center bg-dark bg-opacity-75 p-2 px-4 rounded-pill" style="border: 1px solid rgba(255,255,255,0.15); pointer-events: auto;">
+            <div class="viewer-controls d-flex gap-3 mb-3 text-white justify-content-center align-items-center bg-dark bg-opacity-75 p-2 px-4 rounded-pill" style="border: 1px solid rgba(255,255,255,0.15); pointer-events: auto; flex-wrap: wrap;">
                 <span class="fs-13 fw-bold text-white"><i class="bi bi-file-spreadsheet me-1 text-success-glow"></i> Sizing & Pricing Sheet</span>
                 <input type="text" id="csvSearchInput" class="form-control form-control-sm bg-dark text-white border border-secondary-glow" placeholder="Search plot number..." style="width: 180px; height: 26px; font-size: 11px; outline: none;" oninput="filterCsvTable(this.value);">
                 <a href="{% url 'core:serve_protected_file' 'land_request' land.registration_request.id %}?doc=pricing_csv" target="_blank" class="btn btn-dark btn-sm text-white fs-12 fw-bold text-decoration-none" title="Open CSV in new tab" style="background: transparent; border: none; font-family: 'Open Sans', sans-serif;"><i class="bi bi-box-arrow-up-right me-1 text-cyan-glow"></i> Open Raw File</a>
